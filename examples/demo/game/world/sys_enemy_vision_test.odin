@@ -138,6 +138,13 @@ test_enemy_vision_emits_enter_and_exit_transitions :: proc(t: ^testing.T) {
 	_, has_enter := director.entity_link(&w.director, VISION_ENEMY, VISION_ENTER)
 	testing.expect(t, !has_enter)
 
+	// Chasing switches vision to the full circle, retaining a player who passes behind.
+	player_pos^ = {-5 * UNIT, 0}
+	sys_enemy_vision(w)
+	testing.expectf(t, vision.player_inside, "chasing vision behind enemy = %v", vision)
+	behavior, has_behavior = director.entity_link(&w.director, VISION_ENEMY, VISION_BEHAVIOR)
+	testing.expectf(t, has_behavior && behavior == VISION_CHASING, "retained behavior = %v", behavior)
+
 	// Remaining inside does not emit another enter event.
 	director.entity_remove_tag(&w.director, VISION_ENEMY, VISION_ALERTED)
 	sys_enemy_vision(w)

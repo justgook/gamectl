@@ -201,8 +201,8 @@ const cyberpunkSource = readFileSync(join(repoRoot, 'examples/demo/CYBERPUNK/dir
 const cyberpunk = invokeCompiler(cyberpunkSource)
 assert.equal(cyberpunk.err, undefined, `CYBERPUNK Director source failed: ${JSON.stringify(cyberpunk.err)}`)
 const cyberpunkIr = JSON.parse(cyberpunk.ok)
-assert.equal(cyberpunkIr.entities.length, 19)
-assert.equal(cyberpunkIr.rules.length, 11)
+assert.equal(cyberpunkIr.entities.length, 20)
+assert.equal(cyberpunkIr.rules.length, 16)
 assert.deepEqual(cyberpunkIr.symbols, {
   entities: {
     player: 0,
@@ -224,6 +224,7 @@ assert.deepEqual(cyberpunkIr.symbols, {
     leave_answer: 16,
     patrolling: 17,
     chasing: 18,
+    attacking: 19,
   },
   words: {
     hp: 0,
@@ -244,17 +245,25 @@ assert.deepEqual(cyberpunkIr.symbols, {
     answer_4: 15,
     behavior: 16,
     vision_enter: 17,
-    sees: 18,
-    target: 19,
-    vision_exit: 20,
+    attack_range: 18,
+    sees: 19,
+    target: 20,
+    firing: 21,
+    vision_exit: 22,
+    attack_enter: 23,
+    attack_exit: 24,
   },
 })
 assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
   'Spawn_Entity', 'Spawn_Entity', 'Spawn_Entity', 'Set_Link', 'Inc_Stat',
   'Remove_Entity', 'Inc_Stat', 'Remove_Entity', 'Set_Link', 'Set_Link',
-  'Set_Link', 'Remove_Property', 'Remove_Property', 'Set_Link', 'Set_Link',
-  'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link',
-  'Inc_Stat', 'Set_Link', 'Remove_Property', 'Remove_Property',
+  'Set_Link', 'Add_Tag', 'Set_Link', 'Set_Link', 'Set_Link',
+  'Remove_Property', 'Set_Link', 'Add_Tag', 'Remove_Property', 'Remove_Property',
+  'Remove_Property', 'Set_Link', 'Set_Link', 'Set_Link', 'Set_Link', 'Add_Tag',
+  'Remove_Property', 'Remove_Property', 'Set_Link', 'Remove_Property',
+  'Remove_Property', 'Remove_Property', 'Set_Link', 'Set_Link', 'Dec_Stat',
+  'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Inc_Stat',
+  'Set_Link', 'Remove_Property', 'Remove_Property',
 ])
 assert.equal(cyberpunkIr.entities[2].removed, true)
 assert.equal(cyberpunkIr.entities[3].removed, true)

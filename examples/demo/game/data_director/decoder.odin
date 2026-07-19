@@ -964,6 +964,24 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			if !ok {return false}
 			value = v
 		}
+		out.attack_enter = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.attack_exit = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
 		out.behavior = director.Word_Id(value)
 	}
 	{
@@ -982,6 +1000,15 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			if !ok {return false}
 			value = v
 		}
+		out.firing = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
 		out.patrolling = director.Entity_Id(value)
 	}
 	{
@@ -992,6 +1019,15 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			value = v
 		}
 		out.chasing = director.Entity_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.attacking = director.Entity_Id(value)
 	}
 	{
 		value: u32

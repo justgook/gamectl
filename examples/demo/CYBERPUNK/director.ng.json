@@ -232,6 +232,26 @@
         "id": 18,
         "name": "entities.chasing",
         "value": null
+      },
+      {
+        "id": 19,
+        "name": "words.attack_enter",
+        "value": null
+      },
+      {
+        "id": 20,
+        "name": "words.attack_exit",
+        "value": null
+      },
+      {
+        "id": 21,
+        "name": "words.firing",
+        "value": null
+      },
+      {
+        "id": 22,
+        "name": "entities.attacking",
+        "value": null
       }
     ]
   },
@@ -359,6 +379,30 @@
         "name": "chasing",
         "srcNodeId": 17,
         "srcOutputId": 18
+      },
+      {
+        "id": 16,
+        "name": "attack_enter",
+        "srcNodeId": 17,
+        "srcOutputId": 19
+      },
+      {
+        "id": 17,
+        "name": "attack_exit",
+        "srcNodeId": 17,
+        "srcOutputId": 20
+      },
+      {
+        "id": 18,
+        "name": "firing",
+        "srcNodeId": 17,
+        "srcOutputId": 21
+      },
+      {
+        "id": 19,
+        "name": "attacking",
+        "srcNodeId": 17,
+        "srcOutputId": 22
       },
       {
         "id": 5,

@@ -5,6 +5,7 @@
 
 package world
 
+import "../data_bullet"
 import "../director"
 import "core:testing"
 import "logic"
@@ -35,6 +36,8 @@ spawn_entities := [?]director.Entity_Def {
 spawn_data := director.Director_Data {
 	entities = spawn_entities[:],
 }
+spawn_test_bullet_actions := [?]data_bullet.Action{nil}
+spawn_test_bullet_patterns := [?]data_bullet.Bullet_Pattern{{actions = spawn_test_bullet_actions[:]}}
 
 @(private = "file")
 spawn_test_world :: proc(data: director.Director_Data) -> ^World {
@@ -49,6 +52,7 @@ spawn_test_world :: proc(data: director.Director_Data) -> ^World {
 	}
 	w.uv = make([]UV, 13)
 	w.animation_atlas.defs = make([]AnimDef, 46)
+	w.bullet_patterns = spawn_test_bullet_patterns[:]
 	return w
 }
 
@@ -60,12 +64,15 @@ spawn_test_world_destroy :: proc(w: ^World) {
 	delete(w.uv)
 	delete(w.animation_atlas.defs)
 	logic.destroy_storage(&w.position)
+	logic.destroy_storage(&w.velocity)
 	logic.destroy_storage(&w.sprite)
 	logic.destroy_storage(&w.animation)
 	logic.destroy_storage(&w.platformer_anim)
 	logic.destroy_storage(&w.collider)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.enemy_vision)
+	logic.destroy_storage(&w.enemy_attack_area)
+	bullet_destroy_state_storage(&w.bullet)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.director_entity)
@@ -136,6 +143,15 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 		"enemy vision = %v",
 		vision,
 	)
+	attack_area, has_attack_area := logic.get_component(&w.enemy_attack_area, world_entity)
+	testing.expectf(
+		t,
+		has_attack_area && attack_area.circle.radius == 16 * UNIT && !attack_area.player_inside,
+		"enemy attack area = %v",
+		attack_area,
+	)
+	testing.expect(t, logic.has_component(&w.bullet, world_entity))
+	testing.expect(t, logic.has_component(&w.velocity, world_entity))
 	input, has_input := logic.get_component(&w.input, world_entity)
 	testing.expectf(t, has_input && input^ == Input{.East}, "enemy input = %v", input)
 	platformer, has_platformer := logic.get_component(&w.platformer, world_entity)

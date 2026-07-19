@@ -6,9 +6,11 @@ package world
 // 3. [done] Detection enter/exit transitions — notify decisions only when perception changes.
 // 4. [done] Director patrolling ↔ chasing — let Director rules own discrete enemy intent.
 // 5. [done] Chase Brain behavior — convert chasing intent into movement toward the target.
-// 6. [done] Cone perception — limit radius sensing to the enemy's facing direction and field of view.
-// 7. [todo] Optional line-of-sight — add map occlusion to directional sight.
-// 8. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
+// 6. [done] Cone perception — limit patrol sensing to the enemy's facing direction and field of view.
+// 7. [done] Chase retention — use omnidirectional vision while chasing or attacking.
+// 8. [done] Attack range and firing command — let Director switch intent and command the existing weapon input.
+// 9. [todo] Optional line-of-sight — add map occlusion to directional sight.
+// 10. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
 
 import "../director"
 import "../host"
@@ -20,6 +22,11 @@ Brain :: i8
 
 Enemy_Vision :: struct {
 	sector:        shape.Sector,
+	player_inside: bool,
+}
+
+Enemy_Attack_Area :: struct {
+	circle:        shape.Circle,
 	player_inside: bool,
 }
 
@@ -58,10 +65,24 @@ sys_enemy_vision :: proc(w: ^World) {
 		assert(has_platformer)
 		assert(platformer.facing == -1 || platformer.facing == 1)
 
+		behavior, has_behavior := director.entity_link(&w.director, director_entity.id, w.director_config.behavior)
+		assert(has_behavior)
+
 		sensor := vision.sector
 		shape.move_sector(&sensor, {int(pos.x), int(pos.y)})
 		sensor.direction = {int(platformer.facing), 0}
-		player_inside := shape.sector_point_test(&sensor, &player_point)
+		player_inside := false
+		if behavior == w.director_config.patrolling {
+			player_inside = shape.sector_point_test(&sensor, &player_point)
+		} else {
+			assert(behavior == w.director_config.chasing || behavior == w.director_config.attacking)
+			circle := shape.Circle {
+				x      = sensor.x,
+				y      = sensor.y,
+				radius = sensor.radius,
+			}
+			player_inside = shape.circle_point_test(&circle, &player_point)
+		}
 		if player_inside == vision.player_inside {
 			continue
 		}
@@ -72,14 +93,43 @@ sys_enemy_vision :: proc(w: ^World) {
 			event_key = w.director_config.vision_enter
 		}
 
-		director.entity_set_link(&w.director, director_entity.id, event_key, w.director_config.player)
-		result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = director_entity.id})
-		director.entity_remove_link(&w.director, director_entity.id, event_key)
-		assert(result.matched)
-
+		director_trigger_entity_link_event(w, director_entity.id, event_key)
 		host.info("sys_enemy_vision", "player transition", entity, player_inside)
-		apply_director_effects(w, result.effects)
 	}
+}
+
+sys_enemy_attack_area :: proc(w: ^World) {
+	player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)
+	assert(has_player_pos)
+	player_point := [2]int{int(player_pos.x), int(player_pos.y)}
+
+	view := logic.view(&w.position, &w.enemy_attack_area, &w.director_entity)
+	for entity, pos, attack_area, director_entity in logic.each(&view) {
+		sensor := attack_area.circle
+		shape.move_circle(&sensor, {int(pos.x), int(pos.y)})
+		player_inside := shape.circle_point_test(&sensor, &player_point)
+		if player_inside == attack_area.player_inside {
+			continue
+		}
+
+		attack_area.player_inside = player_inside
+		event_key := w.director_config.attack_exit
+		if player_inside {
+			event_key = w.director_config.attack_enter
+		}
+
+		director_trigger_entity_link_event(w, director_entity.id, event_key)
+		host.info("sys_enemy_attack_area", "player transition", entity, player_inside)
+	}
+}
+
+@(private = "file")
+director_trigger_entity_link_event :: proc(w: ^World, entity: director.Entity_Id, event_key: director.Word_Id) {
+	director.entity_set_link(&w.director, entity, event_key, w.director_config.player)
+	result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = entity})
+	director.entity_remove_link(&w.director, entity, event_key)
+	assert(result.matched)
+	apply_director_effects(w, result.effects)
 }
 
 sys_brain :: proc(w: ^World) {
@@ -95,16 +145,23 @@ sys_brain :: proc(w: ^World) {
 		case 1:
 			director_entity, has_director_entity := logic.get_component(&w.director_entity, entity)
 			assert(has_director_entity)
+			brain1_update_fire_command(w, director_entity.id, input)
+
 			behavior, has_behavior := director.entity_link(&w.director, director_entity.id, w.director_config.behavior)
 			assert(has_behavior)
-
-			if behavior == w.director_config.chasing {
+			if behavior == w.director_config.chasing || behavior == w.director_config.attacking {
 				target, has_target := director.entity_link(&w.director, director_entity.id, w.director_config.target)
 				assert(has_target)
 				assert(target == w.director_config.player)
 				player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)
 				assert(has_player_pos)
-				brain1_chase(input, pos, player_pos)
+				if behavior == w.director_config.chasing {
+					brain1_chase(input, pos, player_pos)
+				} else {
+					platformer, has_platformer := logic.get_component(&w.platformer, entity)
+					assert(has_platformer)
+					brain1_attack(input, pos, player_pos, platformer)
+				}
 				continue
 			}
 
@@ -143,12 +200,30 @@ brain1_patrol :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape
 }
 
 @(private = "file")
+brain1_update_fire_command :: proc(w: ^World, entity: director.Entity_Id, input: ^Input) {
+	input^ -= {.Action3}
+	if director.entity_has_tag(&w.director, entity, w.director_config.firing) {
+		input^ += {.Action3}
+	}
+}
+
+@(private = "file")
 brain1_chase :: proc(input: ^Input, pos, target_pos: ^Position) {
 	input^ -= {.East, .West}
 	if target_pos.x > pos.x {
 		input^ += {.East}
 	} else if target_pos.x < pos.x {
 		input^ += {.West}
+	}
+}
+
+@(private = "file")
+brain1_attack :: proc(input: ^Input, pos, target_pos: ^Position, platformer: ^Platformer) {
+	input^ -= {.East, .West}
+	if target_pos.x > pos.x {
+		platformer.facing = 1
+	} else if target_pos.x < pos.x {
+		platformer.facing = -1
 	}
 }
 

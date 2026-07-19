@@ -14,10 +14,14 @@ Director_Config :: struct {
 	prefab_id:    director.Word_Id,
 	vision_enter: director.Word_Id,
 	vision_exit:  director.Word_Id,
+	attack_enter: director.Word_Id,
+	attack_exit:  director.Word_Id,
 	behavior:     director.Word_Id,
 	target:       director.Word_Id,
+	firing:       director.Word_Id,
 	patrolling:   director.Entity_Id,
 	chasing:      director.Entity_Id,
+	attacking:    director.Entity_Id,
 	dialog:       director.Word_Id,
 	text_id:      director.Word_Id,
 	answer_links: [4]director.Word_Id,
@@ -205,6 +209,9 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 		entity,
 		Enemy_Vision{sector = shape.make_sector_degrees(0, 0, 96 * UNIT, {1, 0}, 45)},
 	)
+	logic.add_component(&w.enemy_attack_area, entity, Enemy_Attack_Area{circle = shape.Circle{radius = 16 * UNIT}})
+	logic.add_component(&w.bullet, entity, bullet_component(&w.bullet_patterns[0]))
+	logic.add_component(&w.velocity, entity, Velocity{})
 	logic.add_component(&w.input, entity, Input{.East})
 	logic.add_component(&w.platformer, entity, Platformer{facing = 1})
 }

@@ -96,6 +96,20 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		debug_collision_add_sector(&sector, color)
 	}
 
+	// Enemy attack ranges remain independent from their vision sectors.
+	attack_area_view := logic.view(&w.position, &w.enemy_attack_area)
+	for _, pos, attack_area in logic.each(&attack_area_view) {
+		color := [4]f32{1.0, 0.2, 0.1, 0.65}
+		if attack_area.player_inside {
+			color = {1.0, 0.0, 0.0, 1.0}
+		}
+		debug_collision_add_circle(
+			{to_pixelf(int(pos.x + i32(attack_area.circle.x))), to_pixelf(int(pos.y + i32(attack_area.circle.y)))},
+			to_pixelf(attack_area.circle.radius),
+			color,
+		)
+	}
+
 	// Combat hurt / hit volumes.
 	debug_collision_add_capsule_storage(&w.position, &w.player_hurt, {0.1, 0.35, 1.0, 1.0})
 	debug_collision_add_circle_storage(&w.position, &w.player_hit, {0.65, 0.9, 1.0, 1.0})
