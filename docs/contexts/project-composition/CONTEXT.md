@@ -28,6 +28,18 @@ _Avoid_: builtin view when the important distinction is official support and UI 
 The current minimap Project Unit, named `minimap.comp`, that converts tree-shaped room structure input into tilemap-shaped minimap output.
 _Avoid_: minimap2 when referring to the current Project Unit.
 
+**Director**:
+The narrative world model and rule runtime whose authored DSL is compiled by the Director Compiler Project Unit.
+_Avoid_: ECS or game world when referring specifically to Director state.
+
+**Director Entity Availability**:
+Whether an authored Director entity participates in matching and entity-triggered rules. Removed entities retain identity and properties but are unavailable to matching; availability is independent from ECS projection.
+_Avoid_: spawned when the entity may exist in Director without a game-world projection.
+
+**Director Applied Change**:
+A concrete, resolved mutation produced by an applied Director rule, identifying the affected entity and property or availability transition.
+_Avoid_: effect, because Hosts decide which applied changes have external consequences.
+
 **Project Unit Styleguide**:
 A protected reference guide that defines supported development patterns for an official GAMS Project Unit family.
 _Avoid_: suggestion or example when the guide is normative for first-party code.
@@ -50,6 +62,9 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - A **Project** can be run by different Hosts when those Hosts support the Project Units it declares.
 - A **Core View** is a first-party **Project Unit** and should follow the GAMS View Development Guide.
 - A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
+- The Director Compiler is a **Project Unit** that compiles authored Director DSL into Director runtime data.
+- **Director Entity Availability** controls Director matching independently from any Host's ECS projection.
+- Hosts may react to selected **Director Applied Changes** without embedding Host behavior into Director rules.
 - A **Project Unit Styleguide** is normative for official GAMS Project Units it covers and should only change with explicit approval.
 
 ## Example dialogue

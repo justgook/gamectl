@@ -111,6 +111,10 @@ The CLI prints the WIT result as JSON. In normal Project execution, register the
 
 The demo source is [`examples/demo/CYBERPUNK/director.director`](../../examples/demo/CYBERPUNK/director.director). Its graph preset invokes this compiler and forwards the JSON IR to the next stage.
 
+## Entity availability
+
+Director entities have stable compiled IDs and an availability state. Prefix declarations with `-` to author them as initially removed, use `+ENTITY` to add them to matching, and use `-TARGET` to remove them from matching. Removal preserves current tags, stats, and links for a later re-add. This is separate from ordinary tags such as the demo's `.spawn`, which the game interprets as ECS projection state. See [`overview.md`](./overview.md#entity-availability).
+
 ## Implementation status
 
 The accepted v1 language is broader than the current compiler tracer bullet. In-progress syntax is marked in [`overview.md`](./overview.md#implementation-status), including structured value paths, nested matcher link values, matcher continuations, declaration/rule interleaving, and complete diagnostic recovery.

@@ -21,7 +21,8 @@ GAMS needs a compact, readable Director source language that can be parsed and c
 ## Goals
 
 - Provide a human-readable source format for Director entities and rules.
-- Preserve the expressive matcher and change syntax inspired by Elm Narrative Engine.
+- Preserve the expressive matcher and property-change syntax inspired by Elm Narrative Engine.
+- Model whether authored Director entities are available to matching independently from game-runtime/ECS projection.
 - Allow entities, matchers, and changes to use either single-line or multiline property chains.
 - Make comments, blank lines, capitalization, and indentation convenient for authors.
 - Define syntax independently from the eventual parser and compiler implementation.
@@ -32,7 +33,7 @@ GAMS needs a compact, readable Director source language that can be parsed and c
 - Selecting the parser implementation language or parsing library in this document.
 - Defining the parser's internal AST.
 - Defining numeric ID allocation, word interning, or packed-range lowering yet.
-- Redesigning the runtime Director IR beyond explicitly required additions such as generic property removal.
+- Supporting dynamically allocated or cloned Director entity IDs; `+ENTITY` only re-adds an authored entity with a stable compiled ID.
 - Defining an editor or browser integration.
 - Reproducing Elm Narrative Engine compatibility beyond the syntax explicitly specified here.
 
@@ -40,7 +41,7 @@ GAMS needs a compact, readable Director source language that can be parsed and c
 
 A Director source document contains:
 
-- **Entity declarations**, which define initial entity tags, integer stats, and entity links.
+- **Entity declarations**, which define initial entity availability, tags, integer stats, and entity links.
 - **Rules**, which contain one trigger, optional conditions, and required world changes.
 - **Matchers**, used by rule triggers and conditions to select or test entities.
 - **Changes**, used by rule `DO` sections to mutate entities.
@@ -216,7 +217,7 @@ Identifiers are compared case-insensitively even though their source spelling is
 An entity declaration begins with an entity identifier followed by zero or more properties:
 
 ```ebnf
-entity          = entity-id, { entity-property } ;
+entity          = [ "-" ], entity-id, { entity-property } ;
 entity-property = property
                 | property, ws, "=", ws, integer
                 | property, ws, "=", ws, entity-id ;
@@ -228,7 +229,10 @@ The forms mean:
 CAVE.dark                    # add initial tag dark
 PLAYER.money = 10            # set initial integer stat money
 TORCH.current_location=CAVE  # set initial entity link current_location
+-BOSS.hp=400                 # declare BOSS initially removed from matching
 ```
+
+The declaration prefix changes only initial availability. A removed declaration still receives a stable numeric entity ID and retains all authored properties in Director data.
 
 The right-hand value distinguishes stats from links: an integer is a stat value and an entity identifier is a link target.
 
@@ -365,18 +369,26 @@ DO: PLAYER.current_location = CAVE
 
 This contains one `PLAYER` update with two property changes and one `CAVE` update with one property change.
 
-Director-specific entity lifecycle changes use prefix operators:
+Director entity availability changes use prefix operators:
 
 ```text
-DO: +COIN       # spawn specifically declared entity COIN
-    -GOBLIN     # remove specific entity GOBLIN
+-BOSS.hp=400    # initially removed authored entity
+
+ON: BOSS_ROOM
+DO: +BOSS       # add BOSS back to Director matching
+    BOSS.spawn  # separately request an ECS projection in the demo game
+
+DO: BOSS.-spawn # separately remove the ECS projection
+    -BOSS       # remove BOSS from Director matching
     -$          # remove the triggering entity
     -(*.enemy)  # remove every matching entity
 ```
 
-`+ENTITY` lowers to `Spawn_Entity`. Spawning `$` or a matcher is invalid. Any entity targeted by at least one spawn change is emitted with initial `removed: true`; it remains declared exactly once and may be spawned by multiple rules.
+`+ENTITY` lowers to `Add_Entity`. Adding `$` or a matcher is invalid because adding requires one stable authored entity ID. Initial removal is declared explicitly with `-ENTITY...`; the existence of a future `+ENTITY` change never changes initial availability.
 
 `-ENTITY`, `-$`, and `-(matcher)` lower to `Remove_Entity` with `Entity`, `Trigger`, and `All_Matching` targets respectively.
+
+Adding and removing are idempotent availability transitions. Removed entities retain their IDs, tags, stats, and links but are excluded from all matchers and entity triggers. Re-adding restores matching with the current runtime property state rather than resetting authored values. Entity availability is independent from ordinary properties such as `.spawn`; Hosts may react to property mutations without treating Director availability as ECS lifecycle.
 
 Property removal deliberately does not expose storage kind in the DSL:
 
@@ -484,7 +496,7 @@ parse-invalid-negation
 semantic-duplicate-entity
 semantic-unknown-entity
 semantic-invalid-trigger-reference
-semantic-invalid-spawn-target
+semantic-invalid-add-target
 semantic-invalid-path
 semantic-unrepresentable-ir
 
@@ -500,6 +512,18 @@ If any diagnostic exists, compilation returns no JSON. Diagnostics are sorted by
 ## Required IR and runtime changes
 
 The DSL cannot be compiled faithfully into the current Director IR without the following explicit changes. These are implementation requirements, not optional parser conveniences.
+
+### Entity availability and applied changes
+
+- `Entity_Def.removed` defines initial availability and is emitted only from an explicit `-ENTITY...` declaration.
+- Rename the lifecycle-oriented `Spawn_Entity` change kind to `Add_Entity`; retain `Remove_Entity`.
+- `Add_Entity` is valid only for a specific authored entity target. It clears `removed` and is a no-op when the entity is already available.
+- `Remove_Entity` sets `removed` and is a no-op when the entity is already removed.
+- Every matcher and entity trigger excludes removed entities.
+- Neither transition resets or deletes entity properties.
+- `trigger` returns ordered concrete `Applied_Change` records after eagerly applying the complete rule. Records identify resolved entity IDs and changed tags, stats, links, or availability.
+- The applied-change journal reports `Entity_Added` and `Entity_Removed` only for effective availability transitions.
+- Game-runtime projection remains a consumer concern. The demo reacts to applied `.spawn` tag changes and ignores Director availability changes.
 
 ### Generic property removal
 
@@ -588,7 +612,9 @@ Add `Compare_Any` to `director.Query_Kind`. Extend `director.Query` with `left_p
 - Matchers support specific, any, and trigger-relative selectors plus tag, stat, link, nested, negated, and structured path-comparison queries.
 - The `ON: *.item.!fixed.!current_location=PLAYER` / `DO: $.current_location=PLAYER` interaction pattern compiles and updates the triggering entity.
 - Path comparisons support existential projection over matcher result sets, skip missing terminal properties, and return false for empty value sets.
-- Changes support tags, integer stats, entity links, generic property removal, entity lifecycle operations, and multi-target `DO` sections.
+- Changes support tags, integer stats, entity links, generic property removal, entity availability operations, and multi-target `DO` sections.
+- `-ENTITY...` declarations are assigned stable IDs and start excluded from matching.
+- `+ENTITY` and `-TARGET` preserve current properties, are idempotent, and report only effective availability transitions.
 - Rules enforce `ON`, optional `IF`, required `DO` ordering.
 - `ON`, `IF`, and `DO` each require an inline expression.
 - Property chains can continue on lines beginning with optional whitespace followed by `.`.

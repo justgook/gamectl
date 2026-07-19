@@ -19,7 +19,7 @@ Entity_Source :: struct {
 	stat_count:   int,
 	link_offset:  int,
 	link_count:   int,
-	spawned:      bool,
+	removed:      bool,
 }
 
 Stat_Source :: struct {
@@ -102,9 +102,15 @@ compile_entities :: proc(source: []u8) -> bool {
 			return false
 		}
 
-		name, after_name, ok := parse_entity_identifier(first, content_end)
+		removed := false
+		name_start := first
+		if source[name_start] == '-' {
+			removed = true
+			name_start += 1
+		}
+		name, after_name, ok := parse_entity_identifier(name_start, content_end)
 		if !ok {
-			add_simple_diagnostic("parse-unexpected-token", "expected entity identifier", first, content_end, line)
+			add_simple_diagnostic("parse-unexpected-token", "expected entity identifier", name_start, content_end, line)
 			return false
 		}
 		for i in 0 ..< entity_count {
@@ -120,6 +126,7 @@ compile_entities :: proc(source: []u8) -> bool {
 			tag_offset = tag_count,
 			stat_offset = stat_count,
 			link_offset = link_count,
+			removed = removed,
 		}
 		entity_count += 1
 		pos := skip_horizontal_space(after_name, content_end)

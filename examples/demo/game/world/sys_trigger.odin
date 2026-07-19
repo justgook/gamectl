@@ -132,7 +132,7 @@ apply_director_changes :: proc(w: ^World, changes: []director.Applied_Change) {
 			if change.key == w.director_config.spawn {
 				director_remove_world_entity(w, change.entity)
 			}
-		case .Stat_Set, .Stat_Removed, .Link_Set, .Link_Removed:
+		case .Stat_Set, .Stat_Removed, .Link_Set, .Link_Removed, .Entity_Added, .Entity_Removed:
 		}
 	}
 }

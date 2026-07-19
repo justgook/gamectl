@@ -154,7 +154,7 @@ assert.deepEqual(conditionedIr.changes.map(({ kind, key, int_value }) => ({ kind
 
 const mockLike = invokeCompiler(String.raw`
 PLAYER.hp = 100.money = 0.dialog
-COIN.coin
+-COIN.coin
 GOBLIN.enemy
 
 ON: "ENTER_\"ROOM\\A#1"
@@ -168,8 +168,9 @@ DO: +COIN
 `)
 assert.equal(mockLike.err, undefined, `mock-like lifecycle compilation failed: ${JSON.stringify(mockLike.err)}`)
 const mockLikeIr = JSON.parse(mockLike.ok)
-assert.equal(mockLikeIr.entities[1].removed, true, 'spawned declarations must start removed')
-assert.equal(mockLikeIr.entities[0].removed, undefined, 'ordinary declarations must not be inferred removed')
+assert.equal(mockLikeIr.entities[1].removed, true, 'prefixed declarations must start removed')
+assert.equal(mockLikeIr.entities[0].removed, undefined, 'ordinary declarations must start available')
+assert.equal(mockLikeIr.entities[2].removed, undefined, 'remove changes must not alter initial availability')
 assert.deepEqual(mockLikeIr.rules[0], {
   id: 0,
   trigger: { kind: 'Signal', signal: 5, matcher_index: 0 },
@@ -186,7 +187,7 @@ assert.deepEqual(mockLikeIr.changes.map(({ target, kind, key, int_value }) => ({
   key,
   int_value,
 })), [
-  { target: 'Entity', matcher_index: 0, kind: 'Spawn_Entity', key: 0, int_value: 0 },
+  { target: 'Entity', matcher_index: 0, kind: 'Add_Entity', key: 0, int_value: 0 },
   { target: 'Entity', matcher_index: 0, kind: 'Inc_Stat', key: 1, int_value: 1 },
   { target: 'Entity', matcher_index: 0, kind: 'Add_Tag', key: 2, int_value: 0 },
   { target: 'Entity', matcher_index: 0, kind: 'Dec_Stat', key: 0, int_value: 2 },
@@ -244,19 +245,20 @@ assert.deepEqual(cyberpunkIr.symbols, {
     answer_3: 14,
     answer_4: 15,
     behavior: 16,
-    vision_enter: 17,
-    attack_range: 18,
-    sees: 19,
-    target: 20,
-    firing: 21,
-    vision_exit: 22,
-    attack_enter: 23,
-    attack_exit: 24,
+    spawn: 17,
+    vision_enter: 18,
+    attack_range: 19,
+    sees: 20,
+    target: 21,
+    firing: 22,
+    vision_exit: 23,
+    attack_enter: 24,
+    attack_exit: 25,
   },
 })
 assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
-  'Spawn_Entity', 'Spawn_Entity', 'Spawn_Entity', 'Set_Link', 'Inc_Stat',
-  'Remove_Entity', 'Inc_Stat', 'Remove_Entity', 'Set_Link', 'Set_Link',
+  'Add_Tag', 'Add_Tag', 'Add_Tag', 'Set_Link', 'Inc_Stat',
+  'Remove_Property', 'Inc_Stat', 'Remove_Property', 'Set_Link', 'Set_Link',
   'Set_Link', 'Add_Tag', 'Set_Link', 'Set_Link', 'Set_Link',
   'Remove_Property', 'Set_Link', 'Add_Tag', 'Remove_Property', 'Remove_Property',
   'Remove_Property', 'Set_Link', 'Set_Link', 'Set_Link', 'Set_Link', 'Add_Tag',
@@ -265,9 +267,9 @@ assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
   'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Inc_Stat',
   'Set_Link', 'Remove_Property', 'Remove_Property',
 ])
-assert.equal(cyberpunkIr.entities[2].removed, true)
-assert.equal(cyberpunkIr.entities[3].removed, true)
-assert.equal(cyberpunkIr.entities[5].removed, true)
+assert.equal(cyberpunkIr.entities[2].removed, undefined)
+assert.equal(cyberpunkIr.entities[3].removed, undefined)
+assert.equal(cyberpunkIr.entities[5].removed, undefined)
 
 const cyberpunkDirectorEntities = JSON.parse(readFileSync(
   join(repoRoot, 'examples/demo/CYBERPUNK/mock_director_entities.json'),
@@ -286,6 +288,14 @@ DO: -$
 `)
 assert.equal(invalidSignalTriggerReference.ok, undefined)
 assert.equal(invalidSignalTriggerReference.err[0].code, 'semantic-invalid-trigger-reference')
+
+const invalidAddTarget = invokeCompiler(`
+ENEMY.enemy
+ON: "reset"
+DO: +(*.enemy)
+`)
+assert.equal(invalidAddTarget.ok, undefined)
+assert.equal(invalidAddTarget.err[0].code, 'semantic-invalid-add-target')
 
 const minimumInteger = invokeCompiler('DEBT.value = -2147483648\n')
 assert.equal(minimumInteger.err, undefined, 'minimum i32 value must compile')

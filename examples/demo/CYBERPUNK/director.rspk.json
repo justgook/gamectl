@@ -135,7 +135,7 @@
         "Dec_Stat",
         "Set_Link",
         "Remove_Link",
-        "Spawn_Entity",
+        "Add_Entity",
         "Remove_Entity",
         "Remove_Property"
       ]

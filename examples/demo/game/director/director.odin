@@ -127,7 +127,7 @@ Change_Kind :: enum u8 {
 	Dec_Stat,
 	Set_Link,
 	Remove_Link,
-	Spawn_Entity,
+	Add_Entity,
 	Remove_Entity,
 	Remove_Property,
 }
@@ -247,9 +247,9 @@ Trigger :: struct {
 	signal: Word_Id,
 }
 
-// Applied_Change describes one concrete property mutation produced while
-// applying a rule. Matcher targets are resolved, so entity is always the id
-// that actually changed. Only effective mutations are reported; idempotent
+// Applied_Change describes one concrete property or availability mutation
+// produced while applying a rule. Matcher targets are resolved, so entity is
+// always the id that actually changed. Only effective mutations are reported; idempotent
 // writes and removals of absent properties produce no entry.
 Applied_Change_Kind :: enum u8 {
 	Tag_Added,
@@ -258,6 +258,8 @@ Applied_Change_Kind :: enum u8 {
 	Stat_Removed,
 	Link_Set,
 	Link_Removed,
+	Entity_Added,
+	Entity_Removed,
 }
 
 Applied_Change :: struct {
@@ -720,12 +722,16 @@ apply_change_to_entity :: proc(state: ^State, entity_id: Entity_Id, change: ^Cha
 				Applied_Change{kind = .Link_Removed, entity = entity_id, key = change.key, link_before = before},
 			)
 		}
-	case .Spawn_Entity:
-		// Legacy compiler operation retained until +ENTITY is repurposed.
-		entity.removed = false
+	case .Add_Entity:
+		if entity.removed {
+			entity.removed = false
+			append(&state.changes, Applied_Change{kind = .Entity_Added, entity = entity_id})
+		}
 	case .Remove_Entity:
-		// Legacy compiler operation retained until -ENTITY is repurposed.
-		entity.removed = true
+		if !entity.removed {
+			entity.removed = true
+			append(&state.changes, Applied_Change{kind = .Entity_Removed, entity = entity_id})
+		}
 	case .Remove_Property:
 		if has_tag(entity, change.key) {
 			remove_tag(entity, change.key)

@@ -26,7 +26,7 @@ build_director_json :: proc() -> bool {
 			   !write_text(`,"target":`) || !write_int(link.target) || !write_byte('}') {return false}
 		}
 		if !write_byte(']') {return false}
-		if entity.spawned && !write_text(`,"removed":true`) {return false}
+		if entity.removed && !write_text(`,"removed":true`) {return false}
 		if !write_byte('}') {return false}
 	}
 	if !write_text(`],"rules":[`) {return false}
@@ -114,7 +114,7 @@ change_kind_name :: proc(kind: Change_Kind) -> string {
 	switch kind {
 	case .Add_Tag: return "Add_Tag"; case .Remove_Property: return "Remove_Property"
 	case .Set_Stat: return "Set_Stat"; case .Inc_Stat: return "Inc_Stat"; case .Dec_Stat: return "Dec_Stat"
-	case .Set_Link: return "Set_Link"; case .Spawn_Entity: return "Spawn_Entity"; case .Remove_Entity: return "Remove_Entity"
+	case .Set_Link: return "Set_Link"; case .Add_Entity: return "Add_Entity"; case .Remove_Entity: return "Remove_Entity"
 	}
 	return ""
 }

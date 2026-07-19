@@ -11,7 +11,7 @@ Trigger_Kind :: enum {Entity_Matcher, Signal}
 Query_Kind :: enum {Has_Tag, Has_Stat, Has_Link, Not}
 Compare_Op :: enum {Eq, Gt, Lt}
 Change_Target_Kind :: enum {Entity, Trigger, All_Matching}
-Change_Kind :: enum {Add_Tag, Remove_Property, Set_Stat, Inc_Stat, Dec_Stat, Set_Link, Spawn_Entity, Remove_Entity}
+Change_Kind :: enum {Add_Tag, Remove_Property, Set_Stat, Inc_Stat, Dec_Stat, Set_Link, Add_Entity, Remove_Entity}
 Link_Target_Kind :: enum {Entity, Trigger}
 
 Rule_Data :: struct {
@@ -350,19 +350,18 @@ parse_matcher :: proc(start, end: int, line: u32) -> (int, bool) {
 parse_change :: proc(start, end: int, line: u32) -> bool {
 	pos := start
 	if compiler_source[pos] == '+' || compiler_source[pos] == '-' {
-		spawn := compiler_source[pos] == '+'
+		add := compiler_source[pos] == '+'
 		pos += 1
 		target, next, ok := parse_change_target(pos, end, line)
 		if !ok {return false}
-		if spawn && target.target_kind != .Entity {
-			add_simple_diagnostic("semantic-invalid-spawn-target", "spawn requires a specific declared entity", start, next, line)
+		if add && target.target_kind != .Entity {
+			add_simple_diagnostic("semantic-invalid-add-target", "adding requires a specific declared entity", start, next, line)
 			return false
 		}
 		if skip_horizontal_space(next, end) != end {return false}
 		target.kind = .Remove_Entity
-		if spawn {
-			target.kind = .Spawn_Entity
-			entities[target.entity].spawned = true
+		if add {
+			target.kind = .Add_Entity
 		}
 		return append_change(target)
 	}

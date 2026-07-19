@@ -8,6 +8,62 @@ package director
 import "core:testing"
 
 @(test)
+test_entity_availability_changes_control_matching_and_preserve_state :: proc(t: ^testing.T) {
+	E_BOSS :: Entity_Id(0)
+	W_HP :: Word_Id(0)
+	W_ADD :: Word_Id(1)
+	W_REMOVE :: Word_Id(2)
+
+	boss_stats := [?]Stat{{key = W_HP, value = 400}}
+	entities := [?]Entity_Def{{id = E_BOSS, stats = boss_stats[:], removed = true}}
+	matchers := [?]Matcher{{selector = {kind = .Any}}}
+	changes := [?]Change {
+		{target = {kind = .Entity, entity = E_BOSS}, kind = .Add_Entity},
+		{target = {kind = .Entity, entity = E_BOSS}, kind = .Remove_Entity},
+	}
+	rules := [?]Rule {
+		{id = 0, trigger = {kind = .Signal, signal = W_ADD}, changes = {offset = 0, count = 1}},
+		{id = 1, trigger = {kind = .Signal, signal = W_REMOVE}, changes = {offset = 1, count = 1}},
+	}
+	state := init(
+		Director_Data{entities = entities[:], matchers = matchers[:], changes = changes[:], rules = rules[:]},
+	)
+	defer destroy(&state)
+
+	matches: [dynamic]Entity_Id
+	defer delete(matches)
+	query(&state, 0, {}, &matches)
+	testing.expectf(t, len(matches) == 0, "initially removed boss matched: %v", matches)
+
+	result := trigger(&state, Trigger{kind = .Signal, signal = W_ADD})
+	testing.expectf(
+		t,
+		len(result.changes) == 1 && result.changes[0] == Applied_Change{kind = .Entity_Added, entity = E_BOSS},
+		"add entity changes = %v",
+		result.changes,
+	)
+	query(&state, 0, {}, &matches)
+	testing.expectf(t, len(matches) == 1 && matches[0] == E_BOSS, "added boss did not match: %v", matches)
+	clear(&matches)
+
+	entity_set_stat(&state, E_BOSS, W_HP, 100)
+	result = trigger(&state, Trigger{kind = .Signal, signal = W_REMOVE})
+	testing.expectf(
+		t,
+		len(result.changes) == 1 && result.changes[0] == Applied_Change{kind = .Entity_Removed, entity = E_BOSS},
+		"remove entity changes = %v",
+		result.changes,
+	)
+	query(&state, 0, {}, &matches)
+	testing.expectf(t, len(matches) == 0, "removed boss matched: %v", matches)
+
+	result = trigger(&state, Trigger{kind = .Signal, signal = W_ADD})
+	testing.expectf(t, entity_stat(&state, E_BOSS, W_HP) == 100, "re-added boss did not preserve runtime state")
+	result = trigger(&state, Trigger{kind = .Signal, signal = W_ADD})
+	testing.expectf(t, len(result.changes) == 0, "idempotent add changes = %v", result.changes)
+}
+
+@(test)
 test_query_supports_nested_matchers_compare_links_and_not :: proc(t: ^testing.T) {
 	state := init(test_data)
 	defer destroy(&state)

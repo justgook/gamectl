@@ -42,13 +42,14 @@ Director files conventionally use the `.director` extension. Compilation produce
 
 ## Entities and properties
 
-An entity declaration begins with its name. Properties following the name define its initial tags, integer stats, and links to other entities.
+An entity declaration begins with its name. Properties following the name define its initial tags, integer stats, and links to other entities. Prefix the name with `-` to declare an entity that exists in authored data but is initially unavailable to matching.
 
 ```director
 PLAYER
 CAVE.location.dark
 PLAYER.money = 10
 TORCH.current_location = CAVE
+-BOSS.hp = 400.weapon = SUPERPUPER_GUN
 ```
 
 The value determines the property's kind:
@@ -253,7 +254,7 @@ A continuation extends the preceding matcher; an indented line without a leading
 
 ## Changes
 
-The `DO` section changes entities. It can add tags, set stats and links, adjust stats, remove properties, spawn entities, or remove entities.
+The `DO` section changes entities. It can add tags, set stats and links, adjust stats, remove properties, or change whether authored entities are available to matching.
 
 ### Tags, stats, and links
 
@@ -321,28 +322,38 @@ DO: (*.enemy).blinded
 
 The change is applied to every matching entity.
 
-### Entity lifecycle
+### Entity availability
 
-Prefix a declared entity with `+` to spawn it:
+Every entity has a stable compiled ID. An available entity participates in matchers and may trigger entity rules; a removed entity retains its current properties and ID but is excluded from all matching.
+
+Prefix a declaration with `-` to make its initial state removed:
 
 ```director
-COIN.item
-
-ON: "drop-coin"
-DO: +COIN
+-BOSS.hp = 400.weapon = SUPERPUPER_GUN
 ```
 
-An entity used by any spawn change begins the world in a removed state. Spawning is allowed only for a specifically declared entity; `+$` and `+(*.item)` are invalid.
-
-Prefix a target with `-` to remove it:
+Prefix a specifically declared entity with `+` in `DO` to add a removed entity back to matching:
 
 ```director
-DO: -GOBLIN
+ON: BOSS_ROOM
+DO: +BOSS
+    BOSS.spawn
+```
+
+Adding preserves the entity's current runtime properties. If `BOSS` was removed with `hp = 100`, adding it back restores availability with `hp = 100`; it does not reset the authored `hp = 400` value. Adding an already available entity is a valid no-op. `+$` and `+(*.item)` are invalid because adding requires one stable authored entity ID.
+
+Prefix a target with `-` to remove it from matching:
+
+```director
+DO: BOSS.-spawn
+    -BOSS
     -$
     -(*.enemy)
 ```
 
-This can remove one declared entity, the triggering entity, or every entity selected by a matcher.
+Removal can target one declared entity, the triggering entity, or every currently matching entity. Removing an already removed entity is a valid no-op. Removal does not alter tags, stats, or links.
+
+Entity availability is independent from game-runtime projection. In the example, `+BOSS` adds the Director entity to matching and `BOSS.spawn` emits an ordinary tag mutation that the demo game interprets as a request to create an ECS projection. The two operations remain separate and ordered.
 
 ## Value paths and projected comparisons
 
@@ -491,7 +502,7 @@ parse-invalid-negation
 semantic-duplicate-entity
 semantic-unknown-entity
 semantic-invalid-trigger-reference
-semantic-invalid-spawn-target
+semantic-invalid-add-target
 semantic-invalid-path
 semantic-unrepresentable-ir
 too-many-errors
@@ -506,6 +517,7 @@ The accepted v1 behavior accumulates independent lexical, syntax, and semantic e
 ```text
 # Entities
 ENTITY
+-ENTITY       # initially removed from matching
 ENTITY.tag
 ENTITY.stat = INTEGER
 ENTITY.link = ENTITY
@@ -557,7 +569,7 @@ The current compiler implements the core tracer bullet used by the demo:
 - direct specific/any/trigger-relative matchers;
 - direct tag, stat, link, and negated queries;
 - signal and entity rules with multiple `IF` and `DO` expressions;
-- tag, stat, link, property-removal, spawn, and remove changes;
+- tag, stat, link, property-removal, and entity-availability changes;
 - all-matching change targets;
 - entity and `DO` property continuations;
 - case-insensitive names, comments, quoted signals, deterministic JSON, and structured diagnostics.
