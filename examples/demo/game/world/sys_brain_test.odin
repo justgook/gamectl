@@ -50,7 +50,7 @@ brain_test_world :: proc(input: Input, pos: Position, segment: [4]int) -> ^World
 	logic.add_component(&w.position, entity, pos)
 	logic.add_component(&w.input, entity, input)
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
-	logic.add_component(&w.platformer, entity, Platformer{on_ground = true})
+	logic.add_component(&w.platformer, entity, Platformer{on_ground = true, facing = 1})
 	return w
 }
 
@@ -147,6 +147,28 @@ test_brain_chase_moves_toward_player_and_ignores_patrol_collision :: proc(t: ^te
 	player_pos.x = -10 * UNIT
 	sys_brain(w)
 	testing.expectf(t, input^ == Input{.West}, "left chase input = %v", input)
+}
+
+@(test)
+test_brain_resumes_patrol_after_chase_stops_at_matching_x :: proc(t: ^testing.T) {
+	w := brain_test_world(Input{.East}, {}, {-16 * UNIT, 16 * UNIT, 16 * UNIT, 16 * UNIT})
+	defer brain_test_world_destroy(w)
+	brain_test_start_chasing(w, Position{})
+
+	// Matching X stops horizontal chase movement.
+	sys_brain(w)
+	input, has_input := logic.get_component(&w.input, 1)
+	assert(has_input)
+	testing.expectf(t, input^ == Input{}, "stopped chase input = %v", input)
+
+	// Losing sight returns to patrol with no horizontal input left by chase.
+	director.entity_set_link(&w.director, BRAIN_TEST_ENEMY, BRAIN_TEST_BEHAVIOR, BRAIN_TEST_PATROLLING)
+	director.entity_remove_link(&w.director, BRAIN_TEST_ENEMY, BRAIN_TEST_TARGET)
+	platformer, has_platformer := logic.get_component(&w.platformer, 1)
+	assert(has_platformer)
+	platformer.on_ground = false
+	sys_brain(w)
+	testing.expectf(t, input^ == Input{.East}, "resumed patrol input = %v", input)
 }
 
 @(test)

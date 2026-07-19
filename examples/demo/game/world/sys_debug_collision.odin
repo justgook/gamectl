@@ -83,13 +83,17 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	}
 
 	// Enemy perception radius: yellow while idle, orange while the player is inside.
-	vision_view := logic.view(&w.position, &w.enemy_vision)
-	for _, pos, vision in logic.each(&vision_view) {
+	vision_view := logic.view(&w.position, &w.enemy_vision, &w.platformer)
+	for _, pos, vision, platformer in logic.each(&vision_view) {
+		assert(platformer.facing == -1 || platformer.facing == 1)
 		color := [4]f32{1.0, 0.85, 0.1, 0.65}
 		if vision.player_inside {
 			color = {1.0, 0.35, 0.05, 0.9}
 		}
-		debug_collision_add_circle({to_pixelf(int(pos.x)), to_pixelf(int(pos.y))}, to_pixelf(vision.radius), color)
+		sector := vision.sector
+		shape.move_sector(&sector, {int(pos.x), int(pos.y)})
+		sector.direction = {int(platformer.facing), 0}
+		debug_collision_add_sector(&sector, color)
 	}
 
 	// Combat hurt / hit volumes.
@@ -250,6 +254,25 @@ debug_collision_add_filled_triangle :: proc(a, b, c: [2]f32, color: [4]f32) {
 	append(&debug_collision_state.fill_vertices, Debug_Collision_Vertex{pos = a, color = color})
 	append(&debug_collision_state.fill_vertices, Debug_Collision_Vertex{pos = b, color = color})
 	append(&debug_collision_state.fill_vertices, Debug_Collision_Vertex{pos = c, color = color})
+}
+
+@(private = "file")
+debug_collision_add_sector :: proc(sector: ^shape.Sector, color: [4]f32) {
+	center := [2]f32{to_pixelf(sector.x), to_pixelf(sector.y)}
+	radius := to_pixelf(sector.radius)
+	direction_angle := math.atan2(f32(sector.direction.y), f32(sector.direction.x))
+	half_angle := f32(math.acos(sector.half_angle_cosine))
+	start_angle := direction_angle - half_angle
+	previous := [2]f32{center.x + radius * math.cos(start_angle), center.y + radius * math.sin(start_angle)}
+	debug_collision_add_line(center, previous, color)
+	for index in 1 ..= DEBUG_COLLISION_CIRCLE_SEGMENTS / 2 {
+		ratio := f32(index) / f32(DEBUG_COLLISION_CIRCLE_SEGMENTS / 2)
+		angle := start_angle + 2 * half_angle * ratio
+		current := [2]f32{center.x + radius * math.cos(angle), center.y + radius * math.sin(angle)}
+		debug_collision_add_line(previous, current, color)
+		previous = current
+	}
+	debug_collision_add_line(previous, center, color)
 }
 
 @(private = "file")

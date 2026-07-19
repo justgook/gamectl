@@ -4,6 +4,7 @@ move :: proc {
 	move_point,
 	move_segment,
 	move_circle,
+	move_sector,
 	move_capsule,
 }
 
@@ -19,6 +20,8 @@ test :: proc {
 	circle_segment_test,
 	circle_circle_test,
 	circle_capsule_test,
+	sector_point_test,
+	point_sector_test,
 	capsule_point_test,
 	capsule_segment_test,
 	capsule_circle_test,
@@ -42,6 +45,11 @@ point_segment_test :: proc(point: ^[2]int, segment: ^[4]int) -> bool {
 @(require_results)
 point_cicle_test :: proc(point: ^[2]int, circle: ^Circle) -> bool {
 	return circle_point_test(circle, point)
+}
+
+@(require_results)
+point_sector_test :: proc(point: ^[2]int, sector: ^Sector) -> bool {
+	return sector_point_test(sector, point)
 }
 
 @(require_results)

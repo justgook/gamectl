@@ -8,6 +8,7 @@ package world
 import "../director"
 import "core:testing"
 import "logic"
+import "shape"
 
 VISION_PLAYER :: director.Entity_Id(0)
 VISION_ENEMY :: director.Entity_Id(1)
@@ -93,7 +94,12 @@ vision_test_world :: proc(player_pos: Position) -> ^World {
 	w.player1_id = 10
 	logic.add_component(&w.position, w.player1_id, player_pos)
 	logic.add_component(&w.position, 11, Position{})
-	logic.add_component(&w.enemy_vision, 11, Enemy_Vision{radius = 10 * UNIT})
+	logic.add_component(
+		&w.enemy_vision,
+		11,
+		Enemy_Vision{sector = shape.make_sector_degrees(0, 0, 10 * UNIT, {1, 0}, 45)},
+	)
+	logic.add_component(&w.platformer, 11, Platformer{facing = 1})
 	logic.add_component(&w.director_entity, 11, Director_Entity{id = VISION_ENEMY})
 	return w
 }
@@ -103,15 +109,17 @@ vision_test_world_destroy :: proc(w: ^World) {
 	director.destroy(&w.director)
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.enemy_vision)
+	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.director_entity)
 	free(w)
 }
 
 @(test)
 test_enemy_vision_emits_enter_and_exit_transitions :: proc(t: ^testing.T) {
-	w := vision_test_world(Position{20 * UNIT, 0})
+	w := vision_test_world(Position{-5 * UNIT, 0})
 	defer vision_test_world_destroy(w)
 
+	// The player is inside the radius but behind the east-facing enemy.
 	sys_enemy_vision(w)
 	testing.expect(t, !director.entity_has_tag(&w.director, VISION_ENEMY, VISION_ALERTED))
 

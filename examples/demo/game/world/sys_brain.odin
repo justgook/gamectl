@@ -6,8 +6,9 @@ package world
 // 3. [done] Detection enter/exit transitions — notify decisions only when perception changes.
 // 4. [done] Director patrolling ↔ chasing — let Director rules own discrete enemy intent.
 // 5. [done] Chase Brain behavior — convert chasing intent into movement toward the target.
-// 6. [todo] Cone perception and optional line-of-sight — add directional sight and map occlusion.
-// 7. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
+// 6. [done] Cone perception — limit radius sensing to the enemy's facing direction and field of view.
+// 7. [todo] Optional line-of-sight — add map occlusion to directional sight.
+// 8. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
 
 import "../director"
 import "../host"
@@ -18,7 +19,7 @@ import "shape"
 Brain :: i8
 
 Enemy_Vision :: struct {
-	radius:        int,
+	sector:        shape.Sector,
 	player_inside: bool,
 }
 
@@ -53,12 +54,14 @@ sys_enemy_vision :: proc(w: ^World) {
 
 	view := logic.view(&w.position, &w.enemy_vision, &w.director_entity)
 	for entity, pos, vision, director_entity in logic.each(&view) {
-		sensor := shape.Circle {
-			x      = int(pos.x),
-			y      = int(pos.y),
-			radius = vision.radius,
-		}
-		player_inside := shape.circle_point_test(&sensor, &player_point)
+		platformer, has_platformer := logic.get_component(&w.platformer, entity)
+		assert(has_platformer)
+		assert(platformer.facing == -1 || platformer.facing == 1)
+
+		sensor := vision.sector
+		shape.move_sector(&sensor, {int(pos.x), int(pos.y)})
+		sensor.direction = {int(platformer.facing), 0}
+		player_inside := shape.sector_point_test(&sensor, &player_point)
 		if player_inside == vision.player_inside {
 			continue
 		}
@@ -120,7 +123,7 @@ sys_brain :: proc(w: ^World) {
 
 @(private = "file")
 brain1_patrol :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape.Capsule, platformer: ^Platformer) {
-	direction := brain1_direction(input)
+	direction := brain1_patrol_direction(input, platformer.facing)
 	test := [4]int{int(pos.x), int(pos.y), int(pos.x) + direction * 10 * UNIT, int(pos.y)}
 	found := grid.query_segment(&w.grid, &test)
 	defer delete(found)
@@ -151,11 +154,23 @@ brain1_chase :: proc(input: ^Input, pos, target_pos: ^Position) {
 
 @(private = "file")
 @(require_results)
-brain1_direction :: proc(input: ^Input) -> int {
-	if .East in input {
+brain1_patrol_direction :: proc(input: ^Input, facing: i32) -> int {
+	east := .East in input
+	west := .West in input
+	assert(!(east && west))
+	if east {
 		return 1
 	}
-	assert(.West in input)
+	if west {
+		return -1
+	}
+
+	assert(facing == -1 || facing == 1)
+	if facing > 0 {
+		input^ += {.East}
+		return 1
+	}
+	input^ += {.West}
 	return -1
 }
 

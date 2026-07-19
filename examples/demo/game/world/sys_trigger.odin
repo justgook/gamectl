@@ -200,7 +200,11 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 	)
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 	logic.add_component(&w.brain, entity, Brain(1))
-	logic.add_component(&w.enemy_vision, entity, Enemy_Vision{radius = 96 * UNIT})
+	logic.add_component(
+		&w.enemy_vision,
+		entity,
+		Enemy_Vision{sector = shape.make_sector_degrees(0, 0, 96 * UNIT, {1, 0}, 45)},
+	)
 	logic.add_component(&w.input, entity, Input{.East})
 	logic.add_component(&w.platformer, entity, Platformer{facing = 1})
 }

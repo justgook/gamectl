@@ -130,7 +130,12 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	brain, has_brain := logic.get_component(&w.brain, world_entity)
 	testing.expectf(t, has_brain && brain^ == 1, "enemy brain = %v", brain)
 	vision, has_vision := logic.get_component(&w.enemy_vision, world_entity)
-	testing.expectf(t, has_vision && vision.radius == 96 * UNIT && !vision.player_inside, "enemy vision = %v", vision)
+	testing.expectf(
+		t,
+		has_vision && vision.sector.radius == 96 * UNIT && !vision.player_inside,
+		"enemy vision = %v",
+		vision,
+	)
 	input, has_input := logic.get_component(&w.input, world_entity)
 	testing.expectf(t, has_input && input^ == Input{.East}, "enemy input = %v", input)
 	platformer, has_platformer := logic.get_component(&w.platformer, world_entity)
