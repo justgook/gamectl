@@ -19,11 +19,16 @@ HEAL_ANSWER.text_id = 12
 LEAVE_DIALOG_ANSWER.text_id = 13
 LEAVE_ANSWER.text_id = 14
 
+# Exclusive high-level enemy intents selected by Director rules.
+PATROLLING.behavior
+CHASING.behavior
+
 # Entering the segment creates the coin and enemy world entities.
 ON: "enter_room_001"
 DO: +COIN_A
     +COIN_B
     +ENEMY_A
+    ENEMY_A.behavior=PATROLLING
 
 # Collecting a coin awards money and removes the triggering entity.
 ON: *.coin
@@ -39,9 +44,13 @@ DO: PLAYER.money + 100
 # Vision transitions arrive as temporary links on the observing enemy.
 ON: *.enemy.vision_enter=PLAYER
 DO: $.sees=PLAYER
+    $.target=PLAYER
+    $.behavior=CHASING
 
 ON: *.enemy.vision_exit=PLAYER
 DO: $.-sees
+    $.-target
+    $.behavior=PATROLLING
 
 # The world trigger opens the root dialog.
 ON: WORLD_TRIGGER

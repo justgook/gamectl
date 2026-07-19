@@ -4,8 +4,8 @@ package world
 // 1. [done] Ledge-safe patrol — reverse at walls and before leaving walkable ground.
 // 2. [done] Radius-based perception sensor — detect targets within an omnidirectional range.
 // 3. [done] Detection enter/exit transitions — notify decisions only when perception changes.
-// 4. [todo] Director patrolling ↔ chasing — let Director rules own discrete enemy intent.
-// 5. [todo] Chase Brain behavior — convert chasing intent into movement toward the target.
+// 4. [done] Director patrolling ↔ chasing — let Director rules own discrete enemy intent.
+// 5. [done] Chase Brain behavior — convert chasing intent into movement toward the target.
 // 6. [todo] Cone perception and optional line-of-sight — add directional sight and map occlusion.
 // 7. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
 
@@ -90,11 +90,27 @@ sys_brain :: proc(w: ^World) {
 
 		switch brain^ {
 		case 1:
+			director_entity, has_director_entity := logic.get_component(&w.director_entity, entity)
+			assert(has_director_entity)
+			behavior, has_behavior := director.entity_link(&w.director, director_entity.id, w.director_config.behavior)
+			assert(has_behavior)
+
+			if behavior == w.director_config.chasing {
+				target, has_target := director.entity_link(&w.director, director_entity.id, w.director_config.target)
+				assert(has_target)
+				assert(target == w.director_config.player)
+				player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)
+				assert(has_player_pos)
+				brain1_chase(input, pos, player_pos)
+				continue
+			}
+
+			assert(behavior == w.director_config.patrolling)
 			collider, has_collider := logic.get_component(&w.collider, entity)
 			assert(has_collider)
 			platformer, has_platformer := logic.get_component(&w.platformer, entity)
 			assert(has_platformer)
-			brain1(w, input, pos, collider, platformer)
+			brain1_patrol(w, input, pos, collider, platformer)
 		case:
 			host.error("sys_brain", "unknown brain")
 		}
@@ -103,7 +119,7 @@ sys_brain :: proc(w: ^World) {
 }
 
 @(private = "file")
-brain1 :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape.Capsule, platformer: ^Platformer) {
+brain1_patrol :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape.Capsule, platformer: ^Platformer) {
 	direction := brain1_direction(input)
 	test := [4]int{int(pos.x), int(pos.y), int(pos.x) + direction * 10 * UNIT, int(pos.y)}
 	found := grid.query_segment(&w.grid, &test)
@@ -120,6 +136,16 @@ brain1 :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape.Capsul
 		if !ground.found {
 			brain1_reverse(input, direction)
 		}
+	}
+}
+
+@(private = "file")
+brain1_chase :: proc(input: ^Input, pos, target_pos: ^Position) {
+	input^ -= {.East, .West}
+	if target_pos.x > pos.x {
+		input^ += {.East}
+	} else if target_pos.x < pos.x {
+		input^ += {.West}
 	}
 }
 

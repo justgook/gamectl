@@ -964,6 +964,42 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			if !ok {return false}
 			value = v
 		}
+		out.behavior = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.target = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.patrolling = director.Entity_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.chasing = director.Entity_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
 		out.dialog = director.Word_Id(value)
 	}
 	{

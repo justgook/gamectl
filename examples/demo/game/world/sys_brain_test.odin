@@ -5,20 +5,48 @@
 
 package world
 
+import "../director"
 import "core:testing"
 import "grid"
 import "logic"
 import "shape"
 
+BRAIN_TEST_ENEMY :: director.Entity_Id(0)
+BRAIN_TEST_PATROLLING :: director.Entity_Id(1)
+BRAIN_TEST_CHASING :: director.Entity_Id(2)
+BRAIN_TEST_PLAYER :: director.Entity_Id(3)
+BRAIN_TEST_BEHAVIOR :: director.Word_Id(0)
+BRAIN_TEST_TARGET :: director.Word_Id(1)
+
+brain_test_enemy_links := [?]director.Link{{key = BRAIN_TEST_BEHAVIOR, target = BRAIN_TEST_PATROLLING}}
+brain_test_entities := [?]director.Entity_Def {
+	{id = BRAIN_TEST_ENEMY, links = brain_test_enemy_links[:]},
+	{id = BRAIN_TEST_PATROLLING},
+	{id = BRAIN_TEST_CHASING},
+	{id = BRAIN_TEST_PLAYER},
+}
+brain_test_director_data := director.Director_Data {
+	entities = brain_test_entities[:],
+}
+
 @(private = "file")
 brain_test_world :: proc(input: Input, pos: Position, segment: [4]int) -> ^World {
 	w := new(World)
+	w.director = director.init(brain_test_director_data)
+	w.director_config = {
+		player     = BRAIN_TEST_PLAYER,
+		behavior   = BRAIN_TEST_BEHAVIOR,
+		target     = BRAIN_TEST_TARGET,
+		patrolling = BRAIN_TEST_PATROLLING,
+		chasing    = BRAIN_TEST_CHASING,
+	}
 	w.grid = grid.create_grid(-32 * UNIT, -32 * UNIT, 32 * UNIT, 32 * UNIT, 4 * UNIT)
 	append(&w.segments, segment)
 	grid.add_segment(&w.grid, &w.segments[0])
 
 	entity := logic.Entity(1)
 	logic.add_component(&w.brain, entity, Brain(1))
+	logic.add_component(&w.director_entity, entity, Director_Entity{id = BRAIN_TEST_ENEMY})
 	logic.add_component(&w.position, entity, pos)
 	logic.add_component(&w.input, entity, input)
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
@@ -28,9 +56,11 @@ brain_test_world :: proc(input: Input, pos: Position, segment: [4]int) -> ^World
 
 @(private = "file")
 brain_test_world_destroy :: proc(w: ^World) {
+	director.destroy(&w.director)
 	grid.destroy_grid(&w.grid)
 	delete(w.segments)
 	logic.destroy_storage(&w.brain)
+	logic.destroy_storage(&w.director_entity)
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.collider)
@@ -91,6 +121,32 @@ test_brain_reverses_before_left_ledge :: proc(t: ^testing.T) {
 
 	input, ok := logic.get_component(&w.input, 1)
 	testing.expectf(t, ok && input^ == Input{.East}, "left-ledge brain input = %v", input)
+}
+
+@(private = "file")
+brain_test_start_chasing :: proc(w: ^World, player_pos: Position) {
+	w.player1_id = 2
+	logic.add_component(&w.position, w.player1_id, player_pos)
+	director.entity_set_link(&w.director, BRAIN_TEST_ENEMY, BRAIN_TEST_BEHAVIOR, BRAIN_TEST_CHASING)
+	director.entity_set_link(&w.director, BRAIN_TEST_ENEMY, BRAIN_TEST_TARGET, BRAIN_TEST_PLAYER)
+}
+
+@(test)
+test_brain_chase_moves_toward_player_and_ignores_patrol_collision :: proc(t: ^testing.T) {
+	w := brain_test_world(Input{.West}, {}, {5 * UNIT, -UNIT, 5 * UNIT, UNIT})
+	defer brain_test_world_destroy(w)
+	brain_test_start_chasing(w, Position{10 * UNIT, 0})
+
+	sys_brain(w)
+
+	input, ok := logic.get_component(&w.input, 1)
+	testing.expectf(t, ok && input^ == Input{.East}, "right chase input = %v", input)
+
+	player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)
+	assert(has_player_pos)
+	player_pos.x = -10 * UNIT
+	sys_brain(w)
+	testing.expectf(t, input^ == Input{.West}, "left chase input = %v", input)
 }
 
 @(test)

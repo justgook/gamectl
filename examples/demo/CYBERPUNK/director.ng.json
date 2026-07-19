@@ -212,6 +212,26 @@
         "id": 14,
         "name": "words.vision_exit",
         "value": null
+      },
+      {
+        "id": 15,
+        "name": "words.behavior",
+        "value": null
+      },
+      {
+        "id": 16,
+        "name": "words.target",
+        "value": null
+      },
+      {
+        "id": 17,
+        "name": "entities.patrolling",
+        "value": null
+      },
+      {
+        "id": 18,
+        "name": "entities.chasing",
+        "value": null
       }
     ]
   },
@@ -315,6 +335,30 @@
         "name": "vision_exit",
         "srcNodeId": 17,
         "srcOutputId": 14
+      },
+      {
+        "id": 12,
+        "name": "behavior",
+        "srcNodeId": 17,
+        "srcOutputId": 15
+      },
+      {
+        "id": 13,
+        "name": "target",
+        "srcNodeId": 17,
+        "srcOutputId": 16
+      },
+      {
+        "id": 14,
+        "name": "patrolling",
+        "srcNodeId": 17,
+        "srcOutputId": 17
+      },
+      {
+        "id": 15,
+        "name": "chasing",
+        "srcNodeId": 17,
+        "srcOutputId": 18
       },
       {
         "id": 5,

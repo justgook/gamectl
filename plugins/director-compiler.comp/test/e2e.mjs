@@ -201,7 +201,7 @@ const cyberpunkSource = readFileSync(join(repoRoot, 'examples/demo/CYBERPUNK/dir
 const cyberpunk = invokeCompiler(cyberpunkSource)
 assert.equal(cyberpunk.err, undefined, `CYBERPUNK Director source failed: ${JSON.stringify(cyberpunk.err)}`)
 const cyberpunkIr = JSON.parse(cyberpunk.ok)
-assert.equal(cyberpunkIr.entities.length, 17)
+assert.equal(cyberpunkIr.entities.length, 19)
 assert.equal(cyberpunkIr.rules.length, 11)
 assert.deepEqual(cyberpunkIr.symbols, {
   entities: {
@@ -222,6 +222,8 @@ assert.deepEqual(cyberpunkIr.symbols, {
     heal_answer: 14,
     leave_dialog_answer: 15,
     leave_answer: 16,
+    patrolling: 17,
+    chasing: 18,
   },
   words: {
     hp: 0,
@@ -240,14 +242,17 @@ assert.deepEqual(cyberpunkIr.symbols, {
     answer_2: 13,
     answer_3: 14,
     answer_4: 15,
-    vision_enter: 16,
-    sees: 17,
-    vision_exit: 18,
+    behavior: 16,
+    vision_enter: 17,
+    sees: 18,
+    target: 19,
+    vision_exit: 20,
   },
 })
 assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
-  'Spawn_Entity', 'Spawn_Entity', 'Spawn_Entity', 'Inc_Stat', 'Remove_Entity',
-  'Inc_Stat', 'Remove_Entity', 'Set_Link', 'Remove_Property', 'Set_Link',
+  'Spawn_Entity', 'Spawn_Entity', 'Spawn_Entity', 'Set_Link', 'Inc_Stat',
+  'Remove_Entity', 'Inc_Stat', 'Remove_Entity', 'Set_Link', 'Set_Link',
+  'Set_Link', 'Remove_Property', 'Remove_Property', 'Set_Link', 'Set_Link',
   'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link',
   'Inc_Stat', 'Set_Link', 'Remove_Property', 'Remove_Property',
 ])
