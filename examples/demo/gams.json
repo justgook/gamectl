@@ -612,6 +612,24 @@
         "internal": false,
         "defaultSource": "pipe/edge.rules.map.json"
       },
+      "view-world": {
+        "url": "views/view-world.js",
+        "label": "World Editor",
+        "group": "Game",
+        "internal": false,
+        "defaultSource": "world/example.world.json",
+        "config": {
+          "renderers": {
+            "rectangle": {
+              "url": "world-renderers/rectangle.js",
+              "match": {
+                "render": "rectangle"
+              },
+              "config": {}
+            }
+          }
+        }
+      },
       "view-tree": {
         "url": "views/view-tree.js",
         "label": "Tree",

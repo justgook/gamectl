@@ -1,0 +1,35 @@
+{
+  "objects": [
+    {
+      "x": 0,
+      "y": 0,
+      "props": {
+        "name": "Origin"
+      }
+    },
+    {
+      "x": 32,
+      "y": 16,
+      "props": {
+        "name": "Platform",
+        "group": "Geometry",
+        "render": "rectangle",
+        "width": "64",
+        "height": "16",
+        "color": "#7aa2ff"
+      }
+    },
+    {
+      "x": 112,
+      "y": 48,
+      "props": {
+        "name": "Trigger",
+        "group": "Geometry",
+        "render": "rectangle",
+        "width": "24",
+        "height": "32",
+        "color": "#ffcc66"
+      }
+    }
+  ]
+}
