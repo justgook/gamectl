@@ -1181,7 +1181,7 @@ export class ViewTilemap extends ViewCanvasBase {
       <aside data-element="sidebar">
         <fieldset>
           <legend>Layers</legend>
-          <table>
+          <table class="compact-actions">
             <tbody data-element="layers"></tbody>
           </table>
         </fieldset>

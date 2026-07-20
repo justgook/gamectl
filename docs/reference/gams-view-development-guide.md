@@ -148,12 +148,14 @@ Use context menus for local actions tied to the clicked point/record. Use autoco
 
 - `table` - base element for tabular data in UI.
 - `table[data-layout="separate"]` - separated-cell table layout for board-like or card-grid views where cells contain block content rather than compact row values.
+- `table.compact-actions` - table whose icon-only action buttons in body cells use compact theme sizing. Use this as an explicit exception when dense row actions should be smaller than normal buttons.
 - `caption` - optional table title/label when the table needs an intrinsic semantic heading.
 - `thead` - required table header section.
 - `tbody` - required table body section.
 - `tfoot` - optional table footer section.
 - `tr` - table row.
 - `th` - table header cell.
+- `th[role="button"][aria-expanded][tabindex="0"]` - collapsible table-group heading. It must activate with click, Enter, or Space and expose its expanded state through `aria-expanded`.
 - `td` - table data cell.
 
 ## Cards / app windows

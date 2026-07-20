@@ -627,7 +627,7 @@ export class ViewWorld extends ViewCanvasBase {
       <aside data-element="sidebar">
         <fieldset>
           <legend>Objects</legend>
-          <table data-element="objects">
+          <table class="compact-actions" data-element="objects">
             <thead><tr><th>Object</th><th>Position</th><th>Actions</th></tr></thead>
             <tbody></tbody>
           </table>
@@ -785,15 +785,24 @@ export class ViewWorld extends ViewCanvasBase {
 
   bindEvents() {
     this.objectsElement.addEventListener("click", async (event) => {
-      const button = event.target.closest("button[data-action]")
-      if (button instanceof HTMLButtonElement) {
-        await this.handleListAction(button)
+      const actionElement = event.target.closest("[data-action]")
+      if (actionElement instanceof HTMLElement) {
+        await this.handleListAction(actionElement)
         return
       }
       const row = event.target.closest("tr[data-object-id]")
       if (!(row instanceof HTMLTableRowElement)) return
       this.state.selectObject(Number(row.dataset.objectId))
       await this.refreshSnapshot("Object selected")
+    })
+    this.objectsElement.addEventListener("keydown", async (event) => {
+      const heading = event.target.closest(
+        'th[role="button"][data-action="group-toggle"]',
+      )
+      if (!(heading instanceof HTMLTableCellElement)) return
+      if (event.key !== "Enter" && event.key !== " ") return
+      event.preventDefault()
+      await this.handleListAction(heading)
     })
 
     this.positionFormElement.addEventListener("submit", async (event) => {
@@ -1097,10 +1106,10 @@ export class ViewWorld extends ViewCanvasBase {
     this.setStatus(this.showGrid ? "Grid enabled" : "Grid disabled", "info")
   }
 
-  async handleListAction(button) {
-    const action = button.dataset.action
-    const objectRow = button.closest("tr[data-object-id]")
-    const groupRow = button.closest("tr[data-group]")
+  async handleListAction(actionElement) {
+    const action = actionElement.dataset.action
+    const objectRow = actionElement.closest("tr[data-object-id]")
+    const groupRow = actionElement.closest("tr[data-group]")
     if (objectRow instanceof HTMLTableRowElement) {
       const editorId = Number(objectRow.dataset.objectId)
       this.state.selectObject(editorId)
@@ -1245,16 +1254,18 @@ export class ViewWorld extends ViewCanvasBase {
     const row = document.createElement("tr")
     row.dataset.group = group
     const nameCell = document.createElement("th")
-    nameCell.colSpan = 2
-    const toggleButton = this.createActionButton(
-      "group-toggle",
-      collapsed ? "chevron_right" : "expand_more",
-    )
-    toggleButton.setAttribute("aria-expanded", collapsed ? "false" : "true")
-    toggleButton.title = collapsed ? `Expand ${group}` : `Collapse ${group}`
-    nameCell.appendChild(toggleButton)
-    nameCell.appendChild(document.createTextNode(group))
+    nameCell.dataset.action = "group-toggle"
+    nameCell.setAttribute("role", "button")
+    nameCell.setAttribute("tabindex", "0")
+    nameCell.setAttribute("aria-expanded", collapsed ? "false" : "true")
+    nameCell.title = collapsed ? `Expand ${group}` : `Collapse ${group}`
+    const folderIcon = document.createElement("i")
+    folderIcon.setAttribute("aria-hidden", "true")
+    folderIcon.textContent = collapsed ? "folder" : "folder_open"
+    nameCell.appendChild(folderIcon)
+    nameCell.appendChild(document.createTextNode(` ${group}`))
     row.appendChild(nameCell)
+    row.appendChild(document.createElement("td"))
     const actionsCell = document.createElement("td")
     actionsCell.appendChild(this.createActionButton("group-up", "arrow_upward"))
     actionsCell.appendChild(

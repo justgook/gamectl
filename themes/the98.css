@@ -1512,17 +1512,16 @@
         text-align: center;
     }
 
-    td:has(button:nth-of-type(4)) {
-        padding: 4px 4px 0 4px;
+    table.compact-actions > tbody > tr > :last-child:has(> button) {
         text-align: right;
     }
 
-    td:has(button:nth-of-type(4)) > button:has(i) {
-        padding: 0 1px;
+    table.compact-actions > tbody > tr > :is(th, td) > button:has(> i:only-child) {
         min-height: 14px;
+        padding: 0 1px;
     }
 
-    td:has(button:nth-of-type(4)) > button > i {
+    table.compact-actions > tbody > tr > :is(th, td) > button:has(> i:only-child) > i {
         font-size: inherit;
     }
 
