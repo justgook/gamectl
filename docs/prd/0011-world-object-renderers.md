@@ -57,7 +57,8 @@ The World Editor initially represents every World Object as a point. Projects ne
 - Before `draw()`, the World Editor saves canvas state and translates the context to the object's world-space `x`/`y`; it restores canvas state afterward.
 - Renderer bounds use object-local coordinates and must have finite values and positive width and height.
 - The World Editor uses translated renderer bounds for fit-to-content and hit testing.
-- The World Editor owns selection outlines, position anchors, dragging, and draw order.
+- The World Editor owns selection outlines, position anchors, dragging, hover tooltips, and draw order.
+- Hovering a rendered object requests a read-only tip through the `ui.tooltip` UI Service, tracks the renderer's screen-space bounds, and displays at most the first ten object properties.
 - Objects are drawn in stored side-panel order.
 - Renderer failures are fail-fast; malformed configuration, ambiguous matches, invalid bounds, and invalid renderer interfaces are not silently ignored.
 
@@ -106,6 +107,7 @@ Tilemap storage parsing, tileset loading, generated fallback tiles, and layer ra
 - Tilemap rasters are cached by tilemap path and discarded when unused or disposed.
 - The Tilemap Editor and tilemap World Object Renderer share storage parsing, tileset loading, and tile-layer rasterization.
 - Fit-to-content includes custom renderer bounds.
+- Hovering any point, rectangle, sprite, or tilemap object shows no more than ten property rows through `ui.tooltip`.
 - Renderer modules initialize before world loading and dispose with their World Editor.
 - Ambiguous matches and malformed renderer contracts fail loudly.
 

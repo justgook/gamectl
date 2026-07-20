@@ -616,6 +616,9 @@ export class ViewWorld extends ViewCanvasBase {
     this.collapsedGroups = new Set()
     this.rendererRegistry = null
     this.rendererPreparationKey = ""
+    this.hoverObjectId = 0
+    this.hoverTooltipObjectId = 0
+    this.hoverTooltipId = 0
   }
 
   connectedCallback() {
@@ -724,6 +727,7 @@ export class ViewWorld extends ViewCanvasBase {
   }
 
   disconnectedCallback() {
+    this.closeObjectTooltip()
     super.disconnectedCallback()
     if (this.rendererRegistry) this.rendererRegistry.dispose()
     this.rendererRegistry = null
@@ -784,6 +788,9 @@ export class ViewWorld extends ViewCanvasBase {
   }
 
   bindEvents() {
+    this.canvas.addEventListener("wheel", () => this.closeObjectTooltip())
+    this.canvas.addEventListener("mousedown", () => this.closeObjectTooltip())
+
     this.objectsElement.addEventListener("click", async (event) => {
       const actionElement = event.target.closest("[data-action]")
       if (actionElement instanceof HTMLElement) {
@@ -1094,6 +1101,21 @@ export class ViewWorld extends ViewCanvasBase {
     void this.refreshSnapshot("Selection cleared")
   }
 
+  zoomIn() {
+    this.closeObjectTooltip()
+    super.zoomIn()
+  }
+
+  zoomOut() {
+    this.closeObjectTooltip()
+    super.zoomOut()
+  }
+
+  zoomFit() {
+    this.closeObjectTooltip()
+    return super.zoomFit()
+  }
+
   toggleGrid() {
     this.showGrid = !this.showGrid
     const button = this.queryHeader('[data-action="grid"]')
@@ -1137,6 +1159,7 @@ export class ViewWorld extends ViewCanvasBase {
   }
 
   async refreshSnapshot(status, { autoFit = false } = {}) {
+    this.closeObjectTooltip()
     const snapshot = validateSnapshot(this.state.snapshot())
     await this.prepareRenderers(snapshot)
     this.snapshot = snapshot
@@ -1588,14 +1611,24 @@ export class ViewWorld extends ViewCanvasBase {
   }
 
   onCanvasMouseMove(event) {
-    if (!this.objectDrag) return
     const point = this.getWorldPoint(event.clientX, event.clientY)
-    this.state.moveObjectLive(
-      this.objectDrag.editorId,
-      this.objectDrag.startX + point.x - this.objectDrag.pointerX,
-      this.objectDrag.startY + point.y - this.objectDrag.pointerY,
-    )
-    this.refreshLiveSnapshot()
+    if (this.objectDrag) {
+      this.state.moveObjectLive(
+        this.objectDrag.editorId,
+        this.objectDrag.startX + point.x - this.objectDrag.pointerX,
+        this.objectDrag.startY + point.y - this.objectDrag.pointerY,
+      )
+      this.refreshLiveSnapshot()
+      return
+    }
+
+    const object = this.hitTest(point)
+    const nextHoverObjectId = object ? object.editorId : 0
+    if (nextHoverObjectId === this.hoverObjectId) return
+    this.closeObjectTooltip()
+    this.hoverObjectId = nextHoverObjectId
+    this.canvas.style.cursor = object ? "pointer" : "default"
+    if (object) this.openObjectTooltip(object, event)
   }
 
   onCanvasMouseUp(_event) {
@@ -1612,8 +1645,94 @@ export class ViewWorld extends ViewCanvasBase {
   }
 
   onCanvasMouseLeave(event) {
+    this.closeObjectTooltip()
+    if (this.canvas) this.canvas.style.cursor = "default"
     if (!this.objectDrag || (event.buttons & 1) !== 0) return
     this.onCanvasMouseUp(event)
+  }
+
+  objectTooltipContent(object) {
+    const entries = Object.entries(object.props)
+    if (entries.length === 0) return "No properties"
+    return entries
+      .slice(0, 10)
+      .map(([key, value]) => {
+        const cleanKey = key.replaceAll("\n", " ↵ ")
+        const cleanValue = value.replaceAll("\n", " ↵ ")
+        return `${cleanKey}: ${cleanValue}`
+      })
+      .join("\n")
+  }
+
+  objectClientAabb(object) {
+    assert(
+      this.canvas instanceof HTMLCanvasElement,
+      "view-world tooltip requires canvas",
+    )
+    assert(
+      this.rendererRegistry instanceof WorldObjectRendererRegistry,
+      "view-world tooltip requires initialized renderers",
+    )
+    const bounds = this.rendererRegistry.bounds(object)
+    const rect = this.canvas.getBoundingClientRect()
+    const scaleX = rect.width / Math.max(1, this.canvas.width)
+    const scaleY = rect.height / Math.max(1, this.canvas.height)
+    return {
+      kind: "aabb",
+      x:
+        rect.left +
+        ((object.x + bounds.minX) * this.scale + this.offsetX) * scaleX,
+      y:
+        rect.top +
+        ((object.y + bounds.minY) * this.scale + this.offsetY) * scaleY,
+      width: (bounds.maxX - bounds.minX) * this.scale * scaleX,
+      height: (bounds.maxY - bounds.minY) * this.scale * scaleY,
+    }
+  }
+
+  openObjectTooltip(object, event) {
+    const editorId = object.editorId
+    this.hoverTooltipObjectId = editorId
+    void runtime
+      .call("ui.tooltip.tip", {
+        anchor: { kind: "point", x: event.clientX, y: event.clientY },
+        track: this.objectClientAabb(object),
+        trackPadding: 2,
+        followPointer: true,
+        pointerOffsetX: 14,
+        pointerOffsetY: 18,
+        content: this.objectTooltipContent(object),
+        minWidth: 220,
+      })
+      .then((result) => {
+        const payload = unwrap(result, "ui.tooltip.tip")
+        if (this.hoverTooltipObjectId === editorId) {
+          this.hoverTooltipId = Number(payload.id)
+          return
+        }
+        void runtime.call("ui.tooltip.close", {
+          id: payload.id,
+          reason: "stale-world-object-hover",
+        })
+      })
+  }
+
+  closeObjectTooltip() {
+    if (
+      this.hoverObjectId === 0 &&
+      this.hoverTooltipObjectId === 0 &&
+      this.hoverTooltipId <= 0
+    )
+      return
+    const tooltipId = this.hoverTooltipId
+    this.hoverObjectId = 0
+    this.hoverTooltipObjectId = 0
+    this.hoverTooltipId = 0
+    if (tooltipId > 0)
+      void runtime.call("ui.tooltip.close", {
+        id: tooltipId,
+        reason: "view-world-object-hover",
+      })
   }
 
   hitTest(point) {
