@@ -11,11 +11,49 @@ function encodeOK(value) {
     return { ok: value }
 }
 
+const TOAST_POSITIONS = new Set(["primary", "secondary", "modal"])
+
+function assertOptions(input, method, allowedKeys) {
+    if (input == null || typeof input !== "object" || Array.isArray(input)) {
+        throw new Error(`ui.toast.${method} input must be an object`)
+    }
+
+    for (const key of Object.keys(input)) {
+        if (!allowedKeys.has(key)) throw new Error(`ui.toast.${method} does not accept '${key}'`)
+    }
+}
+
+function assertMessage(message, method) {
+    if (typeof message !== "string" || message.trim().length === 0) {
+        throw new Error(`ui.toast.${method} message must be a non-empty string`)
+    }
+}
+
+function assertProgress(progress, method) {
+    if (progress === null) return
+    if (typeof progress !== "number" || !Number.isFinite(progress) || progress < 0 || progress > 1) {
+        throw new Error(`ui.toast.${method} progress must be null or a finite number from 0 through 1`)
+    }
+}
+
+function assertProgressId(id, method) {
+    if (typeof id !== "string" || id.length === 0) {
+        throw new Error(`ui.toast.${method} id must be a non-empty string`)
+    }
+}
+
+function assertDuration(duration, method) {
+    if (!Number.isInteger(duration) || duration < 0) {
+        throw new Error(`ui.toast.${method} duration must be a non-negative integer`)
+    }
+}
+
 export class ToastManager extends HTMLElement {
     constructor() {
         super()
 
         this.observer = null
+        this.progressToasts = new Map()
         this.api = {
             show: async (input) => {
                 this.show(parseOptions(input))
@@ -35,6 +73,23 @@ export class ToastManager extends HTMLElement {
             },
             info: async (input) => {
                 this.show({ ...parseOptions(input), type: "info" })
+                return encodeOK(true)
+            },
+            progressStart: async (input) => encodeOK(this.progressStart(input)),
+            progressUpdate: async (input) => {
+                this.progressUpdate(input)
+                return encodeOK(true)
+            },
+            progressSuccess: async (input) => {
+                this.progressSuccess(input)
+                return encodeOK(true)
+            },
+            progressError: async (input) => {
+                this.progressError(input)
+                return encodeOK(true)
+            },
+            progressClose: async (input) => {
+                this.progressClose(input)
                 return encodeOK(true)
             },
             alert: async (input) => encodeOK(await this.alert(parseOptions(input))),
@@ -115,6 +170,91 @@ export class ToastManager extends HTMLElement {
         return toast
     }
 
+    progressStart(input) {
+        const method = "progressStart"
+        assertOptions(input, method, new Set(["message", "progress", "position"]))
+        assertMessage(input.message, method)
+
+        const progress = Object.hasOwn(input, "progress") ? input.progress : null
+        assertProgress(progress, method)
+
+        const position = Object.hasOwn(input, "position") ? input.position : "modal"
+        if (!TOAST_POSITIONS.has(position)) {
+            throw new Error(`ui.toast.${method} position must be 'primary', 'secondary', or 'modal'`)
+        }
+
+        const id = crypto.randomUUID()
+        const toast = document.createElement("view-toast")
+        toast.setAttribute("type", "info")
+        toast.setAttribute("position", position)
+        toast.setAttribute("duration", "0")
+        toast.setAttribute("mode", "progress")
+        toast.textContent = input.message
+        this.appendChild(toast)
+        toast.setProgress(progress)
+        this.progressToasts.set(id, toast)
+        toast.addEventListener(
+            "toast-closing",
+            () => {
+                this.progressToasts.delete(id)
+            },
+            { once: true },
+        )
+        return { id }
+    }
+
+    progressUpdate(input) {
+        const method = "progressUpdate"
+        assertOptions(input, method, new Set(["id", "message", "progress"]))
+        assertProgressId(input.id, method)
+        if (!Object.hasOwn(input, "message") && !Object.hasOwn(input, "progress")) {
+            throw new Error(`ui.toast.${method} requires message or progress`)
+        }
+        if (Object.hasOwn(input, "message")) assertMessage(input.message, method)
+        if (Object.hasOwn(input, "progress")) assertProgress(input.progress, method)
+
+        const toast = this.getProgressToast(input.id, method)
+        toast.assertActiveProgress(method)
+        if (Object.hasOwn(input, "message")) toast.setMessage(input.message)
+        if (Object.hasOwn(input, "progress")) toast.setProgress(input.progress)
+    }
+
+    progressSuccess(input) {
+        this.finishProgress(input, "progressSuccess", "success", 1000)
+    }
+
+    progressError(input) {
+        this.finishProgress(input, "progressError", "error", 0)
+    }
+
+    finishProgress(input, method, type, defaultDuration) {
+        assertOptions(input, method, new Set(["id", "message", "duration"]))
+        assertProgressId(input.id, method)
+        if (Object.hasOwn(input, "message")) assertMessage(input.message, method)
+        const duration = Object.hasOwn(input, "duration") ? input.duration : defaultDuration
+        assertDuration(duration, method)
+
+        const toast = this.getProgressToast(input.id, method)
+        toast.finishProgress({
+            type,
+            message: Object.hasOwn(input, "message") ? input.message : null,
+            duration,
+        })
+    }
+
+    progressClose(input) {
+        const method = "progressClose"
+        assertOptions(input, method, new Set(["id"]))
+        assertProgressId(input.id, method)
+        this.getProgressToast(input.id, method).close(null)
+    }
+
+    getProgressToast(id, method) {
+        const toast = this.progressToasts.get(id)
+        if (!toast) throw new Error(`ui.toast.${method} references unknown progress id '${id}'`)
+        return toast
+    }
+
     async alert({ message = "", type = "info", buttonText = "OK" } = {}) {
         const toast = document.createElement("view-toast")
         toast.setAttribute("type", type)
@@ -163,13 +303,14 @@ if (!customElements.get("toast-manager")) {
  * Toast Component
  *
  * Individual toast notification with auto-dismiss, hover pause, and action buttons.
- * Supports three modes: toast (simple notification), alert (requires acknowledgment), confirm (yes/no).
+ * Supports four modes: toast (simple notification), alert (requires acknowledgment), confirm (yes/no),
+ * and progress (service-owned indeterminate/determinate operation status).
  *
  * Attributes:
  * - type: 'info' | 'success' | 'warning' | 'error' (default: 'info')
  * - position: 'primary' | 'secondary' | 'modal' (default: 'primary')
  * - duration: number in ms (default: 3000, 0 = no auto-dismiss)
- * - mode: 'toast' | 'alert' | 'confirm' (default: 'toast')
+ * - mode: 'toast' | 'alert' | 'confirm' | 'progress' (default: 'toast')
  */
 
 const TYPE_TO_INTENT = {
@@ -201,6 +342,13 @@ const TOAST_TEMPLATE_HTML = {
       </div>
     </div>
   `,
+    progress: `
+    <div class="toast-container">
+      <span data-element="message"></span>
+      <progress data-element="progress" max="1"></progress>
+      <button part="close" type="button" data-action="close" aria-label="Close" hidden><i style="font-size: inherit;">close</i></button>
+    </div>
+  `,
 }
 
 const TOAST_TEMPLATES = Object.fromEntries(
@@ -225,6 +373,7 @@ export class ViewToast extends HTMLElement {
         this.remainingTime = 0
         this.startTime = 0
         this.isPaused = false
+        this.progressState = null
 
         // Promise resolver for alert/confirm modes
         this._resolve = null
@@ -296,8 +445,7 @@ export class ViewToast extends HTMLElement {
         this.innerHTML = ""
 
         // Apply intent class from type (info→.info, success→.success, error→.danger)
-        const intentClass = TYPE_TO_INTENT[this.type] || "info"
-        this.classList.add(intentClass)
+        this.applyIntent(this.type)
 
         // Set position attribute for CSS
         if (!this.hasAttribute("position")) {
@@ -311,6 +459,15 @@ export class ViewToast extends HTMLElement {
         const messageElement = templateContent.querySelector('[data-element="message"]')
         if (messageElement) {
             messageElement.textContent = message
+        }
+
+        if (this.mode === "progress") {
+            this.progressState = "active"
+            const messageId = `toast-progress-message-${crypto.randomUUID()}`
+            messageElement.id = messageId
+            templateContent.querySelector('[data-element="progress"]').setAttribute("aria-labelledby", messageId)
+            this.setAttribute("role", "status")
+            this.setAttribute("aria-live", "polite")
         }
 
         // Set custom button text if provided
@@ -354,7 +511,7 @@ export class ViewToast extends HTMLElement {
         this.addEventListener("click", (e) => {
             if (e.target.closest('[data-action="close"]')) {
                 e.stopPropagation()
-                this.close(true)
+                this.close(this.mode === "progress" ? null : true)
             }
         })
 
@@ -372,11 +529,9 @@ export class ViewToast extends HTMLElement {
             }
         })
 
-        // Hover pause/resume (only for timed toasts)
-        if (this.duration > 0) {
-            this.addEventListener("mouseenter", () => this.pauseTimer())
-            this.addEventListener("mouseleave", () => this.resetTimer())
-        }
+        // Timed progress toasts acquire a duration only after reaching a terminal state.
+        this.addEventListener("mouseenter", () => this.pauseTimer())
+        this.addEventListener("mouseleave", () => this.resetTimer())
     }
 
     /**
@@ -429,14 +584,14 @@ export class ViewToast extends HTMLElement {
      */
     startTimer() {
         if (this.duration <= 0) return
-        if (this.mode !== "toast") return // No auto-dismiss for alert/confirm
+        if (this.mode !== "toast" && !(this.mode === "progress" && this.progressState !== "active")) return
 
         this.remainingTime = this.duration
         this.startTime = Date.now()
         this.isPaused = false
 
         this.timerId = setTimeout(() => {
-            this.close(true)
+            this.close(this.mode === "progress" ? null : true)
         }, this.remainingTime)
     }
 
@@ -466,7 +621,7 @@ export class ViewToast extends HTMLElement {
         this.startTime = Date.now()
 
         this.timerId = setTimeout(() => {
-            this.close(true)
+            this.close(this.mode === "progress" ? null : true)
         }, this.remainingTime)
     }
 
@@ -482,7 +637,7 @@ export class ViewToast extends HTMLElement {
 
     /**
      * Close the toast with animation
-     * @param {boolean} result - Result to resolve promise with (for alert/confirm)
+     * @param {boolean|null} result - Result to resolve promise with (for alert/confirm)
      */
     close(result = true) {
         if (this.isClosing) return
@@ -527,14 +682,64 @@ export class ViewToast extends HTMLElement {
         }, 200)
     }
 
+    applyIntent(type) {
+        this.classList.remove(...Object.values(TYPE_TO_INTENT))
+        const intentClass = TYPE_TO_INTENT[type]
+        if (!intentClass) throw new Error(`view-toast has invalid type '${type}'`)
+        this.classList.add(intentClass)
+    }
+
+    assertActiveProgress(method) {
+        if (this.mode !== "progress") throw new Error(`ui.toast.${method} target is not progress`)
+        if (this.progressState !== "active") {
+            throw new Error(`ui.toast.${method} cannot update ${this.progressState} progress`)
+        }
+    }
+
+    setProgress(progress) {
+        this.assertActiveProgress("progressUpdate")
+        const progressElement = this.querySelector('[data-element="progress"]')
+        if (!progressElement) throw new Error("progress toast is missing its progress element")
+        if (progress === null) progressElement.removeAttribute("value")
+        else progressElement.value = progress
+    }
+
+    finishProgress({ type, message, duration }) {
+        const method = type === "success" ? "progressSuccess" : "progressError"
+        this.assertActiveProgress(method)
+
+        const progressElement = this.querySelector('[data-element="progress"]')
+        if (!progressElement) throw new Error("progress toast is missing its progress element")
+
+        if (type === "success") {
+            this.setAttribute("role", "status")
+            this.setAttribute("aria-live", "polite")
+            progressElement.value = 1
+        } else {
+            this.setAttribute("role", "alert")
+            this.setAttribute("aria-live", "assertive")
+            if (!progressElement.hasAttribute("value")) progressElement.value = 0
+        }
+        if (message !== null) this.setMessage(message)
+
+        this.progressState = type
+        this.setAttribute("type", type)
+        this.applyIntent(type)
+        this.setAttribute("duration", duration.toString())
+
+        const closeButton = this.querySelector('[data-action="close"]')
+        if (!closeButton) throw new Error("progress toast is missing its close button")
+        closeButton.removeAttribute("hidden")
+        this.startTimer()
+    }
+
     /**
      * Set message content
      */
     setMessage(message) {
         const messageElement = this.querySelector('[data-element="message"]')
-        if (messageElement) {
-            messageElement.textContent = message
-        }
+        if (!messageElement) throw new Error("view-toast is missing its message element")
+        messageElement.textContent = message
     }
 }
 

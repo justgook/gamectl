@@ -57,6 +57,15 @@ Optional elements should appear at most once per view.
 - use `runtime.call('ui.tooltip.autocomplete', ...)` for searchable/selectable completion menus next to pointer, caret, or input positions.
 - views should pass action/item data to `ui.tooltip` and then apply the resolved selection result; do not put context menu rendering, filtering, or keyboard navigation inside individual views.
 
+### Toast flows
+
+- toast notifications should go through `runtime.call('ui.toast.<method>', ...)` instead of views creating toast DOM directly.
+- use `runtime.call('ui.toast.progressStart', ...)` for ongoing work. The returned progress id is opaque and should be used with `progressUpdate`, `progressSuccess`, `progressError`, or `progressClose`.
+- progress values are ratios from `0` through `1`. A `null` progress value represents indeterminate progress.
+- completing or failing progress should transition the existing notification through `progressSuccess` or `progressError`; do not replace it with an unrelated toast.
+- closing progress through `progressClose` dismisses only the notification and does not cancel the underlying operation.
+- views should not create `view-toast` elements directly.
+
 ## Intent
 
 - `.accent` - primary/default emphasis for main actions and highlighted UI state.
@@ -117,6 +126,14 @@ Use context menus for local actions tied to the clicked point/record. Use autoco
 
 - `article.prose` - rendered prose/document text where normal reading flow matters; use for paragraphs, headings, lists, links, and other document-shaped content rather than app controls or structured editor UI.
 - `pre` - preformatted read-only text output for logs, console transcripts, and whitespace-sensitive textual results.
+
+## Progress
+
+- `progress` - native progress indicator.
+- `progress[max="1"][value]` - determinate progress, where `value` is a ratio from `0` through `1`.
+- `progress[max="1"]:not([value])` - indeterminate progress.
+- progress indicators should have an accessible name describing the operation.
+- progress toasts are created and owned by the `ui.toast` UI Service; Core Views should update them through the toast lifecycle API rather than accessing their DOM.
 
 ## File transfer helpers
 

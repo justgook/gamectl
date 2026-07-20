@@ -344,10 +344,28 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     async autoDetectSize() {
         assert(this.sourcePath, "view-tile-extractor requires source path")
+        const { id: progressId } = unwrap(
+            await runtime.call("ui.toast.progressStart", { message: "Detecting tile size..." }),
+            "tile size detection progress start",
+        )
         this.setStatus("Detecting tile size...", "info")
         try {
-            if (!this.sourceBytes) await this.loadSourceImage()
-            const output = unwrap(await runtime.invoke("tile-detect/tile-detect::detect-size", Array.from(this.sourceBytes), 4, 128), "tile size detection")
+            if (!this.sourceBytes) {
+                await runtime.call("ui.toast.progressUpdate", {
+                    id: progressId,
+                    message: "Loading source image...",
+                })
+                await this.loadSourceImage()
+                await runtime.call("ui.toast.progressUpdate", {
+                    id: progressId,
+                    message: "Detecting tile size...",
+                })
+            }
+            assert(this.sourceBytes, "view-tile-extractor requires loaded source bytes")
+            const output = unwrap(
+                await runtime.invoke("tile-detect/tile-detect::detect-size", Array.from(this.sourceBytes), 4, 128),
+                "tile size detection",
+            )
             this.tileW = Number(output["tile-w"])
             this.tileH = Number(output["tile-h"])
             this.requiredInput('[data-field="tile-w"]').value = String(this.tileW)
@@ -355,17 +373,37 @@ export class ViewTileExtractor extends ViewCanvasBase {
             this.setStatus(`Detected ${this.tileW} × ${this.tileH}`, "success")
             this.setResult(`Confidence ${(Number(output.confidence) * 100).toFixed(0)}%`)
             this.draw()
+            await runtime.call("ui.toast.progressSuccess", {
+                id: progressId,
+                message: `Detected tile size ${this.tileW} × ${this.tileH}`,
+            })
         } catch (error) {
+            const message = `Tile size detection failed: ${error?.message || error}`
             this.setStatus(`Detect failed: ${error?.message || error}`, "danger")
+            await runtime.call("ui.toast.progressError", { id: progressId, message })
             throw error
         }
     }
 
     async extractTiles() {
         assert(this.sourcePath, "view-tile-extractor requires source path")
-        if (!this.sourceImage) await this.loadSourceImage()
+        const { id: progressId } = unwrap(
+            await runtime.call("ui.toast.progressStart", { message: "Extracting tiles..." }),
+            "tile extraction progress start",
+        )
         this.setStatus("Extracting tiles...", "info")
         try {
+            if (!this.sourceImage) {
+                await runtime.call("ui.toast.progressUpdate", {
+                    id: progressId,
+                    message: "Loading source image...",
+                })
+                await this.loadSourceImage()
+                await runtime.call("ui.toast.progressUpdate", {
+                    id: progressId,
+                    message: "Extracting tiles...",
+                })
+            }
             assert(this.sourceBytes, "view-tile-extractor requires loaded source bytes")
             const output = unwrap(
                 await runtime.invoke("tile-detect/tile-detect::extract", {
@@ -382,9 +420,16 @@ export class ViewTileExtractor extends ViewCanvasBase {
             this.updateSaveButtons()
             this.draw()
             this.setStatus("Extraction complete", "success")
-            this.setResult(`${output.tilemap.width} × ${output.tilemap.height} map, ${output.tilebank.length} unique tiles`)
+            const result = `${output.tilemap.width} × ${output.tilemap.height} map, ${output.tilebank.length} unique tiles`
+            this.setResult(result)
+            await runtime.call("ui.toast.progressSuccess", {
+                id: progressId,
+                message: `Extraction complete: ${result}`,
+            })
         } catch (error) {
+            const message = `Tile extraction failed: ${error?.message || error}`
             this.setStatus(`Extraction failed: ${error?.message || error}`, "danger")
+            await runtime.call("ui.toast.progressError", { id: progressId, message })
             throw error
         }
     }
