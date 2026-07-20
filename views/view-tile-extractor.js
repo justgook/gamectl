@@ -18,10 +18,6 @@ function assert(condition, message) {
     if (!condition) throw new Error(message)
 }
 
-function escapeHtml(value) {
-    return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;")
-}
-
 function basename(path) {
     const parts = String(path || "")
         .split("/")
@@ -64,13 +60,14 @@ function createCanvasFromQoi(bytes) {
 
 export class ViewTileExtractor extends ViewCanvasBase {
     static get observedAttributes() {
-        return ["data-source", "data-output-dir"]
+        return ["data-source"]
     }
 
     constructor() {
         super()
         this.sourcePath = ""
-        this.outputDir = "tiles"
+        this.tilesetPath = ""
+        this.tilemapPath = ""
         this.tileW = 16
         this.tileH = 16
         this.tolerance = 0
@@ -95,17 +92,10 @@ export class ViewTileExtractor extends ViewCanvasBase {
         this.dataset.ready = "1"
 
         this.sourcePath = String(this.popupProps?.path || this.getAttribute("data-source") || "").trim()
-        this.outputDir = String(this.getAttribute("data-output-dir") || "tiles").trim()
 
         this.innerHTML = `
       <canvas data-element="canvas"></canvas>
       <aside data-element="settings">
-        <fieldset>
-          <legend>Output</legend>
-          <label>Output directory
-            <input type="text" data-field="output-dir" value="${escapeHtml(this.outputDir)}" ${TEXT_INPUT_ATTRS}>
-          </label>
-        </fieldset>
         <fieldset>
           <legend>Tile size</legend>
           <label>Width
@@ -157,13 +147,11 @@ export class ViewTileExtractor extends ViewCanvasBase {
         if (oldValue === newValue) return
         if (name === "data-source") {
             this.sourcePath = String(newValue || "").trim()
-            if (this.dataset.ready && this.sourcePath) void this.loadSourceImage()
+            if (this.dataset.ready) {
+                this.resetOutputPaths()
+                if (this.sourcePath) void this.loadSourceImage()
+            }
             return
-        }
-        if (name === "data-output-dir") {
-            this.outputDir = String(newValue || "").trim()
-            const input = this.querySelector('[data-field="output-dir"]')
-            if (input instanceof HTMLInputElement) input.value = this.outputDir
         }
     }
 
@@ -185,8 +173,16 @@ export class ViewTileExtractor extends ViewCanvasBase {
                 await this.saveTilemapJson()
                 return { ok: true }
             },
+            saveAs: async () => {
+                await this.saveTilemapJsonAs()
+                return { ok: true }
+            },
             saveTileset: async () => {
                 await this.saveTileset()
+                return { ok: true }
+            },
+            saveTilesetAs: async () => {
+                await this.saveTilesetAs()
                 return { ok: true }
             },
             zoomIn: () => this.zoomIn(),
@@ -202,11 +198,13 @@ export class ViewTileExtractor extends ViewCanvasBase {
       <div role="buttongroup" data-element="file-actions">
         <button type="button" data-action="open" aria-label="Open source image" title="Open source image"><i aria-hidden="true">folder_open</i></button>
         <button type="button" data-action="save-tileset" aria-label="Save tileset QOI" title="Save tileset QOI" disabled><i aria-hidden="true">image</i></button>
+        <button type="button" data-action="save-tileset-as" aria-label="Save tileset QOI as" title="Save tileset QOI as" disabled><i aria-hidden="true">image_arrow_up</i></button>
         <button type="button" data-action="save" aria-label="Save tilemap JSON" title="Save tilemap JSON" disabled><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as" aria-label="Save tilemap JSON as" title="Save tilemap JSON as" disabled><i aria-hidden="true">save_as</i></button>
         <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
       </div>
       <div role="buttongroup" data-element="tool-actions">
-        <button type="button" data-action="extract" aria-label="Extract tiles" title="Extract tiles"><i aria-hidden="true">auto_awesome_motion</i></button>
+        <button type="button" data-action="extract" aria-label="Extract tiles" title="Extract tiles"><i aria-hidden="true">play_arrow</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
@@ -216,8 +214,10 @@ export class ViewTileExtractor extends ViewCanvasBase {
     `
         controls.querySelector('[data-action="open"]').addEventListener("click", () => this.open())
         controls.querySelector('[data-action="save-tileset"]').addEventListener("click", () => this.saveTileset())
+        controls.querySelector('[data-action="save-tileset-as"]').addEventListener("click", () => this.saveTilesetAs())
         controls.querySelector('[data-action="reload"]').addEventListener("click", () => this.loadSourceImage())
         controls.querySelector('[data-action="save"]').addEventListener("click", () => this.saveTilemapJson())
+        controls.querySelector('[data-action="save-as"]').addEventListener("click", () => this.saveTilemapJsonAs())
         controls.querySelector('[data-action="extract"]').addEventListener("click", () => this.extractTiles())
         controls.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
         controls.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
@@ -226,12 +226,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
 
     bindControls() {
-        const outputInput = this.requiredInput('[data-field="output-dir"]')
-        outputInput.addEventListener("change", () => {
-            this.outputDir = outputInput.value.trim()
-            assert(this.outputDir, "view-tile-extractor requires output directory")
-        })
-
         this.bindNumberField("tile-w", (value) => {
             this.tileW = value
             this.draw()
@@ -296,6 +290,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
         const selection = await this.chooseSourceImage()
         if (selection.cancelled) return
         this.sourcePath = selection.path
+        this.resetOutputPaths()
         await this.loadSourceImage()
     }
 
@@ -320,6 +315,9 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     async loadSourceImage() {
         assert(this.sourcePath, "view-tile-extractor requires source path")
+        this.extractOutput = null
+        this.renderTilebankPreview()
+        this.updateSaveButtons()
         this.setStatus(`Loading ${this.sourcePath}...`, "info")
         try {
             const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", this.sourcePath), this.sourcePath))
@@ -329,10 +327,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
             this.sourceBytes = bytes
             this.sourceWidth = source.width
             this.sourceHeight = source.height
-            this.extractOutput = null
             this.hoveredTile = { x: -1, y: -1 }
-            this.renderTilebankPreview()
-            this.updateSaveButtons()
             this.setData({ width: source.width, height: source.height }, { autoFit: true })
             this.setStatus(`Loaded ${source.width} × ${source.height}`, "success")
             this.setResult("No extraction performed")
@@ -395,9 +390,26 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
 
     async saveTileset() {
+        assert(this.tilesetPath, "view-tile-extractor save requires tileset path")
+        await this.saveTilesetToPath(this.tilesetPath)
+    }
+
+    async saveTilesetAs() {
         assert(this.extractOutput, "view-tile-extractor requires extraction before saving tileset")
-        const outputPath = `${this.outputDir}/${stem(this.sourcePath)}.tileset.qoi`
-        this.setStatus(`Saving ${outputPath}...`, "info")
+        const path = await this.chooseOutputPath({
+            title: "Save Tileset QOI As",
+            filter: "*.tileset.qoi,*.qoi",
+            defaultName: `${stem(this.sourcePath)}.tileset.qoi`,
+        })
+        if (!path) return
+        await this.saveTilesetToPath(path)
+        this.tilesetPath = path
+        this.updateSaveButtons()
+    }
+
+    async saveTilesetToPath(path) {
+        assert(this.extractOutput, "view-tile-extractor requires extraction before saving tileset")
+        this.setStatus(`Saving ${path}...`, "info")
         try {
             assert(this.sourceBytes, "view-tile-extractor requires loaded source bytes")
             const output = unwrap(
@@ -410,8 +422,8 @@ export class ViewTileExtractor extends ViewCanvasBase {
                 }),
                 "tileset export",
             )
-            unwrap(await runtime.invoke("fs/fs::write-file", outputPath, output.data), outputPath)
-            this.setStatus(`Saved ${outputPath}`, "success")
+            unwrap(await runtime.invoke("fs/fs::write-file", path, output.data), path)
+            this.setStatus(`Saved ${path}`, "success")
             this.setResult(`Tileset ${output.width} × ${output.height}, ${output.cols} × ${output.rows} tiles`)
         } catch (error) {
             this.setStatus(`Save failed: ${error?.message || error}`, "danger")
@@ -420,26 +432,69 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
 
     async saveTilemapJson() {
+        assert(this.tilemapPath, "view-tile-extractor save requires tilemap path")
+        await this.saveTilemapJsonToPath(this.tilemapPath)
+    }
+
+    async saveTilemapJsonAs() {
         assert(this.extractOutput, "view-tile-extractor requires extraction before saving tilemap")
-        const outputPath = `${this.outputDir}/${stem(this.sourcePath)}.tilemap.json`
-        this.setStatus(`Saving ${outputPath}...`, "info")
+        const path = await this.chooseOutputPath({
+            title: "Save Tilemap JSON As",
+            filter: "*.tilemap.json,*.json",
+            defaultName: `${stem(this.sourcePath)}.tilemap.json`,
+        })
+        if (!path) return
+        await this.saveTilemapJsonToPath(path)
+        this.tilemapPath = path
+        this.updateSaveButtons()
+    }
+
+    async saveTilemapJsonToPath(path) {
+        assert(this.extractOutput, "view-tile-extractor requires extraction before saving tilemap")
+        this.setStatus(`Saving ${path}...`, "info")
         try {
             const tilemap = unwrap(await runtime.invoke("tile-detect/tile-detect::to-tilemap", this.extractOutput), "tilemap conversion")
-            unwrap(await runtime.invoke("fs/fs::write-text", outputPath, `${JSON.stringify(tilemap, null, 2)}\n`), outputPath)
-            this.setStatus(`Saved ${outputPath}`, "success")
-            this.setResult(`Tilemap saved to ${outputPath}`)
+            unwrap(await runtime.invoke("fs/fs::write-text", path, `${JSON.stringify(tilemap, null, 2)}\n`), path)
+            this.setStatus(`Saved ${path}`, "success")
+            this.setResult(`Tilemap saved to ${path}`)
         } catch (error) {
             this.setStatus(`Save failed: ${error?.message || error}`, "danger")
             throw error
         }
     }
 
+    async chooseOutputPath({ title, filter, defaultName }) {
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title,
+                size: "medium",
+                tag: "view-files",
+                props: { mode: "saver", filter, defaultName },
+            }),
+            title,
+        )
+        if (!payload || payload.cancelled) return ""
+        const path = typeof payload.path === "string" ? payload.path.trim() : ""
+        assert(path, `view-tile-extractor ${title} requires output path`)
+        return path
+    }
+
+    resetOutputPaths() {
+        this.tilesetPath = ""
+        this.tilemapPath = ""
+        this.updateSaveButtons()
+    }
+
     updateSaveButtons() {
-        const disabled = !this.extractOutput
+        const hasExtraction = this.extractOutput !== null
         const headerSave = this.queryHeaderControl('[data-action="save"]')
-        if (headerSave instanceof HTMLButtonElement) headerSave.disabled = disabled
+        if (headerSave instanceof HTMLButtonElement) headerSave.disabled = !hasExtraction || !this.tilemapPath
+        const headerSaveAs = this.queryHeaderControl('[data-action="save-as"]')
+        if (headerSaveAs instanceof HTMLButtonElement) headerSaveAs.disabled = !hasExtraction
         const headerSaveTileset = this.queryHeaderControl('[data-action="save-tileset"]')
-        if (headerSaveTileset instanceof HTMLButtonElement) headerSaveTileset.disabled = disabled
+        if (headerSaveTileset instanceof HTMLButtonElement) headerSaveTileset.disabled = !hasExtraction || !this.tilesetPath
+        const headerSaveTilesetAs = this.queryHeaderControl('[data-action="save-tileset-as"]')
+        if (headerSaveTilesetAs instanceof HTMLButtonElement) headerSaveTilesetAs.disabled = !hasExtraction
     }
 
     renderTilebankPreview() {
