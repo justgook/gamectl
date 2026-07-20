@@ -73,10 +73,38 @@ The demo Project config registers a rectangle renderer matched by:
 
 A matching object requires string properties for positive numeric `width` and `height`, plus a valid CSS `color`.
 
+The demo Project also registers a sprite renderer matched by:
+
+```json
+{
+  "render": "sprite"
+}
+```
+
+When a matching object has a `url` property, the renderer loads that project file. If `width` and `height` are both absent, it draws the image at its natural dimensions; if provided together, they override the rendered dimensions. Providing only one dimension is invalid. QOI, PNG, JPEG, WebP, GIF, and BMP sources are supported. When the `url` property is absent, the renderer draws a rectangle using required positive numeric `width` and `height` string properties and a valid CSS `color` string property.
+
+The demo Project also registers a tilemap renderer matched by:
+
+```json
+{
+  "render": "tilemap"
+}
+```
+
+A matching object requires a non-empty `tilemap` property containing a project-relative tilemap path. Shared tilemap utilities validate the document, load its tilesets, and rasterize visible layers to an offscreen canvas. The World Object Renderer caches that raster by tilemap path and draws it at the object's world position.
+
+Tilemap storage parsing, tileset loading, generated fallback tiles, and layer rasterization live in `packages/util/tilemap-render.js`. The Tilemap Editor reuses that lower-level functionality while retaining editor-only background, grid, layer emphasis, bounds, selection, and editing behavior.
+
 ## Acceptance criteria
 
 - A world object without a renderer match remains a point.
 - A rectangle object renders at its world position and can be selected and dragged through its rectangle bounds.
+- A sprite object with `url` renders the referenced image at natural dimensions.
+- A sprite object without `url` renders its configured rectangle.
+- Sprite resources are cached by URL and released when no matching object uses them or when the renderer is disposed.
+- A tilemap object renders all stored tilemap layers through an offscreen canvas at its world position.
+- Tilemap rasters are cached by tilemap path and discarded when unused or disposed.
+- The Tilemap Editor and tilemap World Object Renderer share storage parsing, tileset loading, and tile-layer rasterization.
 - Fit-to-content includes custom renderer bounds.
 - Renderer modules initialize before world loading and dispose with their World Editor.
 - Ambiguous matches and malformed renderer contracts fail loudly.

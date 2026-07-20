@@ -626,6 +626,20 @@
                 "render": "rectangle"
               },
               "config": {}
+            },
+            "sprite": {
+              "url": "world-renderers/sprite.js",
+              "match": {
+                "render": "sprite"
+              },
+              "config": {}
+            },
+            "tilemap": {
+              "url": "world-renderers/tilemap.js",
+              "match": {
+                "render": "tilemap"
+              },
+              "config": {}
             }
           }
         }

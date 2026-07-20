@@ -2,6 +2,16 @@ import { runtime, unwrap } from "/core/runtime.js"
 import { UndoHistory } from "/util/undo.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
 import { viewOk } from "/util/view-plugin.js"
+import {
+  DEFAULT_TILE_SIZE,
+  TilemapRasterizer,
+  TilemapTileset,
+  collectTilesetSpecs,
+  createTilemapTilesets,
+  maxTileId,
+  parseTilemapData,
+  tileSizeForTilemap,
+} from "/util/tilemap-render.js"
 
 const TOOL = {
   SELECT: 0,
@@ -86,40 +96,6 @@ function layerDisplayName(layer) {
     : `Layer ${layer.index}`
 }
 
-const GENERATED_TILESET_PALETTE = [
-  "#e6194b",
-  "#3cb44b",
-  "#ffe119",
-  "#4363d8",
-  "#f58231",
-  "#911eb4",
-  "#46f0f0",
-  "#f032e6",
-  "#bcf60c",
-  "#fabebe",
-  "#008080",
-  "#e6beff",
-  "#9a6324",
-  "#fffac8",
-  "#800000",
-  "#aaffc3",
-  "#808000",
-  "#ffd8b1",
-  "#000075",
-  "#808080",
-  "#ffffff",
-  "#000000",
-  "#a9a9ff",
-  "#ff7f50",
-]
-
-const DEFAULT_COLOR_TILESET_SPEC = {
-  name: "colors",
-  path: "generated:colors",
-  columns: 16,
-  firstTileId: 1,
-}
-
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -193,79 +169,24 @@ class TilemapState {
   }
 
   loadTilemapData(path, data) {
-    const tilemap = JSON.parse(data)
-    assert(
-      tilemap && typeof tilemap === "object" && !Array.isArray(tilemap),
-      "tilemap file data must be object JSON",
-    )
-    assert(
-      Array.isArray(tilemap.layers),
-      "tilemap storage data.layers must be array",
-    )
-    assert(
-      tilemap.layers.length > 0,
-      "tilemap storage must contain at least one layer",
-    )
-
+    const tilemap = parseTilemapData(data)
     this.nextLayerId = 1
-    const layers = tilemap.layers.map((layer, index) =>
-      this.parseLayer(layer, index),
-    )
-    const width = Math.max(...layers.map((layer) => layer.width))
-    const height = Math.max(
-      ...layers.map((layer) => Math.ceil(layer.data.length / layer.width)),
-    )
-    assert(
-      Number.isInteger(width) && width > 0,
-      "tilemap storage width must be positive integer",
-    )
-    assert(
-      Number.isInteger(height) && height > 0,
-      "tilemap storage height must be positive integer",
-    )
+    const layers = tilemap.layers.map((layer) => ({
+      ...layer,
+      id: this.allocateLayerId(),
+      hidden: false,
+      data: layer.data.slice(),
+      props: { ...layer.props },
+    }))
 
     this.path = path
     this.name = tilemapNameFromPath(path)
-    this.width = width
-    this.height = height
-    this.props = normalizeStringProps(tilemap.props, "tilemap props")
+    this.width = tilemap.width
+    this.height = tilemap.height
+    this.props = { ...tilemap.props }
     this.layers = layers
     this.activeLayer = 0
     this.activeTile = this.findFirstTile(layers)
-  }
-
-  parseLayer(layer, index) {
-    assert(
-      layer && typeof layer === "object" && !Array.isArray(layer),
-      `tilemap layer ${index} must be object`,
-    )
-    assert(
-      Number.isInteger(layer.width) && layer.width > 0,
-      `tilemap layer ${index}.width must be positive integer`,
-    )
-    assert(
-      Array.isArray(layer.data),
-      `tilemap layer ${index}.data must be array`,
-    )
-    const props = normalizeStringProps(
-      layer.props,
-      `tilemap layer ${index}.props`,
-    )
-    return {
-      id: this.allocateLayerId(),
-      index,
-      hidden: false,
-      width: layer.width,
-      data: layer.data.map((tile, tileIndex) => {
-        const value = Number(tile)
-        assert(
-          Number.isInteger(value),
-          `tilemap layer ${index}.data[${tileIndex}] must be integer-like`,
-        )
-        return value
-      }),
-      props,
-    }
   }
 
   findFirstTile(layers) {
@@ -861,381 +782,6 @@ class TilemapState {
   }
 }
 
-class TilemapTileset {
-  constructor({
-    name,
-    path,
-    tileWidth,
-    tileHeight,
-    firstTileId,
-    columns,
-    rows,
-    tileCount = columns * rows,
-    width,
-    height,
-    pixels = null,
-    canvas = null,
-    colorOnly = false,
-  }) {
-    assert(
-      typeof name === "string" && name.length > 0,
-      "tileset name must be non-empty string",
-    )
-    assert(
-      typeof path === "string" && path.length > 0,
-      "tileset path must be non-empty string",
-    )
-    assert(
-      Number.isInteger(tileWidth) && tileWidth > 0,
-      "tileset tileWidth must be positive integer",
-    )
-    assert(
-      Number.isInteger(tileHeight) && tileHeight > 0,
-      "tileset tileHeight must be positive integer",
-    )
-    assert(Number.isInteger(firstTileId), "tileset firstTileId must be integer")
-    assert(
-      Number.isInteger(columns) && columns > 0,
-      "tileset columns must be positive integer",
-    )
-    assert(
-      Number.isInteger(rows) && rows > 0,
-      "tileset rows must be positive integer",
-    )
-    assert(
-      Number.isInteger(tileCount) &&
-        tileCount > 0 &&
-        tileCount <= columns * rows,
-      "tileset tileCount must fit tileset grid",
-    )
-    this.name = name
-    this.path = path
-    this.tileWidth = tileWidth
-    this.tileHeight = tileHeight
-    this.firstTileId = firstTileId
-    this.columns = columns
-    this.rows = rows
-    this.tileCount = tileCount
-    this.width = width ?? columns * tileWidth
-    this.height = height ?? rows * tileHeight
-    this.pixels = pixels
-    this.canvas = canvas
-    this.colorOnly = colorOnly
-  }
-
-  static createDefault() {
-    return TilemapTileset.createGenerated({ firstTileId: 1, tileCount: 1 })
-  }
-
-  static createGenerated({
-    firstTileId,
-    tileCount = firstTileId,
-    tileWidth = DEFAULT_TILE_WIDTH,
-    tileHeight = DEFAULT_TILE_HEIGHT,
-  }) {
-    assert(
-      Number.isInteger(firstTileId) && firstTileId > 0,
-      "generated tileset first tile id must be positive integer",
-    )
-    assert(
-      Number.isInteger(tileCount) && tileCount > 0,
-      "generated tileset tile count must be positive integer",
-    )
-    assert(
-      Number.isInteger(tileWidth) && tileWidth > 0,
-      "generated tileset tile width must be positive integer",
-    )
-    assert(
-      Number.isInteger(tileHeight) && tileHeight > 0,
-      "generated tileset tile height must be positive integer",
-    )
-    const count = tileCount
-    const columns = TilemapTileset.generatedColumnCount(count)
-    const rows = count / columns
-    const width = columns * tileWidth
-    const height = rows * tileHeight
-    const pixels = new Uint8ClampedArray(width * height * 4)
-    const canvas = document.createElement("canvas")
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext("2d")
-    assert(ctx, "generated tileset requires 2d context")
-
-    for (let tileOffset = 0; tileOffset < count; tileOffset++) {
-      const tile = firstTileId + tileOffset
-      const x = tileOffset % columns
-      const y = Math.floor(tileOffset / columns)
-      TilemapTileset.drawGeneratedTile(
-        ctx,
-        tile,
-        x * tileWidth,
-        y * tileHeight,
-        tileWidth,
-        tileHeight,
-      )
-    }
-
-    const image = ctx.getImageData(0, 0, width, height)
-    pixels.set(image.data)
-    return new TilemapTileset({
-      ...DEFAULT_COLOR_TILESET_SPEC,
-      tileWidth,
-      tileHeight,
-      firstTileId,
-      columns,
-      rows,
-      tileCount: count,
-      width,
-      height,
-      pixels,
-      canvas,
-      colorOnly: true,
-    })
-  }
-
-  static generatedColumnCount(count) {
-    for (
-      let columns = Math.min(DEFAULT_COLOR_TILESET_SPEC.columns, count);
-      columns > 1;
-      columns--
-    ) {
-      if (count % columns === 0) return columns
-    }
-    return count
-  }
-
-  static drawGeneratedTile(ctx, tile, x, y, width, height) {
-    const primary =
-      GENERATED_TILESET_PALETTE[(tile - 1) % GENERATED_TILESET_PALETTE.length]
-    const secondary =
-      GENERATED_TILESET_PALETTE[
-        Math.floor((tile - 1) / GENERATED_TILESET_PALETTE.length) %
-          GENERATED_TILESET_PALETTE.length
-      ]
-    const pattern = Math.floor((tile - 1) / GENERATED_TILESET_PALETTE.length)
-
-    ctx.fillStyle = primary
-    ctx.fillRect(x, y, width, height)
-
-    if (pattern > 0) {
-      ctx.fillStyle = secondary
-      const halfWidth = Math.ceil(width / 2)
-      const halfHeight = Math.ceil(height / 2)
-      if (pattern % 4 === 1) {
-        ctx.fillRect(x, y, halfWidth, height)
-      } else if (pattern % 4 === 2) {
-        ctx.fillRect(x, y, width, halfHeight)
-      } else if (pattern % 4 === 3) {
-        ctx.beginPath()
-        ctx.moveTo(x, y)
-        ctx.lineTo(x + width, y)
-        ctx.lineTo(x, y + height)
-        ctx.closePath()
-        ctx.fill()
-      } else {
-        ctx.fillRect(x + 3, y + 3, width - 6, height - 6)
-      }
-    }
-
-    ctx.strokeStyle = "rgba(0,0,0,0.35)"
-    ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1)
-    ctx.fillStyle = "rgba(255,255,255,0.22)"
-    ctx.fillRect(x + 1, y + 1, width - 2, 2)
-  }
-
-  static async load(spec, firstTileId) {
-    let result
-    try {
-      result = unwrap(await runtime.invoke("fs/fs::read-file", spec.path))
-    } catch (e) {
-      console.warn(`failed to load ${spec.path}; ${e}`)
-    }
-    const image = TilemapTileset.decodeQoi(result)
-    const columns = Math.floor(image.width / spec.tileWidth)
-    const imageRows = Math.floor(image.height / spec.tileHeight)
-    assert(
-      columns > 0 && imageRows > 0,
-      `tileset ${spec.name} image is smaller than tile size`,
-    )
-    const tileCount = spec.count > 0 ? spec.count : columns * imageRows
-    const rows = Math.ceil(tileCount / columns)
-    const canvas = TilemapTileset.createCanvas(image)
-    return new TilemapTileset({
-      ...spec,
-      firstTileId,
-      columns,
-      rows,
-      tileCount,
-      width: image.width,
-      height: image.height,
-      pixels: image.pixels,
-      canvas,
-    })
-  }
-
-  static createCanvas(image) {
-    const canvas = document.createElement("canvas")
-    canvas.width = image.width
-    canvas.height = image.height
-    const ctx = canvas.getContext("2d")
-    assert(ctx, "tileset qoi canvas requires 2d context")
-    ctx.putImageData(
-      new ImageData(image.pixels, image.width, image.height),
-      0,
-      0,
-    )
-    return canvas
-  }
-
-  static decodeQoi(input) {
-    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
-    assert(bytes.length >= 22, "QOI data too short")
-    assert(
-      bytes[0] === 0x71 &&
-        bytes[1] === 0x6f &&
-        bytes[2] === 0x69 &&
-        bytes[3] === 0x66,
-      "tileset image must be QOI",
-    )
-    const width = TilemapTileset.readU32(bytes, 4)
-    const height = TilemapTileset.readU32(bytes, 8)
-    const channels = bytes[12]
-    const colorspace = bytes[13]
-    assert(width > 0 && height > 0, "QOI width and height must be positive")
-    assert(channels === 3 || channels === 4, "QOI channels must be 3 or 4")
-    assert(
-      colorspace === 0 || colorspace === 1,
-      "QOI colorspace must be 0 or 1",
-    )
-
-    const pixels = new Uint8ClampedArray(width * height * 4)
-    const index = Array.from({ length: 64 }, () => [0, 0, 0, 0])
-    let r = 0
-    let g = 0
-    let b = 0
-    let a = 255
-    let p = 14
-    let px = 0
-
-    while (px < pixels.length) {
-      const b1 = bytes[p++]
-      assert(Number.isInteger(b1), "QOI stream ended before all pixels decoded")
-
-      if (b1 === 0xfe) {
-        r = bytes[p++]
-        g = bytes[p++]
-        b = bytes[p++]
-      } else if (b1 === 0xff) {
-        r = bytes[p++]
-        g = bytes[p++]
-        b = bytes[p++]
-        a = bytes[p++]
-      } else {
-        const tag = b1 & 0xc0
-        if (tag === 0x00) {
-          const cached = index[b1]
-          r = cached[0]
-          g = cached[1]
-          b = cached[2]
-          a = cached[3]
-        } else if (tag === 0x40) {
-          r = (r + ((b1 >> 4) & 0x03) - 2) & 0xff
-          g = (g + ((b1 >> 2) & 0x03) - 2) & 0xff
-          b = (b + (b1 & 0x03) - 2) & 0xff
-        } else if (tag === 0x80) {
-          const b2 = bytes[p++]
-          assert(Number.isInteger(b2), "QOI LUMA missing second byte")
-          const dg = (b1 & 0x3f) - 32
-          r = (r + dg - 8 + ((b2 >> 4) & 0x0f)) & 0xff
-          g = (g + dg) & 0xff
-          b = (b + dg - 8 + (b2 & 0x0f)) & 0xff
-        } else {
-          const run = (b1 & 0x3f) + 1
-          for (let i = 0; i < run; i++) {
-            pixels[px++] = r
-            pixels[px++] = g
-            pixels[px++] = b
-            pixels[px++] = a
-          }
-          continue
-        }
-      }
-
-      index[TilemapTileset.colorHash(r, g, b, a)] = [r, g, b, a]
-      pixels[px++] = r
-      pixels[px++] = g
-      pixels[px++] = b
-      pixels[px++] = a
-    }
-
-    return { width, height, channels, colorspace, pixels }
-  }
-
-  static readU32(bytes, offset) {
-    return (
-      ((bytes[offset] << 24) >>> 0) +
-      (bytes[offset + 1] << 16) +
-      (bytes[offset + 2] << 8) +
-      bytes[offset + 3]
-    )
-  }
-
-  static colorHash(r, g, b, a) {
-    return (r * 3 + g * 5 + b * 7 + a * 11) % 64
-  }
-
-  containsTile(tile) {
-    return tile >= this.firstTileId && tile < this.firstTileId + this.tileCount
-  }
-
-  drawTile(ctx, tile, dx, dy, width, height) {
-    assert(
-      ctx instanceof CanvasRenderingContext2D,
-      "tileset drawTile requires 2d context",
-    )
-    assert(Number.isInteger(tile), "tileset drawTile tile must be integer")
-    assert(
-      this.containsTile(tile),
-      `tileset ${this.name} does not contain tile ${tile}`,
-    )
-    assert(
-      this.canvas instanceof HTMLCanvasElement,
-      `tileset ${this.name} missing render canvas`,
-    )
-    const localTile = tile - this.firstTileId
-    const sx = (localTile % this.columns) * this.tileWidth
-    const sy = Math.floor(localTile / this.columns) * this.tileHeight
-    ctx.drawImage(
-      this.canvas,
-      sx,
-      sy,
-      this.tileWidth,
-      this.tileHeight,
-      dx,
-      dy,
-      width,
-      height,
-    )
-  }
-
-  getData() {
-    return {
-      name: this.name,
-      path: this.path,
-      tileWidth: this.tileWidth,
-      tileHeight: this.tileHeight,
-      firstTileId: this.firstTileId,
-      columns: this.columns,
-      rows: this.rows,
-      tileCount: this.tileCount,
-      width: this.width,
-      height: this.height,
-      pixels: this.pixels,
-      colorOnly: this.colorOnly,
-    }
-  }
-}
-
 function validateSnapshot(snapshot) {
   assert(
     snapshot && typeof snapshot === "object" && !Array.isArray(snapshot),
@@ -1822,9 +1368,8 @@ export class ViewTilemap extends ViewCanvasBase {
       reloadTilesetsButton instanceof HTMLButtonElement,
       "view-tilemap missing reload tilesets control",
     )
-    reloadTilesetsButton.addEventListener(
-      "click",
-      async () => this.reloadTilesets(),
+    reloadTilesetsButton.addEventListener("click", async () =>
+      this.reloadTilesets(),
     )
 
     this.layersElement.addEventListener("click", async (event) => {
@@ -2561,77 +2106,15 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async createTilesetsForSnapshot(snapshot) {
-    const specs = this.collectTilesetSpecs(snapshot)
-    const maxTileId = this.maxTileId(snapshot)
-    const tileSize = this.tileSizeForSnapshot(snapshot)
-    if (specs.length === 0)
-      return [
-        TilemapTileset.createGenerated({
-          firstTileId: 1,
-          tileCount: Math.max(1, maxTileId),
-          tileWidth: tileSize,
-          tileHeight: tileSize,
-        }),
-      ]
-
-    let firstTileId = 1
-    const tilesets = []
-    for (const spec of specs) {
-      const tileset = await TilemapTileset.load(
-        { ...spec, tileWidth: tileSize, tileHeight: tileSize },
-        firstTileId,
-      )
-      tilesets.push(tileset)
-      firstTileId += tileset.tileCount
-    }
-    if (maxTileId >= firstTileId)
-      tilesets.push(
-        TilemapTileset.createGenerated({
-          firstTileId,
-          tileCount: maxTileId - firstTileId + 1,
-          tileWidth: tileSize,
-          tileHeight: tileSize,
-        }),
-      )
-    return tilesets
+    return await createTilemapTilesets(snapshot)
   }
 
   maxTileId(snapshot) {
-    let maxTile = 0
-    for (const layer of snapshot.layers) {
-      for (const tile of layer.data) {
-        if (tile > maxTile) maxTile = tile
-      }
-    }
-    return maxTile
+    return maxTileId(snapshot)
   }
 
   collectTilesetSpecs(snapshot) {
-    const mapTilesets = snapshot.props?.tilesets
-    if (typeof mapTilesets !== "string" || mapTilesets.length === 0) return []
-    const parsed = JSON.parse(mapTilesets)
-    assert(
-      Array.isArray(parsed),
-      "view-tilemap props.tilesets must be JSON array",
-    )
-    return parsed.map((entry) =>
-      this.normalizeTilesetSpec(entry, snapshot.props),
-    )
-  }
-
-  normalizeTilesetSpec(entry, props) {
-    assert(
-      entry && typeof entry === "object" && !Array.isArray(entry),
-      "view-tilemap tileset entry must be object",
-    )
-    const file = String(entry.file ?? entry.path ?? entry.url ?? "")
-    assert(file.length > 0, "view-tilemap tileset entry requires file")
-    const name = String(entry.name || this.nameFromTilesetPath(file))
-    const count =
-      entry.count == null
-        ? 0
-        : this.parsePositiveInt(entry.count, "tileset count")
-    return { name, path: file, count }
+    return collectTilesetSpecs(snapshot)
   }
 
   nameFromTilesetPath(path) {
@@ -2640,20 +2123,8 @@ export class ViewTilemap extends ViewCanvasBase {
     return file.replace(/\.[^.]+$/, "") || "tileset"
   }
 
-  parsePositiveInt(value, label) {
-    const parsed = Number.parseInt(String(value), 10)
-    assert(
-      Number.isInteger(parsed) && parsed > 0,
-      `view-tilemap ${label} must be positive integer`,
-    )
-    return parsed
-  }
-
   tileSizeForSnapshot(snapshot) {
-    return this.parsePositiveInt(
-      snapshot.props?.tileSize ?? DEFAULT_TILE_WIDTH,
-      "tile size",
-    )
+    return tileSizeForTilemap(snapshot)
   }
 
   applyTileSize(snapshot) {
@@ -2977,7 +2448,8 @@ export class ViewTilemap extends ViewCanvasBase {
       Math.min(TILESET_MAX_SCALE, viewport.scale),
     )
     const scaledWidth = this.tilesetRender.layoutWidth(tileset) * viewport.scale
-    const scaledHeight = this.tilesetRender.layoutHeight(tileset) * viewport.scale
+    const scaledHeight =
+      this.tilesetRender.layoutHeight(tileset) * viewport.scale
 
     if (scaledWidth <= canvas.width) {
       viewport.offsetX = (canvas.width - scaledWidth) / 2
@@ -3718,81 +3190,57 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 }
 
-const DEFAULT_TILE_WIDTH = 16
-const DEFAULT_TILE_HEIGHT = 16
-const DEFAULT_LAYER_COLORS = [
-  "#7aa2ff",
-  "#3ddc97",
-  "#ffcc66",
-  "#ff5c7a",
-  "#5bd6ff",
-]
-
 class TilemapRender {
   constructor({
-    tileWidth = DEFAULT_TILE_WIDTH,
-    tileHeight = DEFAULT_TILE_HEIGHT,
-    layerColors = DEFAULT_LAYER_COLORS,
+    tileWidth = DEFAULT_TILE_SIZE,
+    tileHeight = DEFAULT_TILE_SIZE,
   } = {}) {
-    assert(
-      Number.isInteger(tileWidth) && tileWidth > 0,
-      "tilemap render tileWidth must be positive integer",
-    )
-    assert(
-      Number.isInteger(tileHeight) && tileHeight > 0,
-      "tilemap render tileHeight must be positive integer",
-    )
-    assert(
-      Array.isArray(layerColors) && layerColors.length > 0,
-      "tilemap render layerColors must be non-empty array",
-    )
-    this.tileWidth = tileWidth
-    this.tileHeight = tileHeight
-    this.layerColors = layerColors
-    this.tilesets = [TilemapTileset.createDefault()]
+    this.rasterizer = new TilemapRasterizer({ tileWidth, tileHeight })
+  }
+
+  get tileWidth() {
+    return this.rasterizer.tileWidth
+  }
+
+  set tileWidth(value) {
+    this.rasterizer.tileWidth = value
+  }
+
+  get tileHeight() {
+    return this.rasterizer.tileHeight
+  }
+
+  set tileHeight(value) {
+    this.rasterizer.tileHeight = value
   }
 
   setTilesets(tilesets) {
-    assert(Array.isArray(tilesets), "tilemap render tilesets must be array")
-    this.tilesets =
-      tilesets.length > 0 ? tilesets : [TilemapTileset.createDefault()]
+    this.rasterizer.setTilesets(tilesets)
   }
 
   calculateContentBounds(snapshot) {
-    this.validateSnapshotShape(snapshot)
-    return {
-      minX: 0,
-      minY: 0,
-      maxX: snapshot.width * this.tileWidth,
-      maxY: snapshot.height * this.tileHeight,
-    }
+    return this.rasterizer.bounds(snapshot)
+  }
+
+  findTileset(tile) {
+    return this.rasterizer.findTileset(tile)
   }
 
   draw(ctx, { snapshot, selectedLayerIndexes, showGrid, scale }) {
     assert(
-      ctx instanceof CanvasRenderingContext2D,
-      "tilemap render requires 2d context",
-    )
-    this.validateSnapshotShape(snapshot)
-    assert(
       selectedLayerIndexes instanceof Set,
-      "tilemap render selectedLayerIndexes must be a Set",
+      "tilemap render selectedLayerIndexes must be Set",
     )
-    assert(
-      typeof showGrid === "boolean",
-      "tilemap render showGrid must be boolean",
-    )
-    assert(
-      Number.isFinite(scale) && scale > 0,
-      "tilemap render scale must be positive number",
-    )
-
     const widthPx = snapshot.width * this.tileWidth
     const heightPx = snapshot.height * this.tileHeight
-
     ctx.save()
     this.drawBackground(ctx, snapshot, widthPx, heightPx)
-    this.drawLayers(ctx, snapshot, selectedLayerIndexes)
+    this.rasterizer.draw(ctx, snapshot, {
+      layerAlpha: (layer) =>
+        selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index)
+          ? 1
+          : 0.24,
+    })
     if (showGrid) this.drawGrid(ctx, snapshot, widthPx, heightPx, scale)
     this.drawBounds(ctx, widthPx, heightPx, scale)
     ctx.restore()
@@ -3801,11 +3249,9 @@ class TilemapRender {
   drawBackground(ctx, snapshot, widthPx, heightPx) {
     ctx.fillStyle = "#18212b"
     ctx.fillRect(0, 0, widthPx, heightPx)
-
     for (let y = 0; y < snapshot.height; y++) {
       for (let x = 0; x < snapshot.width; x++) {
-        const parity = (x + y) % 2
-        ctx.fillStyle = parity ? "#243244" : "#202c3b"
+        ctx.fillStyle = (x + y) % 2 ? "#243244" : "#202c3b"
         ctx.fillRect(
           x * this.tileWidth,
           y * this.tileHeight,
@@ -3814,44 +3260,6 @@ class TilemapRender {
         )
       }
     }
-  }
-
-  drawLayers(ctx, snapshot, selectedLayerIndexes) {
-    for (const layer of snapshot.layers) {
-      if (layer.hidden) continue
-      const layerAlpha =
-        selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index)
-          ? 1
-          : 0.24
-      ctx.globalAlpha = layerAlpha
-      const inset = 0
-      for (let tileIndex = 0; tileIndex < layer.data.length; tileIndex++) {
-        const tile = layer.data[tileIndex]
-        if (tile === 0) continue
-        const x = tileIndex % layer.width
-        const y = Math.floor(tileIndex / layer.width)
-        if (x >= snapshot.width || y >= snapshot.height) continue
-        this.drawTile(
-          ctx,
-          tile,
-          layer,
-          x * this.tileWidth,
-          y * this.tileHeight,
-          inset,
-        )
-      }
-    }
-    ctx.globalAlpha = 1
-  }
-
-  drawTile(ctx, tile, _layer, dx, dy, _inset) {
-    const tileset = this.findTileset(tile)
-    assert(tileset, `tilemap render missing tileset for tile ${tile}`)
-    tileset.drawTile(ctx, tile, dx, dy, this.tileWidth, this.tileHeight)
-  }
-
-  findTileset(tile) {
-    return this.tilesets.find((tileset) => tileset.containsTile(tile)) || null
   }
 
   drawGrid(ctx, snapshot, widthPx, heightPx, scale) {
@@ -3873,39 +3281,6 @@ class TilemapRender {
     ctx.strokeStyle = "#ffcc66"
     ctx.lineWidth = 2 / scale
     ctx.strokeRect(0, 0, widthPx, heightPx)
-  }
-
-  validateSnapshotShape(snapshot) {
-    assert(
-      snapshot && typeof snapshot === "object" && !Array.isArray(snapshot),
-      "tilemap render snapshot must be an object",
-    )
-    assert(
-      Number.isInteger(snapshot.width) && snapshot.width > 0,
-      "tilemap render snapshot.width must be positive integer",
-    )
-    assert(
-      Number.isInteger(snapshot.height) && snapshot.height > 0,
-      "tilemap render snapshot.height must be positive integer",
-    )
-    assert(
-      Array.isArray(snapshot.layers),
-      "tilemap render snapshot.layers must be array",
-    )
-    for (const layer of snapshot.layers) {
-      assert(
-        Number.isInteger(layer.index),
-        "tilemap render layer.index must be integer",
-      )
-      assert(
-        Number.isInteger(layer.width) && layer.width > 0,
-        "tilemap render layer.width must be positive integer",
-      )
-      assert(
-        Array.isArray(layer.data),
-        "tilemap render layer.data must be array",
-      )
-    }
   }
 }
 
