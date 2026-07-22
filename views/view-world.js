@@ -641,6 +641,7 @@ export class ViewWorld extends ViewCanvasBase {
     this.hoverTooltipId = 0
     this.invertX = false
     this.invertY = false
+    this.syncingDataSource = false
   }
 
   connectedCallback() {
@@ -919,7 +920,21 @@ export class ViewWorld extends ViewCanvasBase {
     if (oldValue === newValue) return
     if (name === "data-source" && this.dataset.ready) {
       const source = String(newValue || "").trim()
-      if (source) void this.loadDataSource(source)
+      if (source && !this.syncingDataSource) void this.loadDataSource(source)
+    }
+  }
+
+  syncDataSource(path) {
+    assert(
+      typeof path === "string" && path.length > 0,
+      "view-world data-source path must be non-empty",
+    )
+    if (this.getAttribute("data-source") === path) return
+    this.syncingDataSource = true
+    try {
+      this.setAttribute("data-source", path)
+    } finally {
+      this.syncingDataSource = false
     }
   }
 
@@ -955,6 +970,7 @@ export class ViewWorld extends ViewCanvasBase {
     this.rendererPreparationKey = ""
     await this.writeWorldFile(target.path, `${this.state.toStorageData()}\n`)
     this.state.save(target.path)
+    this.syncDataSource(target.path)
     await this.refreshSnapshot(`Created ${target.path}`, { autoFit: true })
     await runtime.call("ui.toast.success", {
       message: `Created world ${target.path}`,
@@ -988,6 +1004,7 @@ export class ViewWorld extends ViewCanvasBase {
     )
     const data = unwrap(await runtime.invoke("fs/fs::read-text", path))
     this.state.open(path, data)
+    this.syncDataSource(path)
     this.objectDrag = null
     this.rendererPreparationKey = ""
     this.collapsedGroups.clear()
@@ -1039,6 +1056,7 @@ export class ViewWorld extends ViewCanvasBase {
   async saveToPath(path) {
     await this.writeWorldFile(path, `${this.state.toStorageData()}\n`)
     this.state.save(path)
+    this.syncDataSource(path)
   }
 
   async writeWorldFile(path, data) {

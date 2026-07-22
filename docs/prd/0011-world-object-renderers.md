@@ -74,6 +74,8 @@ The demo Project config registers a rectangle renderer matched by:
 
 A matching object requires string properties for positive numeric `width` and `height`, plus a valid CSS `color`.
 
+The demo rectangle, sprite, and tilemap renderers accept an optional `config.origin` tuple. Its two finite values are normalized X/Y positions from `0` through `1` within the rendered bounds: `[0, 0]` is top-left, `[0.5, 0.5]` is center, and `[0, 1]` is bottom-left. The World Object's `x`/`y` position identifies that origin point. Omitting `origin` preserves the top-left default.
+
 The demo Project also registers a sprite renderer matched by:
 
 ```json
@@ -102,6 +104,7 @@ Tilemap storage parsing, tileset loading, generated fallback tiles, and layer ra
 - A rectangle object renders at its world position and can be selected and dragged through its rectangle bounds.
 - A sprite object with `url` renders the referenced image at natural dimensions.
 - A sprite object without `url` renders its configured rectangle.
+- Demo renderer origins offset drawing, bounds, hit testing, selection, and fit-to-content while preserving the World Object's stored position.
 - Sprite resources are cached by URL and released when no matching object uses them or when the renderer is disposed.
 - A tilemap object renders all stored tilemap layers through an offscreen canvas at its world position.
 - Tilemap rasters are cached by tilemap path and discarded when unused or disposed.

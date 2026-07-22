@@ -5,6 +5,22 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
+function parseOrigin(config) {
+  const origin = config.origin
+  if (origin === undefined) return [0, 0]
+  assert(
+    Array.isArray(origin) && origin.length === 2,
+    "sprite renderer config.origin must be [x, y]",
+  )
+  for (const [index, value] of origin.entries()) {
+    assert(
+      Number.isFinite(value) && value >= 0 && value <= 1,
+      `sprite renderer config.origin[${index}] must be between 0 and 1`,
+    )
+  }
+  return [...origin]
+}
+
 function extension(path) {
   const name = path.split("/").pop()
   assert(name, "sprite renderer URL must contain filename")
@@ -125,6 +141,7 @@ export function createWorldObjectRenderer({ config }) {
     config && typeof config === "object" && !Array.isArray(config),
     "sprite renderer config must be an object",
   )
+  const origin = parseOrigin(config)
   const sources = new Map()
 
   return {
@@ -176,16 +193,24 @@ export function createWorldObjectRenderer({ config }) {
         assert(source, `sprite renderer image not prepared: ${url}`)
         const image = imageData(object, source)
         ctx.imageSmoothingEnabled = false
-        ctx.drawImage(image.source, 0, 0, image.width, image.height)
+        ctx.drawImage(
+          image.source,
+          -image.width * origin[0],
+          -image.height * origin[1],
+          image.width,
+          image.height,
+        )
         return
       }
 
       const rectangle = rectangleData(object)
+      const x = -rectangle.width * origin[0]
+      const y = -rectangle.height * origin[1]
       ctx.fillStyle = rectangle.color
-      ctx.fillRect(0, 0, rectangle.width, rectangle.height)
+      ctx.fillRect(x, y, rectangle.width, rectangle.height)
       ctx.strokeStyle = "rgba(255,255,255,0.9)"
       ctx.lineWidth = 1 / frame.scale
-      ctx.strokeRect(0, 0, rectangle.width, rectangle.height)
+      ctx.strokeRect(x, y, rectangle.width, rectangle.height)
     },
 
     bounds(object) {
@@ -194,14 +219,23 @@ export function createWorldObjectRenderer({ config }) {
         const source = sources.get(url)
         assert(source, `sprite renderer image not prepared: ${url}`)
         const image = imageData(object, source)
-        return { minX: 0, minY: 0, maxX: image.width, maxY: image.height }
+        const minX = -image.width * origin[0]
+        const minY = -image.height * origin[1]
+        return {
+          minX,
+          minY,
+          maxX: minX + image.width,
+          maxY: minY + image.height,
+        }
       }
       const rectangle = rectangleData(object)
+      const minX = -rectangle.width * origin[0]
+      const minY = -rectangle.height * origin[1]
       return {
-        minX: 0,
-        minY: 0,
-        maxX: rectangle.width,
-        maxY: rectangle.height,
+        minX,
+        minY,
+        maxX: minX + rectangle.width,
+        maxY: minY + rectangle.height,
       }
     },
 

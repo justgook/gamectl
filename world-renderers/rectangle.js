@@ -2,6 +2,22 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
+function parseOrigin(config) {
+  const origin = config.origin
+  if (origin === undefined) return [0, 0]
+  assert(
+    Array.isArray(origin) && origin.length === 2,
+    "rectangle renderer config.origin must be [x, y]",
+  )
+  for (const [index, value] of origin.entries()) {
+    assert(
+      Number.isFinite(value) && value >= 0 && value <= 1,
+      `rectangle renderer config.origin[${index}] must be between 0 and 1`,
+    )
+  }
+  return [...origin]
+}
+
 function rectangleData(object) {
   const width = Number(object.props.width)
   const height = Number(object.props.height)
@@ -31,6 +47,8 @@ export function createWorldObjectRenderer({ config }) {
     "rectangle renderer config must be an object",
   )
 
+  const origin = parseOrigin(config)
+
   return {
     async prepare(objects) {
       assert(Array.isArray(objects), "rectangle renderer objects must be array")
@@ -47,20 +65,24 @@ export function createWorldObjectRenderer({ config }) {
         "rectangle renderer frame.scale must be positive",
       )
       const rectangle = rectangleData(object)
+      const x = -rectangle.width * origin[0]
+      const y = -rectangle.height * origin[1]
       ctx.fillStyle = rectangle.color
-      ctx.fillRect(0, 0, rectangle.width, rectangle.height)
+      ctx.fillRect(x, y, rectangle.width, rectangle.height)
       ctx.strokeStyle = "rgba(255,255,255,0.9)"
       ctx.lineWidth = 1 / frame.scale
-      ctx.strokeRect(0, 0, rectangle.width, rectangle.height)
+      ctx.strokeRect(x, y, rectangle.width, rectangle.height)
     },
 
     bounds(object) {
       const rectangle = rectangleData(object)
+      const minX = -rectangle.width * origin[0]
+      const minY = -rectangle.height * origin[1]
       return {
-        minX: 0,
-        minY: 0,
-        maxX: rectangle.width,
-        maxY: rectangle.height,
+        minX,
+        minY,
+        maxX: minX + rectangle.width,
+        maxY: minY + rectangle.height,
       }
     },
 

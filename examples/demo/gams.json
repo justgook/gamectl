@@ -110,7 +110,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"CYBERPUNK/level.ng.json\" />"
+          "layout": "<view-world data-source=\"catalog/world/level.world.json\" />"
         }
       }
     },
@@ -635,14 +635,18 @@
               "match": {
                 "render": "sprite"
               },
-              "config": {}
+              "config": {
+                "origin": [0.5, 0.5]
+              }
             },
             "tilemap": {
               "url": "world-renderers/tilemap.js",
               "match": {
                 "render": "tilemap"
               },
-              "config": {}
+              "config": {
+                "origin": [0, 1]
+              }
             }
           }
         }
