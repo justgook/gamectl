@@ -65,6 +65,11 @@ function objectGroup(object) {
   return object.props.group || ""
 }
 
+function objectLocked(object) {
+  const value = object.props.lock || ""
+  return value !== "" && value !== "0" && value !== "false"
+}
+
 function objectDisplayName(object, index) {
   const name = object.props.name || object.props.id
   return name || `Object ${index + 1}`
@@ -1812,6 +1817,7 @@ export class ViewWorld extends ViewCanvasBase {
     const anchorRadiusSquared = anchorRadius * anchorRadius
     for (let index = this.state.objects.length - 1; index >= 0; index--) {
       const object = this.state.objects[index]
+      if (objectLocked(object)) continue
       const bounds = this.rendererRegistry.bounds(object)
       const canvasPoint = this.projectToCanvasPoint(point)
       const anchor = this.projectToCanvasPoint(object)

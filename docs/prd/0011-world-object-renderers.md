@@ -59,6 +59,7 @@ The World Editor initially represents every World Object as a point. Projects ne
 - The World Editor uses translated renderer bounds for fit-to-content and hit testing.
 - The World Editor owns selection outlines, position anchors, dragging, hover tooltips, and draw order.
 - Hovering a rendered object requests a read-only tip through the `ui.tooltip` UI Service, tracks the renderer's screen-space bounds, and displays at most the first ten object properties.
+- A World Object is locked when its string `lock` property is present with any value other than `""`, `"0"`, or `"false"`; locked objects are excluded from canvas hit testing but remain selectable from the Objects sidebar.
 - Objects are drawn in stored side-panel order.
 - Renderer failures are fail-fast; malformed configuration, ambiguous matches, invalid bounds, and invalid renderer interfaces are not silently ignored.
 
@@ -110,7 +111,8 @@ Tilemap storage parsing, tileset loading, generated fallback tiles, and layer ra
 - Tilemap rasters are cached by tilemap path and discarded when unused or disposed.
 - The Tilemap Editor and tilemap World Object Renderer share storage parsing, tileset loading, and tile-layer rasterization.
 - Fit-to-content includes custom renderer bounds.
-- Hovering any point, rectangle, sprite, or tilemap object shows no more than ten property rows through `ui.tooltip`.
+- Hovering any unlocked point, rectangle, sprite, or tilemap object shows no more than ten property rows through `ui.tooltip`.
+- Locked objects remain selectable from the Objects sidebar but cannot be selected, dragged, or inspected by tooltip through the canvas.
 - Renderer modules initialize before world loading and dispose with their World Editor.
 - Ambiguous matches and malformed renderer contracts fail loudly.
 
