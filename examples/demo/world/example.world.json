@@ -1,67 +1,53 @@
-{
-  "objects": [
-    {
-      "x": 0,
-      "y": 0,
-      "props": {
-        "name": "Origin"
-      }
-    },
-    {
-      "x": 32,
-      "y": 16,
-      "props": {
-        "name": "Platform",
-        "group": "Geometry",
-        "render": "rectangle",
-        "width": "64",
-        "height": "16",
-        "color": "#7aa2ff"
-      }
-    },
-    {
-      "x": 112,
-      "y": 48,
-      "props": {
-        "name": "Trigger",
-        "group": "Geometry",
-        "render": "rectangle",
-        "width": "24",
-        "height": "32",
-        "color": "#ffcc66"
-      }
-    },
-    {
-      "x": 32,
-      "y": 64,
-      "props": {
-        "name": "Flowers",
-        "group": "Sprites",
-        "render": "sprite",
-        "url": "markov-junior/resources/samples/Flowers.png"
-      }
-    },
-    {
-      "x": 64,
-      "y": 64,
-      "props": {
-        "name": "Missing Art",
-        "group": "Sprites",
-        "render": "sprite",
-        "width": "24",
-        "height": "24",
-        "color": "#ff5c7a"
-      }
-    },
-    {
-      "x": 160,
-      "y": 16,
-      "props": {
-        "name": "Path Tilemap",
-        "group": "Tilemaps",
-        "render": "tilemap",
-        "tilemap": "pipe/markov-apply/path-input.tilemap.json"
-      }
-    }
-  ]
-}
+[
+  {
+    "x": 0,
+    "y": 0,
+    "name": "Origin"
+  },
+  {
+    "x": 32,
+    "y": 16,
+    "name": "Platform",
+    "group": "Geometry",
+    "render": "rectangle",
+    "width": 64,
+    "height": 16,
+    "color": "#7aa2ff"
+  },
+  {
+    "x": 112,
+    "y": 48,
+    "name": "Trigger",
+    "group": "Geometry",
+    "render": "rectangle",
+    "width": 24,
+    "height": 32,
+    "color": "#ffcc66"
+  },
+  {
+    "x": 32,
+    "y": 64,
+    "name": "Flowers",
+    "group": "Sprites",
+    "render": "sprite",
+    "url": "markov-junior/resources/samples/Flowers.png"
+  },
+  {
+    "x": 64,
+    "y": 64,
+    "name": "Missing Art",
+    "group": "Sprites",
+    "render": "sprite",
+    "width": 24,
+    "height": 24,
+    "color": "#ff5c7a"
+  },
+  {
+    "x": 160,
+    "y": 16,
+    "name": "Path Tilemap",
+    "group": "Tilemaps",
+    "render": "tilemap",
+    "tilemap": "pipe/markov-apply/path-input.tilemap.json"
+  }
+]

@@ -34,6 +34,10 @@ The World Editor initially represents every World Object as a point. Projects ne
 
 ## Requirements
 
+- A world file is a top-level JSON array of World Objects in draw order.
+- Every stored World Object contains reserved integer `x` and `y` fields plus flat authored properties containing any JSON value; stored objects do not use a nested `props` field.
+- Editor-only identity, selection, renderer instances, and history are not persisted in World Objects.
+- The World Editor opens the property editor in JSON value mode, which displays every property value as a JSON literal and parses every edited value before saving; invalid JSON keeps the editor open and reports the offending property. The property editor's default mode remains string-valued for other callers.
 - World Object Renderers are declared under `view-world.config.renderers` as an object map keyed by Project-local renderer id.
 - Every renderer declaration contains:
   - a non-empty `url`,
@@ -59,7 +63,7 @@ The World Editor initially represents every World Object as a point. Projects ne
 - The World Editor uses translated renderer bounds for fit-to-content and hit testing.
 - The World Editor owns selection outlines, position anchors, dragging, hover tooltips, and draw order.
 - Hovering a rendered object requests a read-only tip through the `ui.tooltip` UI Service, tracks the renderer's screen-space bounds, and displays at most the first ten object properties.
-- A World Object is locked when its string `lock` property is present with any value other than `""`, `"0"`, or `"false"`; locked objects are excluded from canvas hit testing but remain selectable from the Objects sidebar.
+- A World Object is locked when its optional boolean `lock` property is `true`; locked objects are excluded from canvas hit testing but remain selectable from the Objects sidebar.
 - Objects are drawn in stored side-panel order.
 - Renderer failures are fail-fast; malformed configuration, ambiguous matches, invalid bounds, and invalid renderer interfaces are not silently ignored.
 
@@ -73,7 +77,7 @@ The demo Project config registers a rectangle renderer matched by:
 }
 ```
 
-A matching object requires string properties for positive numeric `width` and `height`, plus a valid CSS `color`.
+A matching object requires positive numeric `width` and `height` properties, plus a valid CSS `color` string.
 
 The demo rectangle, sprite, and tilemap renderers accept an optional `config.origin` tuple. Its two finite values are normalized X/Y positions from `0` through `1` within the rendered bounds: `[0, 0]` is top-left, `[0.5, 0.5]` is center, and `[0, 1]` is bottom-left. The World Object's `x`/`y` position identifies that origin point. Omitting `origin` preserves the top-left default.
 
@@ -85,7 +89,7 @@ The demo Project also registers a sprite renderer matched by:
 }
 ```
 
-When a matching object has a `url` property, the renderer loads that project file. If `width` and `height` are both absent, it draws the image at its natural dimensions; if provided together, they override the rendered dimensions. Providing only one dimension is invalid. QOI, PNG, JPEG, WebP, GIF, and BMP sources are supported. When the `url` property is absent, the renderer draws a rectangle using required positive numeric `width` and `height` string properties and a valid CSS `color` string property.
+When a matching object has a `url` property, the renderer loads that project file. If `width` and `height` are both absent, it draws the image at its natural dimensions; if provided together, they override the rendered dimensions. Providing only one dimension is invalid. QOI, PNG, JPEG, WebP, GIF, and BMP sources are supported. When the `url` property is absent, the renderer draws a rectangle using required positive numeric `width` and `height` properties and a valid CSS `color` string property.
 
 The demo Project also registers a tilemap renderer matched by:
 

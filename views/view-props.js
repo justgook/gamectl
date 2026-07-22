@@ -5,6 +5,17 @@ function assert(condition, message) {
     if (!condition) throw new Error(message)
 }
 
+function stringifyJsonValue(value, label) {
+    let json
+    try {
+        json = JSON.stringify(value)
+    } catch (error) {
+        throw new Error(`${label} must be JSON: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    assert(json !== undefined, `${label} must be JSON`)
+    return json
+}
+
 function cloneStringProps(input) {
     assert(input && typeof input === "object" && !Array.isArray(input), "view-props data-source must be an object")
     const props = {}
@@ -14,9 +25,24 @@ function cloneStringProps(input) {
     return props
 }
 
+function cloneJsonProps(input) {
+    assert(input && typeof input === "object" && !Array.isArray(input), "view-props data-source must be an object")
+    const props = {}
+    for (const [key, value] of Object.entries(input)) {
+        props[String(key)] = stringifyJsonValue(value, `view-props property ${key}`)
+    }
+    return props
+}
+
+function resolveValueMode(props, element) {
+    const mode = props.valueMode ?? element.getAttribute("data-value-mode") ?? "string"
+    assert(mode === "string" || mode === "json", `view-props unknown value mode ${mode}`)
+    return mode
+}
+
 export class ViewProps extends HTMLElement {
     static get observedAttributes() {
-        return ["data-source", "data-title"]
+        return ["data-source", "data-title", "data-value-mode"]
     }
 
     constructor() {
@@ -27,6 +53,7 @@ export class ViewProps extends HTMLElement {
         this.statusElement = null
         this.rowsElement = null
         this.props = {}
+        this.valueMode = "string"
     }
 
     connectedCallback() {
@@ -90,16 +117,23 @@ export class ViewProps extends HTMLElement {
     attributeChangedCallback(name, oldValue, newValue) {
         if (oldValue === newValue) return
         if (!this.dataset.ready) return
-        if (name === "data-source" || name === "data-title") this.load()
+        if (name === "data-source" || name === "data-title" || name === "data-value-mode") this.load()
     }
 
     load() {
         const props = this.popupProps || {}
         const title = String(props.title || this.getAttribute("data-title") || "Properties")
         this.legendElement.textContent = title
-        this.props = cloneStringProps(this.readDataSource(props))
+        this.valueMode = resolveValueMode(props, this)
+        const dataSource = this.readDataSource(props)
+        this.props = this.valueMode === "json" ? cloneJsonProps(dataSource) : cloneStringProps(dataSource)
         this.renderRows()
-        this.setStatus("Edit string properties", "info")
+        this.setStatus(
+            this.valueMode === "json"
+                ? 'Values must be JSON literals; quote strings like "text"'
+                : "Edit string properties",
+            "info",
+        )
     }
 
     readDataSource(props) {
@@ -141,7 +175,7 @@ export class ViewProps extends HTMLElement {
         valueInput.type = "text"
         valueInput.name = "prop-value"
         valueInput.value = value
-        valueInput.placeholder = "value"
+        valueInput.placeholder = this.valueMode === "json" ? "JSON value" : "value"
         valueInput.setAttribute("autocomplete", "off")
         valueInput.setAttribute("autocorrect", "off")
         valueInput.setAttribute("autocapitalize", "off")
@@ -175,7 +209,17 @@ export class ViewProps extends HTMLElement {
             if (!key) continue
             if (seen.has(key)) throw new Error(`Duplicate property key ${key}`)
             seen.add(key)
-            props[key] = valueInput.value
+            if (this.valueMode === "string") {
+                props[key] = valueInput.value
+                continue
+            }
+            try {
+                props[key] = JSON.parse(valueInput.value)
+            } catch (error) {
+                throw new Error(
+                    `Property ${key} must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+                )
+            }
         }
         return props
     }

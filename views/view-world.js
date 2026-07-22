@@ -40,6 +40,32 @@ function parseAxisInversion(config) {
   return { x: invert.x === true, y: invert.y === true }
 }
 
+function cloneJsonValue(value, label) {
+  if (value === null || typeof value === "string" || typeof value === "boolean")
+    return value
+  if (typeof value === "number") {
+    assert(Number.isFinite(value), `${label} must be a finite JSON number`)
+    return value
+  }
+  if (Array.isArray(value))
+    return value.map((entry, index) =>
+      cloneJsonValue(entry, `${label}[${index}]`),
+    )
+  assert(
+    value && typeof value === "object",
+    `${label} must be a JSON value`,
+  )
+  const prototype = Object.getPrototypeOf(value)
+  assert(
+    prototype === Object.prototype || prototype === null,
+    `${label} must be a JSON object`,
+  )
+  const clone = {}
+  for (const [key, entry] of Object.entries(value))
+    clone[key] = cloneJsonValue(entry, `${label}.${key}`)
+  return clone
+}
+
 function cloneProps(input, label) {
   assert(
     input && typeof input === "object" && !Array.isArray(input),
@@ -47,32 +73,48 @@ function cloneProps(input, label) {
   )
   const props = {}
   for (const [key, value] of Object.entries(input)) {
-    assert(typeof value === "string", `${label}.${key} must be a string`)
-    props[key] = value
+    assert(key !== "x" && key !== "y", `${label}.${key} is reserved`)
+    props[key] = cloneJsonValue(value, `${label}.${key}`)
   }
   return props
 }
 
 function cloneObject(object) {
-  return { ...object, props: { ...object.props } }
+  return { ...object, props: cloneProps(object.props, "world object props") }
 }
 
 function cloneObjects(objects) {
   return objects.map(cloneObject)
 }
 
+function optionalStringProperty(object, key) {
+  if (!Object.hasOwn(object.props, key)) return ""
+  const value = object.props[key]
+  assert(typeof value === "string", `world object ${key} must be a string`)
+  return value
+}
+
+function jsonValueText(value) {
+  const text = JSON.stringify(value)
+  assert(text !== undefined, "world object property must be JSON")
+  return text
+}
+
 function objectGroup(object) {
-  return object.props.group || ""
+  return optionalStringProperty(object, "group")
 }
 
 function objectLocked(object) {
-  const value = object.props.lock || ""
-  return value !== "" && value !== "0" && value !== "false"
+  if (!Object.hasOwn(object.props, "lock")) return false
+  const value = object.props.lock
+  assert(typeof value === "boolean", "world object lock must be boolean")
+  return value
 }
 
 function objectDisplayName(object, index) {
-  const name = object.props.name || object.props.id
-  return name || `Object ${index + 1}`
+  const name = optionalStringProperty(object, "name")
+  const id = optionalStringProperty(object, "id")
+  return name || id || `Object ${index + 1}`
 }
 
 function createPointRenderer() {
@@ -166,14 +208,10 @@ class WorldState {
       "world state open requires data",
     )
     const world = JSON.parse(data)
-    assert(
-      world && typeof world === "object" && !Array.isArray(world),
-      "world file data must be object JSON",
-    )
-    assert(Array.isArray(world.objects), "world data.objects must be an array")
+    assert(Array.isArray(world), "world file data must be an array")
 
     this.nextObjectId = 1
-    const objects = world.objects.map((object, index) =>
+    const objects = world.map((object, index) =>
       this.parseObject(object, index),
     )
     this.validateGroupContiguity(objects)
@@ -191,31 +229,30 @@ class WorldState {
       `world object ${index} must be an object`,
     )
     assert(
-      Number.isFinite(object.x),
-      `world object ${index}.x must be a finite number`,
+      Number.isInteger(object.x),
+      `world object ${index}.x must be an integer`,
     )
     assert(
-      Number.isFinite(object.y),
-      `world object ${index}.y must be a finite number`,
+      Number.isInteger(object.y),
+      `world object ${index}.y must be an integer`,
     )
+    const { x, y, ...props } = object
     return {
       editorId: this.allocateObjectId(),
-      x: object.x,
-      y: object.y,
-      props: cloneProps(object.props, `world object ${index}.props`),
+      x,
+      y,
+      props: cloneProps(props, `world object ${index} properties`),
     }
   }
 
   toStorageData() {
     assert(this.loaded, "world state serialization requires loaded world")
     return JSON.stringify(
-      {
-        objects: this.objects.map((object) => ({
-          x: object.x,
-          y: object.y,
-          props: { ...object.props },
-        })),
-      },
+      this.objects.map((object) => ({
+        x: object.x,
+        y: object.y,
+        ...object.props,
+      })),
       null,
       2,
     )
@@ -610,8 +647,8 @@ function validateSnapshot(snapshot) {
       Number.isInteger(object.editorId) && object.editorId > 0,
       "view-world object editorId must be positive integer",
     )
-    assert(Number.isFinite(object.x), "view-world object x must be finite")
-    assert(Number.isFinite(object.y), "view-world object y must be finite")
+    assert(Number.isInteger(object.x), "view-world object x must be integer")
+    assert(Number.isInteger(object.y), "view-world object y must be integer")
     cloneProps(object.props, "view-world object props")
   }
   return snapshot
@@ -1115,7 +1152,7 @@ export class ViewWorld extends ViewCanvasBase {
         title,
         size: "medium",
         tag: "view-props",
-        props: { title, dataSource: object.props },
+        props: { title, dataSource: object.props, valueMode: "json" },
       }),
     )
     if (!payload || payload.cancelled) return
@@ -1440,7 +1477,7 @@ export class ViewWorld extends ViewCanvasBase {
       keyCell.textContent = key
       row.appendChild(keyCell)
       const valueCell = document.createElement("td")
-      valueCell.textContent = value
+      valueCell.textContent = jsonValueText(value)
       row.appendChild(valueCell)
       this.propsElement.appendChild(row)
     }
@@ -1730,7 +1767,7 @@ export class ViewWorld extends ViewCanvasBase {
       .slice(0, 10)
       .map(([key, value]) => {
         const cleanKey = key.replaceAll("\n", " ↵ ")
-        const cleanValue = value.replaceAll("\n", " ↵ ")
+        const cleanValue = jsonValueText(value).replaceAll("\n", " ↵ ")
         return `${cleanKey}: ${cleanValue}`
       })
       .join("\n")

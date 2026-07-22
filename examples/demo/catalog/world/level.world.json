@@ -1,21 +1,15 @@
-{
-  "objects": [
-    {
-      "x": 0,
-      "y": 0,
-      "props": {
-        "tilemap": "catalog/tilemaps/green-zone.map.json",
-        "name": "tilemap",
-        "render": "tilemap",
-        "lock": "1"
-      }
-    },
-    {
-      "x": 72,
-      "y": 72,
-      "props": {
-        "name": "player"
-      }
-    }
-  ]
-}
+[
+  {
+    "x": 0,
+    "y": 0,
+    "tilemap": "catalog/tilemaps/green-zone.map.json",
+    "name": "tilemap",
+    "render": "tilemap",
+    "lock": true
+  },
+  {
+    "x": 72,
+    "y": 72,
+    "name": "player"
+  }
+]
