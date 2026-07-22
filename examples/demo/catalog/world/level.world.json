@@ -13,15 +13,25 @@
     "name": "player"
   },
   {
-    "x": 96,
-    "y": 64,
+    "x": 32,
+    "y": 150,
     "director_trigger_aabb": {
-      "bounds": [-8, -8, 8, 8],
+      "bounds": [
+        -8,
+        -8,
+        8,
+        8
+      ],
       "once": true,
       "used": false
     },
     "director_entity": {
       "id": 7
-    }
+    },
+    "name": "trigger",
+    "width": 16,
+    "height": 16,
+    "render": "rectangle",
+    "color": "#FF0000"
   }
 ]
