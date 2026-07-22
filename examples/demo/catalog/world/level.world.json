@@ -1,0 +1,13 @@
+{
+  "objects": [
+    {
+      "x": 72,
+      "y": -44,
+      "props": {
+        "tilemap": "catalog/tilemaps/green-zone.map.json",
+        "name": "tilemap",
+        "render": "tilemap"
+      }
+    }
+  ]
+}

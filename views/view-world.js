@@ -20,6 +20,26 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error)
 }
 
+function parseAxisInversion(config) {
+  const invert = config.invert
+  if (invert === undefined) return { x: false, y: false }
+  assert(
+    invert && typeof invert === "object" && !Array.isArray(invert),
+    "view-world config.invert must be an object",
+  )
+  for (const [axis, value] of Object.entries(invert)) {
+    assert(
+      axis === "x" || axis === "y",
+      `view-world unknown inverted axis ${axis}`,
+    )
+    assert(
+      typeof value === "boolean",
+      `view-world config.invert.${axis} must be boolean`,
+    )
+  }
+  return { x: invert.x === true, y: invert.y === true }
+}
+
 function cloneProps(input, label) {
   assert(
     input && typeof input === "object" && !Array.isArray(input),
@@ -619,6 +639,8 @@ export class ViewWorld extends ViewCanvasBase {
     this.hoverObjectId = 0
     this.hoverTooltipObjectId = 0
     this.hoverTooltipId = 0
+    this.invertX = false
+    this.invertY = false
   }
 
   connectedCallback() {
@@ -747,6 +769,9 @@ export class ViewWorld extends ViewCanvasBase {
         !Array.isArray(this.viewConfig.config),
       "view-world requires view config.config",
     )
+    const inversion = parseAxisInversion(this.viewConfig.config)
+    this.invertX = inversion.x
+    this.invertY = inversion.y
     this.setBusy(true)
     this.rendererRegistry = await WorldObjectRendererRegistry.create(
       this.viewConfig.config,
@@ -1038,10 +1063,10 @@ export class ViewWorld extends ViewCanvasBase {
       this.canvas instanceof HTMLCanvasElement,
       "view-world add requires canvas",
     )
-    const point = {
+    const point = this.canvasToProjectPoint({
       x: (this.canvas.width / 2 - this.offsetX) / this.scale,
       y: (this.canvas.height / 2 - this.offsetY) / this.scale,
-    }
+    })
     this.state.addObject(point.x, point.y)
     await this.refreshSnapshot("Object added")
   }
@@ -1475,11 +1500,12 @@ export class ViewWorld extends ViewCanvasBase {
     )
     const bounds = snapshot.objects.map((object) => {
       const local = this.rendererRegistry.bounds(object)
+      const anchor = this.projectToCanvasPoint(object)
       return {
-        minX: object.x + local.minX,
-        minY: object.y + local.minY,
-        maxX: object.x + local.maxX,
-        maxY: object.y + local.maxY,
+        minX: anchor.x + local.minX,
+        minY: anchor.y + local.minY,
+        maxX: anchor.x + local.maxX,
+        maxY: anchor.y + local.maxY,
       }
     })
     return {
@@ -1491,6 +1517,21 @@ export class ViewWorld extends ViewCanvasBase {
   }
 
   _constrainPosition() {}
+
+  projectToCanvasPoint(point) {
+    return {
+      x: this.invertX ? -point.x : point.x,
+      y: this.invertY ? -point.y : point.y,
+    }
+  }
+
+  canvasToProjectPoint(point) {
+    return this.projectToCanvasPoint(point)
+  }
+
+  getWorldPoint(clientX, clientY) {
+    return this.canvasToProjectPoint(super.getWorldPoint(clientX, clientY))
+  }
 
   drawContent(ctx, data) {
     const snapshot = data || this.snapshot
@@ -1554,10 +1595,17 @@ export class ViewWorld extends ViewCanvasBase {
       "view-world draw requires initialized renderers",
     )
     snapshot.objects.forEach((object, index) => {
-      this.rendererRegistry.draw(ctx, object, {
-        scale: this.scale,
-        label: objectDisplayName(object, index),
-      })
+      const anchor = this.projectToCanvasPoint(object)
+      ctx.save()
+      ctx.translate(anchor.x - object.x, anchor.y - object.y)
+      try {
+        this.rendererRegistry.draw(ctx, object, {
+          scale: this.scale,
+          label: objectDisplayName(object, index),
+        })
+      } finally {
+        ctx.restore()
+      }
     })
     const selected = snapshot.objects.find(
       (object) => object.editorId === snapshot.activeObjectId,
@@ -1571,19 +1619,20 @@ export class ViewWorld extends ViewCanvasBase {
       "view-world selection requires initialized renderers",
     )
     const bounds = this.rendererRegistry.bounds(object)
+    const anchor = this.projectToCanvasPoint(object)
     ctx.save()
     ctx.strokeStyle = "#ffcc66"
     ctx.lineWidth = 2 / this.scale
     ctx.strokeRect(
-      object.x + bounds.minX,
-      object.y + bounds.minY,
+      anchor.x + bounds.minX,
+      anchor.y + bounds.minY,
       bounds.maxX - bounds.minX,
       bounds.maxY - bounds.minY,
     )
     ctx.fillStyle = "#ffcc66"
     ctx.strokeStyle = "#111"
     ctx.beginPath()
-    ctx.arc(object.x, object.y, 4 / this.scale, 0, Math.PI * 2)
+    ctx.arc(anchor.x, anchor.y, 4 / this.scale, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
     ctx.restore()
@@ -1674,6 +1723,7 @@ export class ViewWorld extends ViewCanvasBase {
       "view-world tooltip requires initialized renderers",
     )
     const bounds = this.rendererRegistry.bounds(object)
+    const anchor = this.projectToCanvasPoint(object)
     const rect = this.canvas.getBoundingClientRect()
     const scaleX = rect.width / Math.max(1, this.canvas.width)
     const scaleY = rect.height / Math.max(1, this.canvas.height)
@@ -1681,10 +1731,10 @@ export class ViewWorld extends ViewCanvasBase {
       kind: "aabb",
       x:
         rect.left +
-        ((object.x + bounds.minX) * this.scale + this.offsetX) * scaleX,
+        ((anchor.x + bounds.minX) * this.scale + this.offsetX) * scaleX,
       y:
         rect.top +
-        ((object.y + bounds.minY) * this.scale + this.offsetY) * scaleY,
+        ((anchor.y + bounds.minY) * this.scale + this.offsetY) * scaleY,
       width: (bounds.maxX - bounds.minX) * this.scale * scaleX,
       height: (bounds.maxY - bounds.minY) * this.scale * scaleY,
     }
@@ -1745,8 +1795,10 @@ export class ViewWorld extends ViewCanvasBase {
     for (let index = this.state.objects.length - 1; index >= 0; index--) {
       const object = this.state.objects[index]
       const bounds = this.rendererRegistry.bounds(object)
-      const localX = point.x - object.x
-      const localY = point.y - object.y
+      const canvasPoint = this.projectToCanvasPoint(point)
+      const anchor = this.projectToCanvasPoint(object)
+      const localX = canvasPoint.x - anchor.x
+      const localY = canvasPoint.y - anchor.y
       const insideBounds =
         localX >= bounds.minX &&
         localX <= bounds.maxX &&

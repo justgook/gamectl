@@ -619,6 +619,9 @@
         "internal": false,
         "defaultSource": "world/example.world.json",
         "config": {
+          "invert": {
+            "y": true
+          },
           "renderers": {
             "rectangle": {
               "url": "world-renderers/rectangle.js",
