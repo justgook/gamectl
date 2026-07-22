@@ -14,7 +14,6 @@ import "shape"
 GAME_RESOLUTION_WIDTH :: 640
 GAME_RESOLUTION_HEIGHT :: 360
 OFFSCREEN_SAMPLE_COUNT :: 1
-ENTITY_ID_START :: logic.Entity(100)
 Director_Entity_Id :: director.Entity_Id
 
 
@@ -183,7 +182,6 @@ init :: proc(w: ^World) {
 	w.display_pipe = display_init(color_img)
 
 
-	w.next_entity_id = ENTITY_ID_START
 	w.free_entity_ids_lookup = make(map[logic.Entity]bool)
 	w.sim_frame_length = 1.0 / 60.0
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
@@ -212,7 +210,8 @@ init :: proc(w: ^World) {
 	w.tilemap.components[0].repeat.xy = 1
 
 
-	player := create_entity(w)
+	// player := create_entity(w)
+	player := logic.Entity(1)
 	host.info("PLAYER", "ID", player)
 	w.player1_id = player
 	director.entity_set_stat(&w.director, w.director_config.player, w.director_config.world_entity, i32(player))
@@ -264,9 +263,6 @@ init :: proc(w: ^World) {
 create_entity :: proc(w: ^World) -> logic.Entity {
 	if w.free_entity_ids_lookup == nil {
 		w.free_entity_ids_lookup = make(map[logic.Entity]bool)
-	}
-	if w.next_entity_id == 0 {
-		w.next_entity_id = ENTITY_ID_START
 	}
 
 	if len(w.free_entity_ids) > 0 {

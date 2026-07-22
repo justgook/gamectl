@@ -10,10 +10,7 @@
   "data": [
     "director.Director_Data",
     "Segment_Trigger_Defs",
-    "world.Director_Config",
-    "Director_Trigger_Aabbs",
-    "Positions",
-    "Director_Entities"
+    "world.Director_Config"
   ],
   "types": {
     "director.Entity_Id": "u32",
@@ -326,64 +323,6 @@
           "type": "array",
           "len": 4,
           "value": "director.Word_Id"
-        }
-      }
-    },
-    "iVec4": {
-      "type": "array",
-      "len": 4,
-      "value": "i32"
-    },
-    "EntityIds": {
-      "type": "vector",
-      "value": "u32"
-    },
-    "world.Position": {
-      "type": "array",
-      "len": 2,
-      "value": "i32"
-    },
-    "world.Director_Trigger_Aabb": {
-      "type": "struct",
-      "fields": {
-        "bounds": "iVec4",
-        "once": "bool",
-        "used": "bool"
-      }
-    },
-    "world.Director_Entity": {
-      "type": "struct",
-      "fields": {
-        "id": "director.Entity_Id"
-      }
-    },
-    "Director_Trigger_Aabbs": {
-      "type": "struct",
-      "fields": {
-        "entity_ids": "EntityIds",
-        "components": {
-          "type": "vector",
-          "value": "world.Director_Trigger_Aabb"
-        }
-      }
-    },
-    "Positions": {
-      "type": "struct",
-      "fields": {
-        "entity_ids": "EntityIds",
-        "components": {
-          "type": "vector",
-          "value": "world.Position"
-        }
-      }
-    },
-    "Director_Entities": {
-      "type": "struct",
-      "fields": {
-        "entity_ids": "EntityIds",
-        "components": {
-          "type": "vector",
-          "value": "world.Director_Entity"
         }
       }
     }

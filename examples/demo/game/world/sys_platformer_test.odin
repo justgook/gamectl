@@ -1172,19 +1172,20 @@ test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 test_entity_pool_reuses_deleted_entity_id :: proc(t: ^testing.T) {
 	w := new(World)
 	defer entity_pool_test_destroy(w)
+	start := w.next_entity_id
 
 	first := create_entity(w)
 	second := create_entity(w)
 
-	testing.expectf(t, first == ENTITY_ID_START, "first entity id = %v", first)
-	testing.expectf(t, second == ENTITY_ID_START + 1, "second entity id = %v", second)
+	testing.expectf(t, first == start, "first entity id = %v", first)
+	testing.expectf(t, second == start + 1, "second entity id = %v", second)
 
 	entity_delete(w, first)
 	reused := create_entity(w)
 	next := create_entity(w)
 
 	testing.expectf(t, reused == first, "deleted entity id was not reused: got %v want %v", reused, first)
-	testing.expectf(t, next == ENTITY_ID_START + 2, "next fresh entity id = %v", next)
+	testing.expectf(t, next == start + 2, "next fresh entity id = %v", next)
 }
 
 @(test)

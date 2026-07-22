@@ -14,20 +14,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [6]u32,
-	lengths: [6]u32,
+	offsets: [3]u32,
+	lengths: [3]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 6 {return Package{}, false}
-	if len(data) < 56 {return Package{}, false}
+	if int(read_u16(data, 6)) != 3 {return Package{}, false}
+	if len(data) < 32 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 6 {
+	for i in 0 ..< 3 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -37,7 +37,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 6 {return Reader{}, false}
+	if slot < 0 || slot >= 3 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -111,25 +111,6 @@ Segment_Trigger_Def :: struct {
 
 Segment_Trigger_Defs :: []Segment_Trigger_Def
 
-I_Vec4 :: [4]i32
-
-Entity_Ids :: []u32
-
-Director_Trigger_Aabbs :: struct {
-	entity_ids: Entity_Ids,
-	components: []world.Director_Trigger_Aabb,
-}
-
-Positions :: struct {
-	entity_ids: Entity_Ids,
-	components: []world.Position,
-}
-
-Director_Entities :: struct {
-	entity_ids: Entity_Ids,
-	components: []world.Director_Entity,
-}
-
 @(private = "file")
 DecodedSlots :: struct {
 	has_slot_0: bool,
@@ -138,12 +119,6 @@ DecodedSlots :: struct {
 	slot_1:     Segment_Trigger_Defs,
 	has_slot_2: bool,
 	slot_2:     world.Director_Config,
-	has_slot_3: bool,
-	slot_3:     Director_Trigger_Aabbs,
-	has_slot_4: bool,
-	slot_4:     Positions,
-	has_slot_5: bool,
-	slot_5:     Director_Entities,
 }
 
 @(private = "file")
@@ -1081,176 +1056,6 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 	return true
 }
 
-@(private = "file")
-decode_i_vec4 :: proc(r: ^Reader, out: ^I_Vec4) -> bool {
-	{
-		for i10 in 0 ..< 4 {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out^[i10] = transmute(i32)v
-			}
-		}
-	}
-	return true
-}
-
-@(private = "file")
-decode_entity_ids :: proc(r: ^Reader, out: ^Entity_Ids) -> bool {
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out^ = make(Entity_Ids, int(count))
-		for i11 in 0 ..< int(count) {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out^[i11] = v
-			}
-		}
-	}
-	return true
-}
-
-@(private = "file")
-decode_world_position :: proc(r: ^Reader, out: ^world.Position) -> bool {
-	{
-		for i12 in 0 ..< 2 {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out^[i12] = transmute(i32)v
-			}
-		}
-	}
-	return true
-}
-
-@(private = "file")
-decode_world_director_trigger_aabb :: proc(r: ^Reader, out: ^world.Director_Trigger_Aabb) -> bool {
-	{
-		for i13 in 0 ..< 4 {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out.bounds[i13] = transmute(i32)v
-			}
-		}
-	}
-	{
-		b, ok := read_u8_reader(r)
-		if !ok {return false}
-		out.once = b != 0
-	}
-	{
-		b, ok := read_u8_reader(r)
-		if !ok {return false}
-		out.used = b != 0
-	}
-	return true
-}
-
-@(private = "file")
-decode_world_director_entity :: proc(r: ^Reader, out: ^world.Director_Entity) -> bool {
-	{
-		value: u32
-		{
-			v, ok := read_u32_reader(r)
-			if !ok {return false}
-			value = v
-		}
-		out.id = director.Entity_Id(value)
-	}
-	return true
-}
-
-@(private = "file")
-decode_director_trigger_aabbs :: proc(r: ^Reader, out: ^Director_Trigger_Aabbs) -> bool {
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.entity_ids = make(Entity_Ids, int(count))
-		for i14 in 0 ..< int(count) {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out.entity_ids[i14] = v
-			}
-		}
-	}
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.components = make([]world.Director_Trigger_Aabb, int(count))
-		for i15 in 0 ..< int(count) {
-			{
-				if !decode_world_director_trigger_aabb(r, &out.components[i15]) {return false}
-			}
-		}
-	}
-	return true
-}
-
-@(private = "file")
-decode_positions :: proc(r: ^Reader, out: ^Positions) -> bool {
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.entity_ids = make(Entity_Ids, int(count))
-		for i16 in 0 ..< int(count) {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out.entity_ids[i16] = v
-			}
-		}
-	}
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.components = make([]world.Position, int(count))
-		for i17 in 0 ..< int(count) {
-			{
-				for i18 in 0 ..< 2 {
-					{
-						v, ok := read_u32_reader(r)
-						if !ok {return false}
-						out.components[i17][i18] = transmute(i32)v
-					}
-				}
-			}
-		}
-	}
-	return true
-}
-
-@(private = "file")
-decode_director_entities :: proc(r: ^Reader, out: ^Director_Entities) -> bool {
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.entity_ids = make(Entity_Ids, int(count))
-		for i19 in 0 ..< int(count) {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out.entity_ids[i19] = v
-			}
-		}
-	}
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.components = make([]world.Director_Entity, int(count))
-		for i20 in 0 ..< int(count) {
-			{
-				if !decode_world_director_entity(r, &out.components[i20]) {return false}
-			}
-		}
-	}
-	return true
-}
-
 read_slot_0_director_director_data :: proc(pkg: Package) -> (director.Director_Data, bool) {
 	r, ok := slot_reader(pkg, 0)
 	if !ok {return director.Director_Data{}, false}
@@ -1272,29 +1077,5 @@ read_slot_2_world_director_config :: proc(pkg: Package) -> (world.Director_Confi
 	if !ok {return world.Director_Config{}, false}
 	value: world.Director_Config
 	if !decode_world_director_config(&r, &value) {return world.Director_Config{}, false}
-	return value, true
-}
-
-read_slot_3_director_trigger_aabbs :: proc(pkg: Package) -> (Director_Trigger_Aabbs, bool) {
-	r, ok := slot_reader(pkg, 3)
-	if !ok {return Director_Trigger_Aabbs{}, false}
-	value: Director_Trigger_Aabbs
-	if !decode_director_trigger_aabbs(&r, &value) {return Director_Trigger_Aabbs{}, false}
-	return value, true
-}
-
-read_slot_4_positions :: proc(pkg: Package) -> (Positions, bool) {
-	r, ok := slot_reader(pkg, 4)
-	if !ok {return Positions{}, false}
-	value: Positions
-	if !decode_positions(&r, &value) {return Positions{}, false}
-	return value, true
-}
-
-read_slot_5_director_entities :: proc(pkg: Package) -> (Director_Entities, bool) {
-	r, ok := slot_reader(pkg, 5)
-	if !ok {return Director_Entities{}, false}
-	value: Director_Entities
-	if !decode_director_entities(&r, &value) {return Director_Entities{}, false}
 	return value, true
 }

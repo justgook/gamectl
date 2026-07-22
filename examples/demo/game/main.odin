@@ -37,11 +37,16 @@ app_init :: proc() {
 	append(&w.segments, [4]int{256 * UNIT, -16 * UNIT, 256 * UNIT, 128 * UNIT})
 	// MOCK SEGMENTS END
 
-	assert(load_data_bullet("bullet.rspk", &state.world))
-	assert(load_data_anim("anim.rspk", &state.world))
-	assert(load_data_ui("ui.rspk", &state.world))
-	assert(load_data_level("level.rspk", &state.world))
-	assert(load_data_director("director.rspk", &state.world))
+	ok := load_data_bullet("bullet.rspk", &state.world)
+	assert(ok)
+	ok = load_data_anim("anim.rspk", &state.world)
+	assert(ok)
+	ok = load_data_ui("ui.rspk", &state.world)
+	assert(ok)
+	ok = load_data_level("level.rspk", &state.world)
+	assert(ok)
+	ok = load_data_director("director.rspk", &state.world)
+	assert(ok)
 
 	world.init(&state.world)
 }
@@ -108,44 +113,7 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 		}
 	}
 
-	director_trigger_aabbs := data_director.read_slot_3_director_trigger_aabbs(game_data) or_return
-	assert(len(director_trigger_aabbs.components) == len(director_trigger_aabbs.entity_ids))
-	for entity_id in director_trigger_aabbs.entity_ids {
-		assert(entity_id < world.ENTITY_ID_START)
-	}
-	for &trigger in director_trigger_aabbs.components {
-		trigger.bounds.xyzw *= world.UNIT
-	}
-
-	logic.load_storage(&w.director_trigger_aabb, director_trigger_aabbs.components, director_trigger_aabbs.entity_ids)
-
-	positions := data_director.read_slot_4_positions(game_data) or_return
-	assert(len(positions.components) == len(positions.entity_ids))
-	for entity_id in positions.entity_ids {
-		assert(entity_id < world.ENTITY_ID_START)
-	}
-	for &position in positions.components {
-		position.xy *= world.UNIT
-	}
-	logic.load_storage(&w.position, positions.components, positions.entity_ids)
-
-	director_entities := data_director.read_slot_5_director_entities(game_data) or_return
-	assert(len(director_entities.components) == len(director_entities.entity_ids))
-	for entity_id in director_entities.entity_ids {
-		assert(entity_id < world.ENTITY_ID_START)
-	}
-
-	logic.load_storage(&w.director_entity, director_entities.components, director_entities.entity_ids)
-
-	host.info(
-		"load_data_director",
-		"director",
-		director_data,
-		"segment triggers",
-		len(segment_trigger_defs),
-		"aabb triggers",
-		len(director_trigger_aabbs.components),
-	)
+	host.info("load_data_director", "director", director_data, "segment triggers", len(segment_trigger_defs))
 
 	return true
 }
@@ -154,6 +122,8 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	file_data := host.asset_read_all(filepath) or_return
 	game_data := data_level.open_respack(file_data) or_return
+
+	w.next_entity_id = data_level.read_slot_6_next_entity_id(game_data) or_return
 
 	UNIT := world.UNIT
 	the_segments := data_level.read_slot_1_segments(game_data) or_return
@@ -178,12 +148,27 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	w.level_atlas = create_image(atlas_bytes, level_atlas_pixels[:]) or_return
 	w.lut = w.level_atlas
 
-	pos := data_level.read_slot_3_positions(game_data) or_return
-	logic.load_storage(&w.position, pos.components, pos.entity_ids)
-	for &pos in &w.position.components {
-		pos.xy *= world.UNIT
+	positions := data_level.read_slot_3_positions(game_data) or_return
+	assert(len(positions.components) == len(positions.entity_ids))
+	// assert(len(positions.entity_ids) == int(next_entity_id))
+	for entity_id, index in positions.entity_ids {
+		assert(entity_id == u32(index))
 	}
+	for &position in positions.components {
+		position.xy *= world.UNIT
+	}
+	logic.load_storage(&w.position, positions.components, positions.entity_ids)
 
+	director_trigger_aabbs := data_level.read_slot_4_director_trigger_aabbs(game_data) or_return
+	assert(len(director_trigger_aabbs.components) == len(director_trigger_aabbs.entity_ids))
+	for &trigger in director_trigger_aabbs.components {
+		trigger.bounds.xyzw *= world.UNIT
+	}
+	logic.load_storage(&w.director_trigger_aabb, director_trigger_aabbs.components, director_trigger_aabbs.entity_ids)
+
+	director_entities := data_level.read_slot_5_director_entities(game_data) or_return
+	assert(len(director_entities.components) == len(director_entities.entity_ids))
+	logic.load_storage(&w.director_entity, director_entities.components, director_entities.entity_ids)
 
 	// host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 

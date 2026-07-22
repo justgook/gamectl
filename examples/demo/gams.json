@@ -921,6 +921,26 @@
               "group": "Data"
             },
             {
+              "name": "Objects to Component Storage",
+              "kind": "code",
+              "codePath": "ng/presets/objects-to-component-storage.lua",
+              "inputs": [
+                {
+                  "name": "objects"
+                },
+                {
+                  "name": "fields",
+                  "defaultValue": "[\"x\", \"y\"]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "storage"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "mergeArrays",
               "kind": "code",
               "codePath": "ng/presets/merge-arrays.lua",

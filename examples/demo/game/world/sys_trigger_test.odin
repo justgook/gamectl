@@ -62,6 +62,8 @@ spawn_test_world :: proc(data: director.Director_Data) -> ^World {
 	w.uv = make([]UV, 13)
 	w.animation_atlas.defs = make([]AnimDef, 46)
 	w.bullet_patterns = spawn_test_bullet_patterns[:]
+	// Entity 0 is the Director world-entity stat's "no projection" sentinel.
+	w.next_entity_id = 1
 	return w
 }
 
@@ -100,7 +102,7 @@ test_director_spawn_dispatches_coin_prefab :: proc(t: ^testing.T) {
 	apply_director_changes(w, result.changes)
 
 	world_entity := logic.Entity(director.entity_stat(&w.director, SPAWN_COIN, SPAWN_WORLD_ENTITY))
-	testing.expect(t, world_entity >= ENTITY_ID_START)
+	testing.expect(t, world_entity > 0)
 	pos, has_pos := logic.get_component(&w.position, world_entity)
 	testing.expectf(t, has_pos && pos^ == Position{10, 20}, "coin position = %v", pos)
 	testing.expect(t, logic.has_component(&w.sprite, world_entity))
@@ -117,7 +119,7 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	apply_director_changes(w, []director.Applied_Change{{kind = .Tag_Added, entity = SPAWN_ENEMY, key = SPAWN_TAG}})
 
 	world_entity := logic.Entity(director.entity_stat(&w.director, SPAWN_ENEMY, SPAWN_WORLD_ENTITY))
-	testing.expect(t, world_entity >= ENTITY_ID_START)
+	testing.expect(t, world_entity > 0)
 	pos, has_pos := logic.get_component(&w.position, world_entity)
 	testing.expectf(t, has_pos && pos^ == Position{30, 40}, "enemy position = %v", pos)
 	director_entity, has_director_entity := logic.get_component(&w.director_entity, world_entity)
@@ -187,7 +189,7 @@ test_director_spawn_tag_removal_deletes_world_projection :: proc(t: ^testing.T) 
 	testing.expect(t, result.matched)
 	apply_director_changes(w, result.changes)
 	world_entity := logic.Entity(director.entity_stat(&w.director, SPAWN_COIN, SPAWN_WORLD_ENTITY))
-	testing.expect(t, world_entity >= ENTITY_ID_START)
+	testing.expect(t, world_entity > 0)
 
 	apply_director_changes(w, []director.Applied_Change{{kind = .Tag_Removed, entity = SPAWN_COIN, key = SPAWN_TAG}})
 	testing.expect(t, director.entity_stat(&w.director, SPAWN_COIN, SPAWN_WORLD_ENTITY) == 0)

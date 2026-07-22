@@ -80,8 +80,8 @@
   {
     "id": 6,
     "kind": 4,
-    "x": 18,
-    "y": -499,
+    "x": 1234,
+    "y": 59,
     "name": "Segment triggers source",
     "codePath": "",
     "graphId": 0,
@@ -98,8 +98,8 @@
   {
     "id": 7,
     "kind": 2,
-    "x": 378,
-    "y": -498,
+    "x": 1594,
+    "y": 60,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "graphId": 0,
@@ -480,24 +480,6 @@
         "name": "Director Config",
         "srcNodeId": 21,
         "srcOutputId": 1
-      },
-      {
-        "id": 4,
-        "name": "Director Trigger Aabbs",
-        "srcNodeId": 11,
-        "srcOutputId": 1
-      },
-      {
-        "id": 5,
-        "name": "Positions",
-        "srcNodeId": 13,
-        "srcOutputId": 1
-      },
-      {
-        "id": 6,
-        "name": "Director Entities",
-        "srcNodeId": 15,
-        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -572,150 +554,6 @@
       }
     ],
     "outputs": []
-  },
-  {
-    "id": 10,
-    "kind": 4,
-    "x": 18,
-    "y": -391,
-    "name": "Director trigger AABBs source",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"CYBERPUNK/mock_director_trigger_aabbs.json\""
-      }
-    ]
-  },
-  {
-    "id": 11,
-    "kind": 2,
-    "x": 378,
-    "y": -390,
-    "name": "Read JSON",
-    "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 10,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 12,
-    "kind": 4,
-    "x": 18,
-    "y": -266,
-    "name": "Positions source",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"CYBERPUNK/mock_director_positions.json\""
-      }
-    ]
-  },
-  {
-    "id": 13,
-    "kind": 2,
-    "x": 378,
-    "y": -265,
-    "name": "Read JSON",
-    "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 12,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 14,
-    "kind": 4,
-    "x": 18,
-    "y": -141,
-    "name": "Director entities source",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"CYBERPUNK/mock_director_entities.json\""
-      }
-    ]
-  },
-  {
-    "id": 15,
-    "kind": 2,
-    "x": 378,
-    "y": -140,
-    "name": "Read JSON",
-    "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 14,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": null
-      }
-    ]
   },
   {
     "id": 22,

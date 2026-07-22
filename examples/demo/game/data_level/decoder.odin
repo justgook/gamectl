@@ -1,5 +1,6 @@
 package data_level
 
+import director "../director"
 import world "../world"
 
 @(private = "file")
@@ -13,20 +14,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [4]u32,
-	lengths: [4]u32,
+	offsets: [7]u32,
+	lengths: [7]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 4 {return Package{}, false}
-	if len(data) < 40 {return Package{}, false}
+	if int(read_u16(data, 6)) != 7 {return Package{}, false}
+	if len(data) < 64 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 4 {
+	for i in 0 ..< 7 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -36,7 +37,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 4 {return Reader{}, false}
+	if slot < 0 || slot >= 7 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -102,6 +103,8 @@ read_string_reader :: proc(r: ^Reader) -> (string, bool) {
 	return string(r.data[start:end]), true
 }
 
+Next_Entity_Id :: u32
+
 I_Vec4 :: [4]i32
 
 Entity_Ids :: []u32
@@ -109,6 +112,16 @@ Entity_Ids :: []u32
 Positions :: struct {
 	entity_ids: Entity_Ids,
 	components: []world.Position,
+}
+
+Director_Trigger_Aabbs :: struct {
+	entity_ids: Entity_Ids,
+	components: []world.Director_Trigger_Aabb,
+}
+
+Director_Entities :: struct {
+	entity_ids: Entity_Ids,
+	components: []world.Director_Entity,
 }
 
 Atlas :: []u8
@@ -127,6 +140,12 @@ DecodedSlots :: struct {
 	slot_2:     Platformer_Zones,
 	has_slot_3: bool,
 	slot_3:     Positions,
+	has_slot_4: bool,
+	slot_4:     Director_Trigger_Aabbs,
+	has_slot_5: bool,
+	slot_5:     Director_Entities,
+	has_slot_6: bool,
+	slot_6:     Next_Entity_Id,
 }
 
 @(private = "file")
@@ -264,6 +283,20 @@ decode_bytes :: proc(r: ^Reader, out: ^[]u8) -> bool {
 }
 
 @(private = "file")
+decode_next_entity_id :: proc(r: ^Reader, out: ^Next_Entity_Id) -> bool {
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out^ = Next_Entity_Id(value)
+	}
+	return true
+}
+
+@(private = "file")
 decode_i_vec4 :: proc(r: ^Reader, out: ^I_Vec4) -> bool {
 	{
 		for i0 in 0 ..< 4 {
@@ -342,6 +375,112 @@ decode_positions :: proc(r: ^Reader, out: ^Positions) -> bool {
 }
 
 @(private = "file")
+decode_director_entity_id :: proc(r: ^Reader, out: ^director.Entity_Id) -> bool {
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out^ = director.Entity_Id(value)
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_director_trigger_aabb :: proc(r: ^Reader, out: ^world.Director_Trigger_Aabb) -> bool {
+	{
+		for i6 in 0 ..< 4 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.bounds[i6] = transmute(i32)v
+			}
+		}
+	}
+	{
+		b, ok := read_u8_reader(r)
+		if !ok {return false}
+		out.once = b != 0
+	}
+	{
+		b, ok := read_u8_reader(r)
+		if !ok {return false}
+		out.used = b != 0
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_director_entity :: proc(r: ^Reader, out: ^world.Director_Entity) -> bool {
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.id = director.Entity_Id(value)
+	}
+	return true
+}
+
+@(private = "file")
+decode_director_trigger_aabbs :: proc(r: ^Reader, out: ^Director_Trigger_Aabbs) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.entity_ids = make(Entity_Ids, int(count))
+		for i7 in 0 ..< int(count) {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.entity_ids[i7] = v
+			}
+		}
+	}
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.components = make([]world.Director_Trigger_Aabb, int(count))
+		for i8 in 0 ..< int(count) {
+			{
+				if !decode_world_director_trigger_aabb(r, &out.components[i8]) {return false}
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
+decode_director_entities :: proc(r: ^Reader, out: ^Director_Entities) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.entity_ids = make(Entity_Ids, int(count))
+		for i9 in 0 ..< int(count) {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.entity_ids[i9] = v
+			}
+		}
+	}
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.components = make([]world.Director_Entity, int(count))
+		for i10 in 0 ..< int(count) {
+			{
+				if !decode_world_director_entity(r, &out.components[i10]) {return false}
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
 decode_atlas :: proc(r: ^Reader, out: ^Atlas) -> bool {
 	{
 		count, ok := read_u32_reader(r)
@@ -378,11 +517,11 @@ decode_world_platformer_zone :: proc(r: ^Reader, out: ^world.Platformer_Zone) ->
 		out.kind = world.Platformer_Zone_Kind(v)
 	}
 	{
-		for i6 in 0 ..< 4 {
+		for i11 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.bounds[i6] = transmute(i32)v
+				out.bounds[i11] = transmute(i32)v
 			}
 		}
 	}
@@ -395,9 +534,9 @@ decode_platformer_zones :: proc(r: ^Reader, out: ^Platformer_Zones) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Platformer_Zones, int(count))
-		for i7 in 0 ..< int(count) {
+		for i12 in 0 ..< int(count) {
 			{
-				if !decode_world_platformer_zone(r, &out^[i7]) {return false}
+				if !decode_world_platformer_zone(r, &out^[i12]) {return false}
 			}
 		}
 	}
@@ -410,13 +549,13 @@ decode_segments :: proc(r: ^Reader, out: ^Segments) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Segments, int(count))
-		for i8 in 0 ..< int(count) {
+		for i13 in 0 ..< int(count) {
 			{
-				for i9 in 0 ..< 4 {
+				for i14 in 0 ..< 4 {
 					{
 						v, ok := read_u32_reader(r)
 						if !ok {return false}
-						out^[i8][i9] = transmute(i32)v
+						out^[i13][i14] = transmute(i32)v
 					}
 				}
 			}
@@ -454,5 +593,29 @@ read_slot_3_positions :: proc(pkg: Package) -> (Positions, bool) {
 	if !ok {return Positions{}, false}
 	value: Positions
 	if !decode_positions(&r, &value) {return Positions{}, false}
+	return value, true
+}
+
+read_slot_4_director_trigger_aabbs :: proc(pkg: Package) -> (Director_Trigger_Aabbs, bool) {
+	r, ok := slot_reader(pkg, 4)
+	if !ok {return Director_Trigger_Aabbs{}, false}
+	value: Director_Trigger_Aabbs
+	if !decode_director_trigger_aabbs(&r, &value) {return Director_Trigger_Aabbs{}, false}
+	return value, true
+}
+
+read_slot_5_director_entities :: proc(pkg: Package) -> (Director_Entities, bool) {
+	r, ok := slot_reader(pkg, 5)
+	if !ok {return Director_Entities{}, false}
+	value: Director_Entities
+	if !decode_director_entities(&r, &value) {return Director_Entities{}, false}
+	return value, true
+}
+
+read_slot_6_next_entity_id :: proc(pkg: Package) -> (Next_Entity_Id, bool) {
+	r, ok := slot_reader(pkg, 6)
+	if !ok {return Next_Entity_Id{}, false}
+	value: Next_Entity_Id
+	if !decode_next_entity_id(&r, &value) {return Next_Entity_Id{}, false}
 	return value, true
 }

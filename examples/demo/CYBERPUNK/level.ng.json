@@ -1063,66 +1063,6 @@
     ]
   },
   {
-    "id": 85,
-    "kind": 2,
-    "x": 1971,
-    "y": 495,
-    "name": "Tilemap Find Tile Positions",
-    "codePath": "ng/presets/tilemap-find-tile-positions.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "map",
-        "srcNodeId": 75,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "layerIndex",
-        "srcNodeId": 86,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "tileId",
-        "srcNodeId": 86,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "positions",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 86,
-    "kind": 4,
-    "x": 1727,
-    "y": 481,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "1"
-      },
-      {
-        "id": 2,
-        "name": "",
-        "value": "25"
-      }
-    ]
-  },
-  {
     "id": 88,
     "kind": 2,
     "x": 3343,
@@ -1153,7 +1093,25 @@
       {
         "id": 4,
         "name": "Positions",
-        "srcNodeId": 92,
+        "srcNodeId": 108,
+        "srcOutputId": 1
+      },
+      {
+        "id": 5,
+        "name": "Director Trigger Aabbs",
+        "srcNodeId": 113,
+        "srcOutputId": 1
+      },
+      {
+        "id": 6,
+        "name": "Director Entities",
+        "srcNodeId": 115,
+        "srcOutputId": 1
+      },
+      {
+        "id": 7,
+        "name": "Next Entity Id",
+        "srcNodeId": 117,
         "srcOutputId": 1
       }
     ],
@@ -1166,108 +1124,10 @@
     ]
   },
   {
-    "id": 90,
-    "kind": 2,
-    "x": 2314,
-    "y": 491,
-    "name": "Scale",
-    "codePath": "ng/presets/scale.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "value",
-        "srcNodeId": 85,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "factor",
-        "srcNodeId": 91,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "value",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 91,
-    "kind": 4,
-    "x": 2146,
-    "y": 581,
-    "name": "tilesize",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "16"
-      }
-    ]
-  },
-  {
-    "id": 92,
-    "kind": 2,
-    "x": 3042,
-    "y": 422,
-    "name": "toObject",
-    "codePath": "ng/presets/to-object.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "components",
-        "srcNodeId": 96,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "entity_ids",
-        "srcNodeId": 93,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 93,
-    "kind": 4,
-    "x": 2773,
-    "y": 467,
-    "name": "Player Entity Id",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "[100]"
-      }
-    ]
-  },
-  {
     "id": 94,
     "kind": 4,
-    "x": 2293,
-    "y": 690,
+    "x": 3020,
+    "y": 885,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1284,8 +1144,8 @@
   {
     "id": 95,
     "kind": 2,
-    "x": 2604,
-    "y": 687,
+    "x": 3331,
+    "y": 882,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1300,36 +1160,11 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 90,
+        "srcNodeId": 108,
         "srcOutputId": 1
       }
     ],
     "outputs": []
-  },
-  {
-    "id": 96,
-    "kind": 2,
-    "x": 2749,
-    "y": 369,
-    "name": "fromArray",
-    "codePath": "ng/presets/from-array.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "srcNodeId": 90,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "map1",
-        "value": null
-      }
-    ]
   },
   {
     "id": 97,
@@ -1581,5 +1416,225 @@
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 108,
+    "kind": 2,
+    "x": 2778,
+    "y": 424,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 110,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 110,
+    "kind": 4,
+    "x": 2541,
+    "y": 412,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[\"x\",\"y\"]"
+      }
+    ]
+  },
+  {
+    "id": 111,
+    "kind": 4,
+    "x": 2146,
+    "y": 551,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"catalog/world/level.world.json\""
+      }
+    ]
+  },
+  {
+    "id": 112,
+    "kind": 2,
+    "x": 2409,
+    "y": 551,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 111,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 113,
+    "kind": 2,
+    "x": 2796,
+    "y": 587,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 114,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 114,
+    "kind": 4,
+    "x": 2560,
+    "y": 643,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"director_trigger_aabb\""
+      }
+    ]
+  },
+  {
+    "id": 115,
+    "kind": 2,
+    "x": 2788,
+    "y": 732,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 116,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 116,
+    "kind": 4,
+    "x": 2535,
+    "y": 768,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"director_entity\""
+      }
+    ]
+  },
+  {
+    "id": 117,
+    "kind": 2,
+    "x": 2848,
+    "y": 319,
+    "name": "Array Length",
+    "codePath": "ng/presets/array-length.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "length",
+        "value": null
+      }
+    ]
   }
 ]
