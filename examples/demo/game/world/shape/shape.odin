@@ -32,39 +32,38 @@ aabb :: proc {
 	capsule_aabb,
 }
 
-move_point :: proc(s: ^[2]int, p: [2]int) {
+move_point :: proc(s: ^Point, p: Point) {
 	s.x += p.x
 	s.y += p.y
 }
 
 @(require_results)
-point_segment_test :: proc(point: ^[2]int, segment: ^[4]int) -> bool {
+point_segment_test :: proc(point: ^Point, segment: ^Segment) -> bool {
 	return segment_point_test(segment, point)
 }
 
 @(require_results)
-point_cicle_test :: proc(point: ^[2]int, circle: ^Circle) -> bool {
+point_cicle_test :: proc(point: ^Point, circle: ^Circle) -> bool {
 	return circle_point_test(circle, point)
 }
 
 @(require_results)
-point_sector_test :: proc(point: ^[2]int, sector: ^Sector) -> bool {
+point_sector_test :: proc(point: ^Point, sector: ^Sector) -> bool {
 	return sector_point_test(sector, point)
 }
 
 @(require_results)
-point_capsule_test :: proc(point: ^[2]int, capsule: ^Capsule) -> bool {
+point_capsule_test :: proc(point: ^Point, capsule: ^Capsule) -> bool {
 	return capsule_point_test(capsule, point)
 }
 
-// Add the symmetric case
 @(require_results)
-segment_circle_test :: proc(segment: ^[4]int, circle: ^Circle) -> bool {
+segment_circle_test :: proc(segment: ^Segment, circle: ^Circle) -> bool {
 	return circle_segment_test(circle, segment)
 }
-// Add the symmetric case
+
 @(require_results)
-segment_capsule_test :: proc(segment: ^[4]int, capsule: ^Capsule) -> bool {
+segment_capsule_test :: proc(segment: ^Segment, capsule: ^Capsule) -> bool {
 	return capsule_segment_test(capsule, segment)
 }
 
@@ -73,13 +72,18 @@ circle_capsule_test :: proc(circle: ^Circle, capsule: ^Capsule) -> bool {
 	return capsule_circle_test(capsule, circle)
 }
 
-// Determines if points a->b->c form a counter-clockwise turn
-// Returns: +1 counter-clockwise, -1 clockwise, 0 collinear
+delta_i128 :: proc(a, b: i32) -> i128 {
+	return i128(a) - i128(b)
+}
+
+// Determines if points a->b->c form a counter-clockwise turn.
+// Returns +1 counter-clockwise, -1 clockwise, or 0 collinear.
 @(require_results)
-ccw :: proc(ax, ay, bx, by, cx, cy: int) -> int {
-	area2 := (bx - ax) * (cy - ay) - (cx - ax) * (by - ay)
+ccw :: proc(
+	#any_int ax, ay, bx, by, cx, cy: i32,
+) -> i32 {
+	area2 := delta_i128(bx, ax) * delta_i128(cy, ay) - delta_i128(cx, ax) * delta_i128(by, ay)
 	if area2 < 0 {return -1}
 	if area2 > 0 {return +1}
-
 	return 0
 }

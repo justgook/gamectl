@@ -30,7 +30,7 @@ brain_test_director_data := director.Director_Data {
 }
 
 @(private = "file")
-brain_test_world :: proc(input: Input, pos: Position, segment: [4]int) -> ^World {
+brain_test_world :: proc(input: Input, pos: Position, segment: shape.Segment) -> ^World {
 	w := new(World)
 	w.director = director.init(brain_test_director_data)
 	w.director_config = {

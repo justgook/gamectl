@@ -24,7 +24,7 @@ Platformer_Config :: struct {
 	jump_hold_frames:   int,
 	coyote_frames:      int,
 	jump_buffer_frames: int,
-	wall_stick:         int,
+	wall_stick:         i32,
 	slope:              slope.Config,
 	wall:               wall.Config,
 	ladder:             ladder.Config,
@@ -88,10 +88,10 @@ Platformer :: struct {
 	in_water:         bool,
 	swim_jumping:     bool,
 	hit_ceiling:      bool,
-	ground_normal:    [2]int,
-	wall_normal:      [2]int,
-	ground_segment:   ^[4]int,
-	wall_segment:     ^[4]int,
+	ground_normal:    [2]i32,
+	wall_normal:      [2]i32,
+	ground_segment:   ^shape.Segment,
+	wall_segment:     ^shape.Segment,
 	ladder_zone:      int,
 	coyote_timer:     int,
 	jump_buffer:      int,
@@ -124,9 +124,9 @@ Platformer_Zone :: struct {
 Platformer_Ground_Ahead_Result :: struct {
 	found:   bool,
 	probe_x: i32,
-	delta_y: int,
-	normal:  [2]int,
-	segment: ^[4]int,
+	delta_y: i32,
+	normal:  [2]i32,
+	segment: ^shape.Segment,
 }
 
 @(require_results)
@@ -135,13 +135,12 @@ platformer_probe_ground_ahead :: proc(
 	pos: ^Position,
 	collider: ^shape.Capsule,
 	platformer: ^Platformer,
-	lookahead: int,
-	direction: int,
+	#any_int lookahead, direction: i32,
 ) -> Platformer_Ground_Ahead_Result {
 	assert(direction == -1 || direction == 1)
 	assert(lookahead >= 0)
 
-	probe_x := int(pos.x) + collider.x + direction * (collider.radius + lookahead)
+	probe_x := pos.x + collider.x + direction * (collider.radius + lookahead)
 	ground := slope.Probe_Ground_At_X(g, pos, collider, platformer_config(platformer).slope, probe_x)
 	return {
 		found = ground.ok,
@@ -530,11 +529,11 @@ platformer_apply_ladder :: proc(
 ) {
 	assert(zone.kind == .Ladder)
 	start_bounds := platformer_world_aabb(pos, collider)
-	start_bottom := int(start_bounds.y)
-	center_x := int((zone.bounds.x + zone.bounds.z) / 2)
+	start_bottom := start_bounds.y
+	center_x := (zone.bounds.x + zone.bounds.z) / 2
 	target_pos_x := center_x - collider.x
-	delta_x := target_pos_x - int(pos.x)
-	vel.x = i32(clamp(delta_x, -int(cfg.center_speed), int(cfg.center_speed)))
+	delta_x := target_pos_x - pos.x
+	vel.x = clamp(delta_x, -cfg.center_speed, cfg.center_speed)
 
 	move_y := i32(0)
 	if .North in input {
@@ -594,15 +593,15 @@ platformer_finish_ladder_top_climb :: proc(
 	collider: ^shape.Capsule,
 	p: ^Platformer,
 	zone: ^Platformer_Zone,
-	start_bottom: int,
+	start_bottom: i32,
 ) {
 	assert(zone.kind == .Ladder)
 	bounds := platformer_world_aabb(pos, collider)
-	if start_bottom > int(zone.bounds.w) || bounds.y < zone.bounds.w {
+	if start_bottom > zone.bounds.w || bounds.y < zone.bounds.w {
 		return
 	}
 	local_bounds := capsule_local_aabb(collider)
-	pos.y = zone.bounds.w - i32(local_bounds.y)
+	pos.y = zone.bounds.w - local_bounds.y
 	vel.y = 0
 	platformer_leave_ladder(p)
 	p.on_ground = true
@@ -853,13 +852,13 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 
 	cfg := platformer_config(p)
 	bounds := capsule_local_aabb(collider)
-	start_x := int(pos.x)
-	end_x := int(pos.x + vel.x)
-	query := [4]int {
+	start_x := pos.x
+	end_x := pos.x + vel.x
+	query := shape.Aabb {
 		min(start_x, end_x) + bounds.x,
-		int(pos.y) + bounds.y,
+		pos.y + bounds.y,
 		max(start_x, end_x) + bounds.z,
-		int(pos.y) + bounds.w,
+		pos.y + bounds.w,
 	}
 	found := grid.query_aabb(g, &query)
 	defer delete(found)
@@ -886,13 +885,13 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 			continue
 		}
 
-		wall_min_y := int(pos.y) + bounds.y
-		wall_max_y := int(pos.y) + bounds.w
+		wall_min_y := pos.y + bounds.y
+		wall_max_y := pos.y + bounds.w
 		if trim_capsule_ends {
 			wall_min_y += collider.radius
 			wall_max_y -= collider.radius
 		}
-		contact_x, ok := segment_x_at_aabb_y(wall, wall_min_y, wall_max_y, int(pos.y) + collider.y)
+		contact_x, ok := segment_x_at_aabb_y(wall, wall_min_y, wall_max_y, pos.y + collider.y)
 		if !ok {
 			continue
 		}
@@ -915,7 +914,7 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 		}
 	}
 
-	pos.x = i32(best_x)
+	pos.x = best_x
 	if best_x != end_x {
 		vel.x = 0
 	}
@@ -935,12 +934,12 @@ move_y_and_collide :: proc(
 	}
 
 	bounds := capsule_local_aabb(collider)
-	start_y := int(pos.y)
-	end_y := int(pos.y + vel.y)
-	query := [4]int {
-		int(pos.x) + bounds.x,
+	start_y := pos.y
+	end_y := pos.y + vel.y
+	query := shape.Aabb {
+		pos.x + bounds.x,
 		min(start_y, end_y) + bounds.y,
-		int(pos.x) + bounds.z,
+		pos.x + bounds.z,
 		max(start_y, end_y) + bounds.w,
 	}
 	found := grid.query_aabb(g, &query)
@@ -960,13 +959,13 @@ move_y_and_collide :: proc(
 			}
 		}
 
-		contact_y, ok := segment_y_at_support_x(floor, int(pos.x) + collider.x)
+		contact_y, ok := segment_y_at_support_x(floor, pos.x + collider.x)
 		if !ok && vel.y > 0 {
 			contact_y, ok = segment_y_at_aabb_x(
 				floor,
-				int(pos.x) + bounds.x,
-				int(pos.x) + bounds.z,
-				int(pos.x) + collider.x,
+				pos.x + bounds.x,
+				pos.x + bounds.z,
+				pos.x + collider.x,
 			)
 		}
 		if !ok {
@@ -989,28 +988,28 @@ move_y_and_collide :: proc(
 		}
 	}
 
-	pos.y = i32(best_y)
+	pos.y = best_y
 	if best_y != end_y {
 		vel.y = 0
 	}
 }
 
 @(private = "file")
-stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer, stick: int) {
+stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer, stick: i32) {
 	bounds := capsule_local_aabb(collider)
-	center_y := int(pos.y) + collider.y
-	probe := [4]int {
-		int(pos.x) + bounds.x - stick,
-		int(pos.y) + bounds.y,
-		int(pos.x) + bounds.z + stick,
-		int(pos.y) + bounds.w,
+	center_y := pos.y + collider.y
+	probe := shape.Aabb {
+		pos.x + bounds.x - stick,
+		pos.y + bounds.y,
+		pos.x + bounds.z + stick,
+		pos.y + bounds.w,
 	}
 	found := grid.query_aabb(g, &probe)
 	defer delete(found)
 
 	best_delta := stick + 1
-	best_normal := [2]int{}
-	best_segment: ^[4]int = nil
+	best_normal := [2]i32{}
+	best_segment: ^shape.Segment = nil
 	for wall in found {
 		normal := segment_left_normal(wall)
 		if abs(normal.x) < abs(normal.y) {
@@ -1022,7 +1021,7 @@ stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p
 			continue
 		}
 
-		touch_x := int(pos.x) + bounds.z if normal.x < 0 else int(pos.x) + bounds.x
+		touch_x := pos.x + bounds.z if normal.x < 0 else pos.x + bounds.x
 		delta := contact_x - touch_x
 		if abs(delta) <= stick && abs(delta) < abs(best_delta) {
 			best_delta = delta
@@ -1044,7 +1043,7 @@ stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p
 
 @(private = "file")
 apply_ground_result :: proc(pos: ^Position, vel: ^Velocity, p: ^Platformer, result: slope.Ground_Result) {
-	pos.y += i32(result.delta_y)
+	pos.y += result.delta_y
 	vel.y = 0
 	p.on_ground = true
 	p.ground_normal = result.normal
@@ -1060,7 +1059,7 @@ platformer_config :: proc(p: ^Platformer) -> Platformer_Config {
 }
 
 @(private = "file")
-capsule_local_aabb :: proc(capsule: ^shape.Capsule) -> [4]int {
+capsule_local_aabb :: proc(capsule: ^shape.Capsule) -> shape.Aabb {
 	half_height := capsule.height / 2
 	return {
 		capsule.x - capsule.radius,
@@ -1074,10 +1073,10 @@ capsule_local_aabb :: proc(capsule: ^shape.Capsule) -> [4]int {
 platformer_world_aabb :: proc(pos: ^Position, collider: ^shape.Capsule) -> shape.Aabb {
 	bounds := capsule_local_aabb(collider)
 	return {
-		i32(int(pos.x) + bounds.x),
-		i32(int(pos.y) + bounds.y),
-		i32(int(pos.x) + bounds.z),
-		i32(int(pos.y) + bounds.w),
+		pos.x + bounds.x,
+		pos.y + bounds.y,
+		pos.x + bounds.z,
+		pos.y + bounds.w,
 	}
 }
 
@@ -1092,14 +1091,14 @@ aabb_overlaps_strict :: proc(a, b: shape.Aabb) -> bool {
 }
 
 @(private = "file")
-segment_left_normal :: proc(segment: ^[4]int) -> [2]int {
+segment_left_normal :: proc(segment: ^shape.Segment) -> [2]i32 {
 	dx := segment.z - segment.x
 	dy := segment.w - segment.y
 	return {-dy, dx}
 }
 
 @(private = "file")
-segment_y_at_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
+segment_y_at_x :: proc(segment: ^shape.Segment, x: i32) -> (i32, bool) {
 	min_x := min(segment.x, segment.z)
 	max_x := max(segment.x, segment.z)
 	if x < min_x || x > max_x {
@@ -1108,11 +1107,13 @@ segment_y_at_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
 	if segment.x == segment.z {
 		return 0, false
 	}
-	return segment.y + (x - segment.x) * (segment.w - segment.y) / (segment.z - segment.x), true
+	y := i64(segment.y) +
+		(i64(x) - i64(segment.x)) * (i64(segment.w) - i64(segment.y)) / (i64(segment.z) - i64(segment.x))
+	return i32(y), true
 }
 
 @(private = "file")
-segment_y_at_support_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
+segment_y_at_support_x :: proc(segment: ^shape.Segment, x: i32) -> (i32, bool) {
 	min_x := min(segment.x, segment.z)
 	max_x := max(segment.x, segment.z)
 	if x <= min_x || x >= max_x {
@@ -1122,7 +1123,7 @@ segment_y_at_support_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
 }
 
 @(private = "file")
-segment_x_at_y :: proc(segment: ^[4]int, y: int) -> (int, bool) {
+segment_x_at_y :: proc(segment: ^shape.Segment, y: i32) -> (i32, bool) {
 	min_y := min(segment.y, segment.w)
 	max_y := max(segment.y, segment.w)
 	if y < min_y || y > max_y {
@@ -1131,11 +1132,13 @@ segment_x_at_y :: proc(segment: ^[4]int, y: int) -> (int, bool) {
 	if segment.y == segment.w {
 		return 0, false
 	}
-	return segment.x + (y - segment.y) * (segment.z - segment.x) / (segment.w - segment.y), true
+	x := i64(segment.x) +
+		(i64(y) - i64(segment.y)) * (i64(segment.z) - i64(segment.x)) / (i64(segment.w) - i64(segment.y))
+	return i32(x), true
 }
 
 @(private = "file")
-segment_y_at_aabb_x :: proc(segment: ^[4]int, min_x, max_x, preferred_x: int) -> (int, bool) {
+segment_y_at_aabb_x :: proc(segment: ^shape.Segment, min_x, max_x, preferred_x: i32) -> (i32, bool) {
 	contact_y, ok := segment_y_at_x(segment, preferred_x)
 	if ok {
 		return contact_y, true
@@ -1155,7 +1158,7 @@ segment_y_at_aabb_x :: proc(segment: ^[4]int, min_x, max_x, preferred_x: int) ->
 }
 
 @(private = "file")
-segment_x_at_aabb_y :: proc(segment: ^[4]int, min_y, max_y, preferred_y: int) -> (int, bool) {
+segment_x_at_aabb_y :: proc(segment: ^shape.Segment, min_y, max_y, preferred_y: i32) -> (i32, bool) {
 	contact_x, ok := segment_x_at_y(segment, preferred_y)
 	if ok {
 		return contact_x, true

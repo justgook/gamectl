@@ -28,7 +28,7 @@ Apply_Slide :: proc(vel: ^[2]i32, cfg: Config) {
 	vel.y = -down_speed
 }
 
-Jump_Direction_X :: proc(wall_normal: [2]int, facing: i32) -> i32 {
+Jump_Direction_X :: proc(wall_normal: [2]i32, facing: i32) -> i32 {
 	if wall_normal.x > 0 {
 		return 1
 	}

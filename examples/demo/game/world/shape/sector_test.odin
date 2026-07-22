@@ -13,7 +13,7 @@ test_sector_point_detection_respects_radius_direction_and_angle :: proc(t: ^test
 
 	cases := []struct {
 		name:     string,
-		point:    [2]int,
+		point:    Point,
 		expected: bool,
 	} {
 		{"center", {0, 0}, true},
@@ -41,8 +41,8 @@ test_sector_point_detection_respects_radius_direction_and_angle :: proc(t: ^test
 @(test)
 test_sector_point_detection_supports_non_normalized_direction :: proc(t: ^testing.T) {
 	sector := make_sector_degrees(0, 0, 20, {10, 0}, 45)
-	inside := [2]int{10, 5}
-	outside := [2]int{5, 10}
+	inside := Point{10, 5}
+	outside := Point{5, 10}
 
 	testing.expect(t, sector_point_test(&sector, &inside))
 	testing.expect(t, !sector_point_test(&sector, &outside))

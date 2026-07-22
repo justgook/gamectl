@@ -183,24 +183,6 @@ local function luaString(value)
 	return string.format("%q", tostring(value or ""))
 end
 
-local function isArrayTable(value)
-	local length = 0
-	for key, _ in pairs(value) do
-		if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
-			return false
-		end
-		if key > length then
-			length = key
-		end
-	end
-	for index = 1, length do
-		if value[index] == nil then
-			return false
-		end
-	end
-	return true
-end
-
 local function luaLiteral(value)
 	if value == json.null then
 		return "json.null"
@@ -217,7 +199,8 @@ local function luaLiteral(value)
 		return value and "true" or "false"
 	elseif valueType == "table" then
 		local parts = {}
-		if isArrayTable(value) then
+		local isArray = json.is_array(value)
+		if isArray then
 			for index = 1, #value do
 				parts[#parts + 1] = luaLiteral(value[index])
 			end
@@ -233,6 +216,9 @@ local function luaLiteral(value)
 			for _, key in ipairs(keys) do
 				parts[#parts + 1] = ("[%s] = %s"):format(luaString(key), luaLiteral(value[key]))
 			end
+		end
+		if #parts == 0 then
+			return isArray and "json.array()" or "json.object()"
 		end
 		return "{" .. table.concat(parts, ", ") .. "}"
 	end

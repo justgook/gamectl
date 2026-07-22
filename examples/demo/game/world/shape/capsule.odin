@@ -2,32 +2,32 @@ package shape
 
 // Represents an axis-aligned capsule with two semi-circles at top and bottom
 Capsule :: struct {
-	x, y:   int, // Center position
-	radius: int, // Radius of the semi-circles
-	height: int, // Height of the rectangular part (not including semi-circles)
+	x, y:   i32, // Center position
+	radius: i32, // Radius of the semi-circles
+	height: i32, // Height of the rectangular part (not including semi-circles)
 }
 
-move_capsule :: proc(s: ^Capsule, p: [2]int) {
+move_capsule :: proc(s: ^Capsule, p: Point) {
 	s.x += p.x
 	s.y += p.y
 }
 capsule_aabb :: proc(s: ^Capsule) -> Aabb {
 	return {
-		i32(s.x - s.radius),
-		i32(s.y - s.height / 2 - s.radius),
-		i32(s.x + s.radius),
-		i32(s.y + s.height / 2 + s.radius),
+		s.x - s.radius,
+		s.y - s.height / 2 - s.radius,
+		s.x + s.radius,
+		s.y + s.height / 2 + s.radius,
 	}
 }
 // Create a new capsule from components
 @(require_results)
-make_capsule :: proc(#any_int x, #any_int y, #any_int radius, #any_int height: int) -> Capsule {
-	return Capsule{x = x, y = y, radius = radius, height = height}
+make_capsule :: proc(#any_int x, #any_int y, #any_int radius, #any_int height: i32) -> Capsule {
+	return {x = x, y = y, radius = radius, height = height}
 }
 
 // Test if a point is inside the capsule
 @(require_results)
-capsule_point_test :: proc(capsule: ^Capsule, point: ^[2]int) -> bool {
+capsule_point_test :: proc(capsule: ^Capsule, point: ^Point) -> bool {
 	// First check if point is within the horizontal bounds of the capsule
 	if point.x < capsule.x - capsule.radius || point.x > capsule.x + capsule.radius {
 		return false
@@ -67,7 +67,7 @@ capsule_point_test :: proc(capsule: ^Capsule, point: ^[2]int) -> bool {
 }
 
 @(require_results)
-capsule_segment_test :: proc(capsule: ^Capsule, segment: ^[4]int) -> bool {
+capsule_segment_test :: proc(capsule: ^Capsule, segment: ^Segment) -> bool {
 	// Get the vertical extent of the capsule's rectangular part
 	half_height := capsule.height / 2
 	rect_top := capsule.y + half_height
@@ -103,8 +103,8 @@ capsule_segment_test :: proc(capsule: ^Capsule, segment: ^[4]int) -> bool {
 	left_x := capsule.x - capsule.radius
 	right_x := capsule.x + capsule.radius
 
-	left_segment := [4]int{left_x, rect_bottom, left_x, rect_top}
-	right_segment := [4]int{right_x, rect_bottom, right_x, rect_top}
+	left_segment := Segment{left_x, rect_bottom, left_x, rect_top}
+	right_segment := Segment{right_x, rect_bottom, right_x, rect_top}
 
 	// Test segment against rectangle sides
 	if segment_segment_test(segment, &left_segment) || segment_segment_test(segment, &right_segment) {
@@ -210,7 +210,7 @@ capsule_capsule_test :: proc(a, b: ^Capsule) -> bool {
 
 
 @(require_results)
-swept_capsule_segment_test :: proc(capsule: ^Capsule, start_pos: [2]int, velocity: [2]int, segment: ^[4]int) -> f32 {
+swept_capsule_segment_test :: proc(capsule: ^Capsule, start_pos: Point, velocity: Point, segment: ^Segment) -> f32 {
 	// Calculate segment orientation
 	is_horizontal := abs(segment[3] - segment[1]) < abs(segment[2] - segment[0])
 
@@ -218,8 +218,8 @@ swept_capsule_segment_test :: proc(capsule: ^Capsule, start_pos: [2]int, velocit
 	vel_f32 := [2]f32{f32(velocity.x), f32(velocity.y)}
 
 	// Get capsule properties in world space
-	capsule_x := f32(start_pos.x + capsule.x)
-	capsule_y := f32(start_pos.y + capsule.y)
+	capsule_x := f32(start_pos.x) + f32(capsule.x)
+	capsule_y := f32(start_pos.y) + f32(capsule.y)
 	half_height := f32(capsule.height) / 2
 	radius := f32(capsule.radius)
 

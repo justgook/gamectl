@@ -36,11 +36,11 @@ collect_player_bullet_hits :: proc(w: ^World, out: ^[dynamic]Damage_Hit) {
 	for bullet_entity, hit_circle, hit_pos, bullet in logic.each(&hit_view) {
 		assert(bullet.side == .Player)
 		world_hit := hit_circle^
-		shape.move_circle(&world_hit, {int(hit_pos.x), int(hit_pos.y)})
+		shape.move_circle(&world_hit, {hit_pos.x, hit_pos.y})
 
 		for target_entity, hurt_capsule, hurt_pos, target_director in logic.each(&hurt_view) {
 			world_hurt := hurt_capsule^
-			shape.move_capsule(&world_hurt, {int(hurt_pos.x), int(hurt_pos.y)})
+			shape.move_capsule(&world_hurt, {hurt_pos.x, hurt_pos.y})
 			if shape.circle_capsule_test(&world_hit, &world_hurt) {
 				append(
 					out,
@@ -64,11 +64,11 @@ collect_enemy_bullet_hits :: proc(w: ^World, out: ^[dynamic]Damage_Hit) {
 	for bullet_entity, hit_circle, hit_pos, bullet in logic.each(&hit_view) {
 		assert(bullet.side == .Enemy)
 		world_hit := hit_circle^
-		shape.move_circle(&world_hit, {int(hit_pos.x), int(hit_pos.y)})
+		shape.move_circle(&world_hit, {hit_pos.x, hit_pos.y})
 
 		for target_entity, hurt_capsule, hurt_pos, target_director in logic.each(&hurt_view) {
 			world_hurt := hurt_capsule^
-			shape.move_capsule(&world_hurt, {int(hurt_pos.x), int(hurt_pos.y)})
+			shape.move_capsule(&world_hurt, {hurt_pos.x, hurt_pos.y})
 			if shape.circle_capsule_test(&world_hit, &world_hurt) {
 				append(
 					out,
@@ -112,7 +112,7 @@ bullet_world_collision :: proc(w: ^World, view: ^logic.View3(shape.Circle, Posit
 	defer delete(bullets_to_delete)
 
 	for entity, _, pos, vel in logic.each(view) {
-		movement := [4]int{int(pos.x), int(pos.y), int(pos.x + vel.x), int(pos.y + vel.y)}
+		movement := shape.Segment{pos.x, pos.y, pos.x + vel.x, pos.y + vel.y}
 		found := grid.query_segment(&w.grid, &movement)
 
 		for wall in found {

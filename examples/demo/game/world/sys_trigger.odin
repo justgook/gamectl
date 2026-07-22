@@ -60,7 +60,7 @@ sys_trigger :: proc(w: ^World) {
 }
 
 @(private = "file")
-segment_trigger_contact :: proc(w: ^World, entity: logic.Entity, segment: ^[4]int, contact_kind: string) {
+segment_trigger_contact :: proc(w: ^World, entity: logic.Entity, segment: ^shape.Segment, contact_kind: string) {
 	if w.segment_triggers == nil {
 		return
 	}

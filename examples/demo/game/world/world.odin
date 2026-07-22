@@ -58,7 +58,7 @@ World :: struct {
 	// Platformer Physics
 	platformer:             logic.Component_Storage(Platformer),
 	grid:                   grid.Grid,
-	segments:               [dynamic][4]int,
+	segments:               [dynamic]shape.Segment,
 	collider:               logic.Component_Storage(shape.Capsule),
 	on_hit:                 logic.Component_Storage(proc(_: ^World, src, target: int)),
 	on_hurt:                logic.Component_Storage(proc(_: ^World, src, target: int)),
@@ -73,7 +73,7 @@ World :: struct {
 	// TODO : simplify and combine
 	director_config:        Director_Config,
 	director:               director.State,
-	segment_triggers:       map[^[4]int]Segment_Trigger,
+	segment_triggers:       map[^shape.Segment]Segment_Trigger,
 	platformer_zones:       []Platformer_Zone,
 	director_entity:        logic.Component_Storage(Director_Entity),
 	director_trigger_aabb:  logic.Component_Storage(Director_Trigger_Aabb),
@@ -216,18 +216,15 @@ init :: proc(w: ^World) {
 	w.player1_id = player
 	director.entity_set_stat(&w.director, w.director_config.player, w.director_config.world_entity, i32(player))
 	logic.add_component(&w.director_entity, player, Director_Entity{id = w.director_config.player})
+
 	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0], w.director_config.player, .Player))
 	camera_track(&w.cam, player)
-	logic.add_component(&w.brain, player, Brain{})
-	logic.add_component(&w.input, player, Input{})
-	w.player1, _ = logic.get_component(&w.input, player)
-	logic.add_component(&w.velocity, player, Velocity{})
+	player_input, has_player_input := logic.get_component(&w.input, player)
+	assert(has_player_input)
+	w.player1 = player_input
 	// logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
 	// logic.add_component(&w.position, player, Position{64 * UNIT, 96 * UNIT})
 
-	logic.add_component(&w.collider, player, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
-	logic.add_component(&w.player_hurt, player, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
-	logic.add_component(&w.platformer, player, Platformer{facing = 1})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
@@ -242,7 +239,6 @@ init :: proc(w: ^World) {
 		platformer_anim_create_char_from_atlas(&w.animation_atlas, player_anim_base),
 	)
 	logic.add_component(&w.animation, player, animation_create(&anim[player_anim_base]))
-	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1})
 
 
 	// logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})

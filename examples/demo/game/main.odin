@@ -13,6 +13,7 @@ import qoi "third_party/qoi"
 import "world"
 import "world/grid"
 import "world/logic"
+import "world/shape"
 
 State :: struct {
 	world: world.World,
@@ -32,9 +33,9 @@ app_init :: proc() {
 	w := &state.world
 	// TODO: delete those debug segments
 	UNIT := world.UNIT
-	append(&w.segments, [4]int{32 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT})
-	append(&w.segments, [4]int{128 * UNIT, 16 * UNIT, 256 * UNIT, 64 * UNIT})
-	append(&w.segments, [4]int{256 * UNIT, -16 * UNIT, 256 * UNIT, 128 * UNIT})
+	append(&w.segments, shape.make_segment(32 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT))
+	append(&w.segments, shape.make_segment(128 * UNIT, 16 * UNIT, 256 * UNIT, 64 * UNIT))
+	append(&w.segments, shape.make_segment(256 * UNIT, -16 * UNIT, 256 * UNIT, 128 * UNIT))
 	// MOCK SEGMENTS END
 
 	ok := load_data_bullet("bullet.rspk", &state.world)
@@ -102,7 +103,7 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 	segment_trigger_defs := data_director.read_slot_1_segment_trigger_defs(game_data) or_return
 	defer delete(segment_trigger_defs)
 	assert(w.segment_triggers == nil)
-	w.segment_triggers = make(map[^[4]int]world.Segment_Trigger)
+	w.segment_triggers = make(map[^shape.Segment]world.Segment_Trigger)
 	for def in segment_trigger_defs {
 		assert(def.segment >= 0)
 		assert(int(def.segment) < len(w.segments))
@@ -130,7 +131,7 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	defer delete(the_segments)
 
 	for s in the_segments {
-		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
+		append(&w.segments, shape.Segment{s.x, s.y, s.z, s.w} * UNIT)
 	}
 
 	grid.destroy_grid(&w.grid)
@@ -169,6 +170,51 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	director_entities := data_level.read_slot_5_director_entities(game_data) or_return
 	assert(len(director_entities.components) == len(director_entities.entity_ids))
 	logic.load_storage(&w.director_entity, director_entities.components, director_entities.entity_ids)
+
+	brains := data_level.read_slot_7_brains(game_data) or_return
+	assert(len(brains.components) == len(brains.entity_ids))
+	logic.load_storage(&w.brain, brains.components, brains.entity_ids)
+
+	inputs := data_level.read_slot_8_inputs(game_data) or_return
+	assert(len(inputs.components) == len(inputs.entity_ids))
+	for input, index in inputs.components {
+		logic.add_component(&w.input, inputs.entity_ids[index], transmute(world.Input)input)
+	}
+
+	velocities := data_level.read_slot_9_velocities(game_data) or_return
+	assert(len(velocities.components) == len(velocities.entity_ids))
+	for &velocity in velocities.components {
+		velocity.xy *= world.UNIT
+	}
+	logic.load_storage(&w.velocity, velocities.components, velocities.entity_ids)
+
+	colliders := data_level.read_slot_10_colliders(game_data) or_return
+	assert(len(colliders.components) == len(colliders.entity_ids))
+	for &collider in colliders.components {
+		collider.x *= world.UNIT
+		collider.y *= world.UNIT
+		collider.radius *= world.UNIT
+		collider.height *= world.UNIT
+	}
+	logic.load_storage(&w.collider, colliders.components, colliders.entity_ids)
+
+	player_hurts := data_level.read_slot_11_player_hurts(game_data) or_return
+	assert(len(player_hurts.components) == len(player_hurts.entity_ids))
+	for &player_hurt in player_hurts.components {
+		player_hurt.x *= world.UNIT
+		player_hurt.y *= world.UNIT
+		player_hurt.radius *= world.UNIT
+		player_hurt.height *= world.UNIT
+	}
+	logic.load_storage(&w.player_hurt, player_hurts.components, player_hurts.entity_ids)
+
+	platformers := data_level.read_slot_12_platformers(game_data) or_return
+	assert(len(platformers.components) == len(platformers.entity_ids))
+	logic.load_storage(&w.platformer, platformers.components, platformers.entity_ids)
+
+	sprites := data_level.read_slot_13_sprites(game_data) or_return
+	assert(len(sprites.components) == len(sprites.entity_ids))
+	logic.load_storage(&w.sprite, sprites.components, sprites.entity_ids)
 
 	// host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 

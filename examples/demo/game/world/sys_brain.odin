@@ -58,7 +58,7 @@ Input :: bit_set[InputSet;u8]
 sys_enemy_vision :: proc(w: ^World) {
 	player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)
 	assert(has_player_pos)
-	player_point := [2]int{int(player_pos.x), int(player_pos.y)}
+	player_point := [2]i32{player_pos.x, player_pos.y}
 
 	view := logic.view(&w.position, &w.enemy_vision, &w.director_entity)
 	for entity, pos, vision, director_entity in logic.each(&view) {
@@ -70,8 +70,8 @@ sys_enemy_vision :: proc(w: ^World) {
 		assert(has_behavior)
 
 		sensor := vision.sector
-		shape.move_sector(&sensor, {int(pos.x), int(pos.y)})
-		sensor.direction = {int(platformer.facing), 0}
+		shape.move_sector(&sensor, {pos.x, pos.y})
+		sensor.direction = {platformer.facing, 0}
 		player_inside := false
 		if behavior == w.director_config.patrolling {
 			player_inside = shape.sector_point_test(&sensor, &player_point)
@@ -102,12 +102,12 @@ sys_enemy_vision :: proc(w: ^World) {
 sys_enemy_attack_area :: proc(w: ^World) {
 	player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)
 	assert(has_player_pos)
-	player_point := [2]int{int(player_pos.x), int(player_pos.y)}
+	player_point := [2]i32{player_pos.x, player_pos.y}
 
 	view := logic.view(&w.position, &w.enemy_attack_area, &w.director_entity)
 	for entity, pos, attack_area, director_entity in logic.each(&view) {
 		sensor := attack_area.circle
-		shape.move_circle(&sensor, {int(pos.x), int(pos.y)})
+		shape.move_circle(&sensor, {pos.x, pos.y})
 		player_inside := shape.circle_point_test(&sensor, &player_point)
 		if player_inside == attack_area.player_inside {
 			continue
@@ -182,7 +182,7 @@ sys_brain :: proc(w: ^World) {
 @(private = "file")
 brain1_patrol :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape.Capsule, platformer: ^Platformer) {
 	direction := brain1_patrol_direction(input, platformer.facing)
-	test := [4]int{int(pos.x), int(pos.y), int(pos.x) + direction * 10 * UNIT, int(pos.y)}
+	test := shape.Segment{pos.x, pos.y, pos.x + i32(direction) * 10 * i32(UNIT), pos.y}
 	found := grid.query_segment(&w.grid, &test)
 	defer delete(found)
 

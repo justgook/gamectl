@@ -12,7 +12,7 @@ import "shape"
 
 @(test)
 test_platformer_walks_left_uphill_without_falling :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 256 * UNIT, 256 * UNIT, 0})
+	w := platformer_test_world_with_segments(shape.Segment{0, 256 * UNIT, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(1)
@@ -53,15 +53,15 @@ test_platformer_walks_left_uphill_without_falling :: proc(t: ^testing.T) {
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, touching_ground, "frame %d: player has no ground support pos=%v vel=%v", frame, pos^, vel^)
-		testing.expectf(t, int(pos.x) < previous_x, "frame %d: player did not move left", frame)
+		testing.expectf(t, pos.x < previous_x, "frame %d: player did not move left", frame)
 
-		previous_x = int(pos.x)
+		previous_x = pos.x
 	}
 }
 
 @(test)
 test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 32 * UNIT, 0}, [4]int{32 * UNIT, 0, 256 * UNIT, 224 * UNIT})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 32 * UNIT, 0}, shape.Segment{32 * UNIT, 0, 256 * UNIT, 224 * UNIT})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(1)
@@ -70,7 +70,7 @@ test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.
 		height = 12 * UNIT,
 	}
 	start_x := 16 * UNIT
-	start_ground_y := 0
+	start_ground_y := i32(0)
 	start_y := start_ground_y - test_capsule_bottom(&collider)
 
 	logic.add_component(&w.position, player, Position{i32(start_x), i32(start_y)})
@@ -102,15 +102,15 @@ test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, touching_ground, "frame %d: player has no ground support pos=%v vel=%v", frame, pos^, vel^)
-		testing.expectf(t, int(pos.x) > previous_x, "frame %d: player did not move right", frame)
+		testing.expectf(t, pos.x > previous_x, "frame %d: player did not move right", frame)
 
-		previous_x = int(pos.x)
+		previous_x = pos.x
 	}
 }
 
 @(test)
 test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 128 * UNIT, 128 * UNIT})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 128 * UNIT, 128 * UNIT})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(1)
@@ -142,8 +142,8 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 		testing.expect(t, has_platformer)
 		testing.expect(t, has_vel)
 
-		bottom := int(pos.y) + test_capsule_bottom(&collider)
-		ground_y, on_slope := test_ground_y_at_x(w.segments[:], int(pos.x) + collider.x)
+		bottom := pos.y + test_capsule_bottom(&collider)
+		ground_y, on_slope := test_ground_y_at_x(w.segments[:], pos.x + collider.x)
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, on_slope, "frame %d: player left slope x range", frame)
@@ -157,9 +157,9 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 			pos^,
 			vel^,
 		)
-		testing.expectf(t, int(pos.x) > previous_x, "frame %d: player did not move uphill", frame)
+		testing.expectf(t, pos.x > previous_x, "frame %d: player did not move uphill", frame)
 
-		previous_x = int(pos.x)
+		previous_x = pos.x
 	}
 }
 
@@ -167,7 +167,7 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 @(test)
 test_platformer_does_not_stand_on_ceiling_underside :: proc(t: ^testing.T) {
 	// Ceiling/underside segments are right-to-left so their left normal points down.
-	w := platformer_test_world_with_segments([4]int{64 * UNIT, 0, 0, 0})
+	w := platformer_test_world_with_segments(shape.Segment{64 * UNIT, 0, 0, 0})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(20)
@@ -189,7 +189,7 @@ test_platformer_does_not_stand_on_ceiling_underside :: proc(t: ^testing.T) {
 	testing.expect(t, has_pos)
 	testing.expect(t, has_vel)
 
-	bottom := int(pos.y) + test_capsule_bottom(&collider)
+	bottom := pos.y + test_capsule_bottom(&collider)
 	bottom_above_ceiling := bottom >= 0
 	testing.expectf(t, !platformer.on_ground, "ceiling underside must not become ground pos=%v vel=%v", pos^, vel^)
 	testing.expectf(
@@ -204,7 +204,7 @@ test_platformer_does_not_stand_on_ceiling_underside :: proc(t: ^testing.T) {
 
 @(test)
 test_platformer_does_not_stand_on_floor_endpoint_without_support :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 64 * UNIT, 0})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 64 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(22)
@@ -226,7 +226,7 @@ test_platformer_does_not_stand_on_floor_endpoint_without_support :: proc(t: ^tes
 	testing.expect(t, has_pos)
 	testing.expect(t, has_vel)
 
-	bottom := int(pos.y) + test_capsule_bottom(&collider)
+	bottom := pos.y + test_capsule_bottom(&collider)
 	testing.expectf(
 		t,
 		!platformer.on_ground,
@@ -247,8 +247,8 @@ test_platformer_does_not_stand_on_floor_endpoint_without_support :: proc(t: ^tes
 @(test)
 test_platformer_corner_sweep_blocks_aabb_corner_escape :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments(
-		[4]int{64 * UNIT, 64 * UNIT, 64 * UNIT, 128 * UNIT},
-		[4]int{64 * UNIT, 64 * UNIT, 0, 64 * UNIT},
+		shape.Segment{64 * UNIT, 64 * UNIT, 64 * UNIT, 128 * UNIT},
+		shape.Segment{64 * UNIT, 64 * UNIT, 0, 64 * UNIT},
 	)
 	defer platformer_test_world_destroy(w)
 
@@ -269,8 +269,8 @@ test_platformer_corner_sweep_blocks_aabb_corner_escape :: proc(t: ^testing.T) {
 	testing.expect(t, has_pos)
 	testing.expect(t, has_vel)
 
-	right := int(pos.x) + collider.radius
-	top := int(pos.y) + collider.height / 2 + collider.radius
+	right := pos.x + collider.radius
+	top := pos.y + collider.height / 2 + collider.radius
 	inside_corner_void := right > 64 * UNIT && top > 64 * UNIT
 
 	testing.expectf(
@@ -313,8 +313,8 @@ test_platformer_wall_slide_clamps_fall_speed :: proc(t: ^testing.T) {
 @(test)
 test_platformer_horizontal_move_ignores_dangling_segment_below_floor :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments(
-		[4]int{0, 0, 256 * UNIT, 0},
-		[4]int{64 * UNIT, -8 * UNIT, 64 * UNIT, 1},
+		shape.Segment{0, 0, 256 * UNIT, 0},
+		shape.Segment{64 * UNIT, -8 * UNIT, 64 * UNIT, 1},
 	)
 	defer platformer_test_world_destroy(w)
 
@@ -347,14 +347,14 @@ test_platformer_horizontal_move_ignores_dangling_segment_below_floor :: proc(t: 
 		testing.expectf(t, vel.x > 0, "frame %d: horizontal velocity should remain positive, pos=%v vel=%v", frame, pos^, vel^)
 		testing.expectf(t, !platformer.on_wall, "frame %d: dangling segment below floor should not count as wall, platformer=%v", frame, platformer^)
 	}
-	testing.expectf(t, int(pos.x) > 64 * UNIT, "dangling segment below floor should not block horizontal movement past its x, pos=%v vel=%v", pos^, vel^)
+	testing.expectf(t, pos.x > 64 * UNIT, "dangling segment below floor should not block horizontal movement past its x, pos=%v vel=%v", pos^, vel^)
 }
 
 @(test)
 test_platformer_swims_past_dangling_segment_below_floor :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments(
-		[4]int{0, 0, 256 * UNIT, 0},
-		[4]int{64 * UNIT, -8 * UNIT, 64 * UNIT, 1},
+		shape.Segment{0, 0, 256 * UNIT, 0},
+		shape.Segment{64 * UNIT, -8 * UNIT, 64 * UNIT, 1},
 	)
 	defer platformer_test_world_destroy(w)
 	platformer_test_add_zone(
@@ -381,7 +381,7 @@ test_platformer_swims_past_dangling_segment_below_floor :: proc(t: ^testing.T) {
 	platformer, _ := logic.get_component(&w.platformer, player)
 	testing.expectf(
 		t,
-		int(pos.x) > 64 * UNIT,
+		pos.x > 64 * UNIT,
 		"floor-touching swimmer should pass dangling segment endpoint, pos=%v platformer=%v",
 		pos^,
 		platformer^,
@@ -491,7 +491,7 @@ test_platformer_air_jump_disabled_by_config :: proc(t: ^testing.T) {
 
 @(test)
 test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(6)
@@ -522,7 +522,7 @@ test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
 
 @(test)
 test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(7)
@@ -561,7 +561,7 @@ test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
 
 @(test)
 test_platformer_air_dash_resets_on_ground :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(8)
@@ -592,7 +592,7 @@ test_platformer_air_dash_resets_on_ground :: proc(t: ^testing.T) {
 
 @(test)
 test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{80 * UNIT, 0, 80 * UNIT, 128 * UNIT})
+	w := platformer_test_world_with_segments(shape.Segment{80 * UNIT, 0, 80 * UNIT, 128 * UNIT})
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(9)
@@ -689,7 +689,7 @@ test_platformer_does_not_stand_on_top_of_water :: proc(t: ^testing.T) {
 	sys_platformer(w)
 	pos, _ = logic.get_component(&w.position, player)
 	platformer, _ = logic.get_component(&w.platformer, player)
-	capsule_top := int(pos.y) + collider.y + collider.height / 2 + collider.radius
+	capsule_top := pos.y + collider.y + collider.height / 2 + collider.radius
 	testing.expectf(t, platformer.in_water, "player should swim after entering the water")
 	testing.expectf(t, capsule_top == 128 * UNIT, "entered swimmer top=%d water top=%d", capsule_top, 128 * UNIT)
 }
@@ -715,7 +715,7 @@ test_platformer_swim_stops_with_capsule_top_at_water_surface :: proc(t: ^testing
 
 	pos, _ := logic.get_component(&w.position, player)
 	vel, _ := test_platformer_velocity(w, player)
-	capsule_top := int(pos.y) + collider.y + collider.height / 2 + collider.radius
+	capsule_top := pos.y + collider.y + collider.height / 2 + collider.radius
 	testing.expectf(t, capsule_top == water_top, "swimmer top=%d water top=%d", capsule_top, water_top)
 	testing.expectf(t, vel.y == 0, "water surface should stop upward swim velocity, vel=%v", vel^)
 }
@@ -922,7 +922,7 @@ test_platformer_ladder_down_climbs_down :: proc(t: ^testing.T) {
 
 @(test)
 test_platformer_ladder_bottom_releases_on_floor :: proc(t: ^testing.T) {
-	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 	platformer_test_add_zone(
 		w,
@@ -1234,7 +1234,7 @@ entity_pool_test_destroy :: proc(w: ^World) {
 }
 
 @(private = "file")
-platformer_test_world_with_segments :: proc(segments: ..[4]int) -> ^World {
+platformer_test_world_with_segments :: proc(segments: ..shape.Segment) -> ^World {
 	w := new(World)
 	w.grid = grid.create_grid(-16 * UNIT, -16 * UNIT, 256 * UNIT, 256 * UNIT, 16 * UNIT)
 	for segment in segments {
@@ -1267,21 +1267,21 @@ platformer_test_world_destroy :: proc(w: ^World) {
 }
 
 @(private = "file")
-test_capsule_bottom :: proc(capsule: ^shape.Capsule) -> int {
+test_capsule_bottom :: proc(capsule: ^shape.Capsule) -> i32 {
 	return capsule.y - capsule.height / 2 - capsule.radius
 }
 
 @(private = "file")
 test_capsule_has_ground_support :: proc(
-	segments: [][4]int,
+	segments: []shape.Segment,
 	pos: ^Position,
 	collider: ^shape.Capsule,
-	tolerance: int,
+	tolerance: i32,
 ) -> bool {
-	bottom := int(pos.y) + test_capsule_bottom(collider)
-	offsets := [3]int{0, collider.radius, -collider.radius}
+	bottom := pos.y + test_capsule_bottom(collider)
+	offsets := [3]i32{0, collider.radius, -collider.radius}
 	for offset in offsets {
-		ground_y, ok := test_ground_y_at_x(segments, int(pos.x) + collider.x + offset)
+		ground_y, ok := test_ground_y_at_x(segments, pos.x + collider.x + offset)
 		if ok && abs(ground_y - bottom) <= tolerance {
 			return true
 		}
@@ -1290,8 +1290,8 @@ test_capsule_has_ground_support :: proc(
 }
 
 @(private = "file")
-test_ground_y_at_x :: proc(segments: [][4]int, x: int) -> (int, bool) {
-	best_y := 0
+test_ground_y_at_x :: proc(segments: []shape.Segment, x: i32) -> (i32, bool) {
+	best_y := i32(0)
 	found := false
 	for &segment in segments {
 		y, ok := test_segment_y_at_x(&segment, x)
@@ -1307,7 +1307,7 @@ test_ground_y_at_x :: proc(segments: [][4]int, x: int) -> (int, bool) {
 }
 
 @(private = "file")
-test_segment_y_at_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
+test_segment_y_at_x :: proc(segment: ^shape.Segment, x: i32) -> (i32, bool) {
 	min_x := min(segment.x, segment.z)
 	max_x := max(segment.x, segment.z)
 	if x < min_x || x > max_x {

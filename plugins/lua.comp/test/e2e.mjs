@@ -57,6 +57,41 @@ end
 `);
 assert.deepEqual(JSON.parse(absentNilField), { b: 1 });
 
+const decodedShapes = runLua(`
+function main()
+  return json.encode({
+    object = json.decode("{}"),
+    array = json.decode("[]"),
+    nullable = json.decode("null"),
+  })
+end
+`);
+assert.deepEqual(JSON.parse(decodedShapes), { object: {}, array: [], nullable: null });
+
+const constructedShapes = runLua(`
+function main()
+  return json.encode({
+    object = json.object(),
+    array = json.array(),
+    object_check = json.is_object(json.object()),
+    array_check = json.is_array(json.array()),
+  })
+end
+`);
+assert.deepEqual(JSON.parse(constructedShapes), {
+  object: {},
+  array: [],
+  object_check: true,
+  array_check: true,
+});
+
+const malformedMarkedArray = runLuaRaw(`
+function main()
+  return json.encode(json.array({ bad = true }))
+end
+`);
+assert.match(malformedMarkedArray.err, /marked array must contain only dense positive integer keys/);
+
 const missingRead = runLuaRaw(`
 function main()
   return fs.read_text('missing.lua')
@@ -93,6 +128,29 @@ ${compiler}
 const graphResult = JSON.parse(runLua(generatedGraphSource));
 assert.equal(graphResult.result.inputs.v101, 101);
 assert.equal(graphResult.result.active.v101, true);
+
+const emptyObjectGraph = [
+  {
+    id: 1,
+    kind: 4,
+    name: 'empty object',
+    inputs: [],
+    outputs: [{ id: 1, name: 'value', value: '{}' }],
+  },
+  {
+    id: 2,
+    kind: 1,
+    name: 'result',
+    inputs: [{ id: 1, name: 'value', srcNodeId: 1, srcOutputId: 1 }],
+    outputs: [],
+  },
+];
+const emptyObjectGraphSource = runLua(`
+_G.input = ${JSON.stringify(JSON.stringify(emptyObjectGraph))}
+${compiler}
+`);
+const emptyObjectGraphResult = JSON.parse(runLua(emptyObjectGraphSource));
+assert.deepEqual(emptyObjectGraphResult.result.inputs.value, {});
 
 const tilemapMergePreset = readFileSync(join(repoRoot, 'examples/demo/ng/presets/tilemap-merge.lua'), 'utf8');
 const mergedTilemap = JSON.parse(runLua(`

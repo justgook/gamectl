@@ -4,6 +4,7 @@
     "package": "data_level",
     "imports": {
       "director": "../director",
+      "shape": "../world/shape",
       "world": "../world"
     }
   },
@@ -14,10 +15,133 @@
     "Positions",
     "Director_Trigger_Aabbs",
     "Director_Entities",
-    "Next_Entity_Id"
+    "Next_Entity_Id",
+    "Brains",
+    "Inputs",
+    "Velocities",
+    "Colliders",
+    "Player_Hurts",
+    "Platformers",
+    "Sprites"
   ],
   "types": {
     "Next_Entity_Id": "u32",
+    "world.Brain": "i8",
+    "Input_Value": "u8",
+    "world.Velocity": {
+      "type": "array",
+      "len": 2,
+      "value": "i32"
+    },
+    "shape.Capsule": {
+      "type": "struct",
+      "fields": {
+        "x": {
+          "type": "i32",
+          "default": 0
+        },
+        "y": {
+          "type": "i32",
+          "default": 0
+        },
+        "radius": "i32",
+        "height": "i32"
+      }
+    },
+    "world.Platformer": {
+      "type": "struct",
+      "fields": {
+        "facing": "i32"
+      }
+    },
+    "Vec2f": {
+      "type": "array",
+      "len": 2,
+      "value": "f32"
+    },
+    "world.Sprite": {
+      "type": "struct",
+      "fields": {
+        "pos": {
+          "type": "Vec2f",
+          "default": [0, 0]
+        },
+        "opacity": {
+          "type": "f32",
+          "default": 1
+        }
+      }
+    },
+    "Brains": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Brain"
+        }
+      }
+    },
+    "Inputs": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "Input_Value"
+        }
+      }
+    },
+    "Velocities": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Velocity"
+        }
+      }
+    },
+    "Colliders": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "shape.Capsule"
+        }
+      }
+    },
+    "Player_Hurts": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "shape.Capsule"
+        }
+      }
+    },
+    "Platformers": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Platformer"
+        }
+      }
+    },
+    "Sprites": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Sprite"
+        }
+      }
+    },
     "iVec4": {
       "type": "array",
       "len": 4,

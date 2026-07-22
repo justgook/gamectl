@@ -170,13 +170,13 @@ bullet_velocity :: proc(direction, speed: f64) -> Velocity {
 	// BulletML directions use 0 degrees as up and positive rotation toward right.
 	// Game space is y-up, so up is +Y.
 	radians := direction * math.PI / 180.0
-	return Velocity{i32(math.sin(radians) * speed * UNIT), i32(math.cos(radians) * speed * UNIT)}
+	return Velocity{i32(math.sin(radians) * speed * f64(UNIT)), i32(math.cos(radians) * speed * f64(UNIT))}
 }
 
 @(private = "file")
 bullet_apply_accel :: proc(vel: ^Velocity, horizontal, vertical: f64) {
-	vel.x += i32(horizontal * UNIT)
-	vel.y += i32(vertical * UNIT)
+	vel.x += i32(horizontal * f64(UNIT))
+	vel.y += i32(vertical * f64(UNIT))
 }
 
 @(private = "file")

@@ -166,17 +166,45 @@ static int set_lua_error_string(lua_State *L, lua_plugin_string_t *err) {
 }
 
 static char json_null_registry_key;
+static char json_object_metatable_registry_key;
+static char json_array_metatable_registry_key;
 
 static int json_encode_value(lua_State *L, int idx, StrBuf *out,
                              const void **seen, int seen_count, int depth);
 
-static int lua_is_json_null(lua_State *L, int idx) {
+static int lua_registry_value_equals(lua_State *L, int idx, const void *key) {
   int result;
   idx = lua_absindex(L, idx);
-  lua_rawgetp(L, LUA_REGISTRYINDEX, &json_null_registry_key);
+  lua_rawgetp(L, LUA_REGISTRYINDEX, key);
   result = lua_rawequal(L, idx, -1);
   lua_pop(L, 1);
   return result;
+}
+
+static int lua_is_json_null(lua_State *L, int idx) {
+  return lua_registry_value_equals(L, idx, &json_null_registry_key);
+}
+
+static void lua_push_json_null(lua_State *L) {
+  lua_rawgetp(L, LUA_REGISTRYINDEX, &json_null_registry_key);
+}
+
+static int json_table_has_metatable(lua_State *L, int idx, const void *key) {
+  int result;
+  idx = lua_absindex(L, idx);
+  if (!lua_getmetatable(L, idx)) {
+    return 0;
+  }
+  lua_rawgetp(L, LUA_REGISTRYINDEX, key);
+  result = lua_rawequal(L, -2, -1);
+  lua_pop(L, 2);
+  return result;
+}
+
+static void json_set_table_metatable(lua_State *L, int idx, const void *key) {
+  idx = lua_absindex(L, idx);
+  lua_rawgetp(L, LUA_REGISTRYINDEX, key);
+  lua_setmetatable(L, idx);
 }
 
 static int json_hex_val(char c) {
@@ -300,6 +328,7 @@ static int json_decode_value(lua_State *L, const JsonDoc *doc, int tok_idx,
   tok = doc->tokens[tok_idx];
   if (tok.type == JSMN_OBJECT) {
     lua_createtable(L, 0, tok.size);
+    json_set_table_metatable(L, -1, &json_object_metatable_registry_key);
     cur = tok_idx + 1;
     for (i = 0; i < tok.size; i++) {
       jsmntok_t key_tok;
@@ -322,6 +351,7 @@ static int json_decode_value(lua_State *L, const JsonDoc *doc, int tok_idx,
 
   if (tok.type == JSMN_ARRAY) {
     lua_createtable(L, tok.size, 0);
+    json_set_table_metatable(L, -1, &json_array_metatable_registry_key);
     cur = tok_idx + 1;
     for (i = 0; i < tok.size; i++) {
       json_decode_value(L, doc, cur, depth + 1, &cur);
@@ -354,7 +384,7 @@ static int json_decode_value(lua_State *L, const JsonDoc *doc, int tok_idx,
     } else if (len == 5 && memcmp(p, "false", 5u) == 0) {
       lua_pushboolean(L, 0);
     } else if (len == 4 && memcmp(p, "null", 4u) == 0) {
-      lua_pushnil(L);
+      lua_push_json_null(L);
     } else {
       char small[128];
       char *tmp = small;
@@ -493,6 +523,82 @@ static int json_table_shape(lua_State *L, int idx, lua_Integer *out_max,
   return 1;
 }
 
+static int json_resolve_table_shape(lua_State *L, int idx,
+                                    lua_Integer *out_max,
+                                    int *out_is_array) {
+  int inferred_is_array = 0;
+  lua_Integer inferred_max = 0;
+  int marked_object = json_table_has_metatable(
+      L, idx, &json_object_metatable_registry_key);
+  int marked_array = json_table_has_metatable(
+      L, idx, &json_array_metatable_registry_key);
+
+  json_table_shape(L, idx, &inferred_max, &inferred_is_array);
+  if (marked_object) {
+    *out_max = 0;
+    *out_is_array = 0;
+    return 1;
+  }
+  if (marked_array) {
+    if (!inferred_is_array) {
+      return luaL_error(
+          L, "json.encode: marked array must contain only dense positive integer keys");
+    }
+    *out_max = inferred_max;
+    *out_is_array = 1;
+    return 1;
+  }
+  *out_max = inferred_max;
+  *out_is_array = inferred_is_array;
+  return 1;
+}
+
+static int lua_json_object(lua_State *L) {
+  if (lua_gettop(L) == 0 || lua_isnil(L, 1)) {
+    lua_newtable(L);
+  } else {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_settop(L, 1);
+  }
+  json_set_table_metatable(L, -1, &json_object_metatable_registry_key);
+  return 1;
+}
+
+static int lua_json_array(lua_State *L) {
+  if (lua_gettop(L) == 0 || lua_isnil(L, 1)) {
+    lua_newtable(L);
+  } else {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_settop(L, 1);
+  }
+  json_set_table_metatable(L, -1, &json_array_metatable_registry_key);
+  return 1;
+}
+
+static int lua_json_is_object(lua_State *L) {
+  lua_Integer max_idx = 0;
+  int is_array = 0;
+  if (!lua_istable(L, 1)) {
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+  json_resolve_table_shape(L, 1, &max_idx, &is_array);
+  lua_pushboolean(L, !is_array);
+  return 1;
+}
+
+static int lua_json_is_array(lua_State *L) {
+  lua_Integer max_idx = 0;
+  int is_array = 0;
+  if (!lua_istable(L, 1)) {
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+  json_resolve_table_shape(L, 1, &max_idx, &is_array);
+  lua_pushboolean(L, is_array);
+  return 1;
+}
+
 static int json_encode_table(lua_State *L, int idx, StrBuf *out,
                              const void **seen, int seen_count, int depth) {
   const void *ptr;
@@ -519,7 +625,9 @@ static int json_encode_table(lua_State *L, int idx, StrBuf *out,
   seen[seen_count] = ptr;
   seen_count += 1;
 
-  json_table_shape(L, idx, &max_idx, &is_array);
+  if (!json_resolve_table_shape(L, idx, &max_idx, &is_array)) {
+    return 0;
+  }
   if (is_array) {
     lua_Integer k;
     if (!sb_append_c(out, '[')) return 0;
@@ -540,12 +648,13 @@ static int json_encode_table(lua_State *L, int idx, StrBuf *out,
   lua_pushnil(L);
   while (lua_next(L, idx) != 0) {
     size_t key_len = 0;
-    const char *key = lua_tolstring(L, -2, &key_len);
-    if (key == NULL) {
+    const char *key;
+    if (lua_type(L, -2) != LUA_TSTRING) {
       lua_pop(L, 2);
       luaL_error(L, "json.encode: object keys must be strings");
       return 0;
     }
+    key = lua_tolstring(L, -2, &key_len);
     if (i++ > 0 && !sb_append_c(out, ',')) {
       lua_pop(L, 1);
       return 0;
@@ -949,12 +1058,32 @@ static int lua_require_fs_searcher(lua_State *L) {
   return 1;
 }
 
+static void register_json_shape_metatable(lua_State *L, const void *key) {
+  lua_newtable(L);
+  lua_pushboolean(L, 0);
+  lua_setfield(L, -2, "__metatable");
+  lua_pushvalue(L, -1);
+  lua_rawsetp(L, LUA_REGISTRYINDEX, key);
+  lua_pop(L, 1);
+}
+
 static void register_json_lib(lua_State *L) {
+  register_json_shape_metatable(L, &json_object_metatable_registry_key);
+  register_json_shape_metatable(L, &json_array_metatable_registry_key);
+
   lua_newtable(L);
   lua_pushcfunction(L, lua_json_decode);
   lua_setfield(L, -2, "decode");
   lua_pushcfunction(L, lua_json_encode);
   lua_setfield(L, -2, "encode");
+  lua_pushcfunction(L, lua_json_object);
+  lua_setfield(L, -2, "object");
+  lua_pushcfunction(L, lua_json_array);
+  lua_setfield(L, -2, "array");
+  lua_pushcfunction(L, lua_json_is_object);
+  lua_setfield(L, -2, "is_object");
+  lua_pushcfunction(L, lua_json_is_array);
+  lua_setfield(L, -2, "is_array");
   lua_newtable(L);
   lua_pushvalue(L, -1);
   lua_rawsetp(L, LUA_REGISTRYINDEX, &json_null_registry_key);

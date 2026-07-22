@@ -850,7 +850,7 @@ i64_string :: proc(value: i64) -> string {
 }
 
 next_decode_loop_var :: proc() -> string {
-	value := join2("i", int_string(decode_loop_index))
+	value := join2("decode_index_", int_string(decode_loop_index))
 	decode_loop_index += 1
 	return value
 }

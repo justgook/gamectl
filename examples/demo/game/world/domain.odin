@@ -7,7 +7,7 @@ UV :: [4]f32
 
 // Constants for subpixel precision
 SUBPIXEL_BITS :: 6 // 64 subpixels per pixel
-UNIT :: 1 << SUBPIXEL_BITS
+UNIT :: i32(1 << SUBPIXEL_BITS)
 
 @(require_results)
 to_pixel :: proc(#any_int subpixel: int) -> int {

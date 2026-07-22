@@ -1113,6 +1113,48 @@
         "name": "Next Entity Id",
         "srcNodeId": 117,
         "srcOutputId": 1
+      },
+      {
+        "id": 8,
+        "name": "Brains",
+        "srcNodeId": 119,
+        "srcOutputId": 1
+      },
+      {
+        "id": 9,
+        "name": "Inputs",
+        "srcNodeId": 121,
+        "srcOutputId": 1
+      },
+      {
+        "id": 10,
+        "name": "Velocities",
+        "srcNodeId": 123,
+        "srcOutputId": 1
+      },
+      {
+        "id": 11,
+        "name": "Colliders",
+        "srcNodeId": 125,
+        "srcOutputId": 1
+      },
+      {
+        "id": 12,
+        "name": "Player Hurts",
+        "srcNodeId": 127,
+        "srcOutputId": 1
+      },
+      {
+        "id": 13,
+        "name": "Platformers",
+        "srcNodeId": 129,
+        "srcOutputId": 1
+      },
+      {
+        "id": 14,
+        "name": "Sprites",
+        "srcNodeId": 131,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1633,6 +1675,349 @@
       {
         "id": 1,
         "name": "length",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 118,
+    "kind": 4,
+    "x": 2535,
+    "y": 860,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"brain\""
+      }
+    ]
+  },
+  {
+    "id": 119,
+    "kind": 2,
+    "x": 2788,
+    "y": 860,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 118,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 120,
+    "kind": 4,
+    "x": 2535,
+    "y": 965,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"input\""
+      }
+    ]
+  },
+  {
+    "id": 121,
+    "kind": 2,
+    "x": 2788,
+    "y": 965,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 122,
+    "kind": 4,
+    "x": 2535,
+    "y": 1070,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"velocity\""
+      }
+    ]
+  },
+  {
+    "id": 123,
+    "kind": 2,
+    "x": 2788,
+    "y": 1070,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 122,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 124,
+    "kind": 4,
+    "x": 2535,
+    "y": 1175,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"collider\""
+      }
+    ]
+  },
+  {
+    "id": 125,
+    "kind": 2,
+    "x": 2788,
+    "y": 1175,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 124,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 126,
+    "kind": 4,
+    "x": 2535,
+    "y": 1280,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"player_hurt\""
+      }
+    ]
+  },
+  {
+    "id": 127,
+    "kind": 2,
+    "x": 2788,
+    "y": 1280,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 126,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 128,
+    "kind": 4,
+    "x": 2535,
+    "y": 1385,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"platformer\""
+      }
+    ]
+  },
+  {
+    "id": 129,
+    "kind": 2,
+    "x": 2788,
+    "y": 1385,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 128,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 130,
+    "kind": 4,
+    "x": 2535,
+    "y": 1490,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"sprite\""
+      }
+    ]
+  },
+  {
+    "id": 131,
+    "kind": 2,
+    "x": 2788,
+    "y": 1490,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 130,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
         "value": null
       }
     ]
