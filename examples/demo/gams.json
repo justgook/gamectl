@@ -96,6 +96,16 @@
         "allowInput": false
       },
       {
+        "key": "mod+c",
+        "call": ["activeView.copy"],
+        "allowInput": false
+      },
+      {
+        "key": "mod+v",
+        "call": ["activeView.paste"],
+        "allowInput": false
+      },
+      {
         "key": "mod+shift+s",
         "call": ["activeView.saveAs"],
         "allowInput": true
@@ -110,7 +120,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-world data-source=\"catalog/world/level.world.json\" />"
+          "layout": "<view-animation-graph data-source=\"catalog/world/level.world.json\" />"
         }
       }
     },
@@ -141,6 +151,45 @@
         "label": "Animation",
         "group": "TODO",
         "internal": false
+      },
+      "view-animation-graph": {
+        "url": "views/view-animation-graph.js",
+        "label": "Animation Graph",
+        "group": "Animation",
+        "internal": false,
+        "config": {
+          "renderer": {
+            "node": {
+              "width": 132,
+              "height": 48,
+              "radius": 8,
+              "borderWidth": 2
+            },
+            "edge": {
+              "width": 2,
+              "selectedWidth": 4,
+              "bidirectionalOffset": 34,
+              "arrowSize": 15,
+              "arrowInset": 10
+            },
+            "text": {
+              "font": "sans-serif",
+              "titleSize": 13,
+              "padding": 12
+            },
+            "theme": {
+              "node": [0.0980392157, 0.1803921569, 0.231372549, 1],
+              "nodeHover": [0.1333333333, 0.2509803922, 0.3215686275, 1],
+              "nodeSelected": [0.1137254902, 0.3058823529, 0.4, 1],
+              "nodeBorder": [0.2745098039, 0.4235294118, 0.5176470588, 1],
+              "text": [0.8392156863, 0.9254901961, 0.9725490196, 1],
+              "edge": [0.2745098039, 0.4235294118, 0.5176470588, 0.95],
+              "edgeSelected": [0.2901960784, 0.7803921569, 1, 1],
+              "edgeSymbol": [0.1725490196, 0.7882352941, 0.6666666667, 1],
+              "start": [0.1725490196, 0.7882352941, 0.6666666667, 1]
+            }
+          }
+        }
       },
       "view-font": {
         "url": "views/view-font.js",

@@ -42,6 +42,8 @@ export function registerViewPlugin(view, methods = {}) {
             edit: viewMethod(view, "edit"),
             undo: viewMethod(view, "undo"),
             redo: viewMethod(view, "redo"),
+            copy: viewMethod(view, "copy"),
+            paste: viewMethod(view, "paste"),
             zoomIn: viewMethod(view, "zoomIn"),
             zoomOut: viewMethod(view, "zoomOut"),
             zoomFit: viewMethod(view, "zoomFit"),

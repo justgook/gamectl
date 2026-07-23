@@ -112,6 +112,7 @@ Use context menus for local actions tied to the clicked point/record. Use autoco
 - `input[type="email"]` - email input.
 - `input[type="password"]` - password input.
 - `input[type="checkbox"]` - boolean/toggle form input.
+- `input[type="radio"]` - mutually exclusive choice within a named group; use when exactly one option should remain selected.
 - `input[type="file"]` - native file picker for upload/import actions; may be created hidden and triggered by a documented button.
 - `button` - interactive action control.
 - `select` - select/dropdown input.

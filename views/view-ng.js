@@ -1550,6 +1550,14 @@ end`
         throw new Error("view-ng clipboard does not contain graph nodes")
     }
 
+    async copy() {
+        return this.copySelectedNodesToClipboard()
+    }
+
+    async paste() {
+        return this.pasteNodesFromClipboard()
+    }
+
     async copySelectedNodesToClipboard(clipboardData = null) {
         const payload = this._buildClipboardPayload()
         if (!payload) return false
