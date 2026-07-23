@@ -12,6 +12,11 @@ Bullet_Side :: enum u8 {
 	Enemy,
 }
 
+Bullet_Ref :: struct {
+	pattern_id: u32,
+	side:       Bullet_Side,
+}
+
 Bullet :: struct {
 	using state:   bullet.State,
 	using motion:  Bullet_Motion,

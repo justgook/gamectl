@@ -10,7 +10,6 @@ import "grid"
 import "logic"
 import "shape"
 
-// GAME_RESOLUTION :: [2]int{320, 180}
 GAME_RESOLUTION_WIDTH :: 640
 GAME_RESOLUTION_HEIGHT :: 360
 OFFSCREEN_SAMPLE_COUNT :: 1
@@ -214,46 +213,13 @@ init :: proc(w: ^World) {
 	player := logic.Entity(1)
 	host.info("PLAYER", "ID", player)
 	w.player1_id = player
-	director.entity_set_stat(&w.director, w.director_config.player, w.director_config.world_entity, i32(player))
-	logic.add_component(&w.director_entity, player, Director_Entity{id = w.director_config.player})
-
-	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0], w.director_config.player, .Player))
+	player_director_entity, has_player_director_entity := logic.get_component(&w.director_entity, player)
+	assert(has_player_director_entity)
+	assert(player_director_entity.id == w.director_config.player)
 	camera_track(&w.cam, player)
 	player_input, has_player_input := logic.get_component(&w.input, player)
 	assert(has_player_input)
 	w.player1 = player_input
-	// logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
-	// logic.add_component(&w.position, player, Position{64 * UNIT, 96 * UNIT})
-
-	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
-	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
-	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
-	// logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
-	anim := w.animation_atlas.defs
-	assert(len(anim) > 45)
-
-	player_anim_base := 30
-	logic.add_component(
-		&w.platformer_anim,
-		player,
-		platformer_anim_create_char_from_atlas(&w.animation_atlas, player_anim_base),
-	)
-	logic.add_component(&w.animation, player, animation_create(&anim[player_anim_base]))
-
-
-	// logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})
-	// // logic.add_component(
-	// // 	&w.sprite,
-	// // 	background,
-	// // 	Sprite{opacity = 1, uv = {0, 0, 1, 1}},
-	// // )
-	// logic.add_component(
-	// 	&w.tilemap,
-	// 	background,
-	// 	Tilemap{tile_size = {16, 16}, tileset_uv = {0, 0, 1, 1}, lut_uv = {0, 0, 1, 1}},
-	// )
-	//
-	// host.info("world", "init", w.tilemap.components[0])
 }
 
 create_entity :: proc(w: ^World) -> logic.Entity {

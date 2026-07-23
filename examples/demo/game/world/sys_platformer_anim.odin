@@ -26,6 +26,10 @@ Platformer_Anim_Key :: enum {
 	Death,
 }
 
+Platformer_Anim_Ref :: struct {
+	atlas_base_id: u32,
+}
+
 Platformer_Anim_Clip :: struct {
 	def:                  ^AnimDef,
 	base_speed:           f32,

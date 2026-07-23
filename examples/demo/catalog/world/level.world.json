@@ -8,9 +8,16 @@
     "lock": true
   },
   {
-    "x": 72,
-    "y": 72,
+    "x": 70,
+    "y": 155,
     "brain": 0,
+    "director_entity": {
+      "id": 0
+    },
+    "bullet": {
+      "pattern_id": 0,
+      "side": "Player"
+    },
     "input": 0,
     "velocity": [
       0,
@@ -26,6 +33,9 @@
     },
     "platformer": {
       "facing": 1
+    },
+    "platformer_anim": {
+      "atlas_base_id": 30
     },
     "sprite": {},
     "name": "player"

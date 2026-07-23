@@ -1155,6 +1155,18 @@
         "name": "Sprites",
         "srcNodeId": 131,
         "srcOutputId": 1
+      },
+      {
+        "id": 15,
+        "name": "Platformer Anim Refs",
+        "srcNodeId": 133,
+        "srcOutputId": 1
+      },
+      {
+        "id": 16,
+        "name": "Bullet Refs",
+        "srcNodeId": 135,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1164,49 +1176,6 @@
         "value": null
       }
     ]
-  },
-  {
-    "id": 94,
-    "kind": 4,
-    "x": 3020,
-    "y": 885,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"tmp/DEBUG_pos.json\""
-      }
-    ]
-  },
-  {
-    "id": 95,
-    "kind": 2,
-    "x": 3331,
-    "y": 882,
-    "name": "Write File",
-    "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 94,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "text",
-        "srcNodeId": 108,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": []
   },
   {
     "id": 97,
@@ -2011,6 +1980,104 @@
         "id": 2,
         "name": "fields",
         "srcNodeId": 130,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 132,
+    "kind": 4,
+    "x": 2535,
+    "y": 1595,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"platformer_anim\""
+      }
+    ]
+  },
+  {
+    "id": 133,
+    "kind": 2,
+    "x": 2788,
+    "y": 1595,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 132,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 134,
+    "kind": 4,
+    "x": 2535,
+    "y": 1700,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"bullet\""
+      }
+    ]
+  },
+  {
+    "id": 135,
+    "kind": 2,
+    "x": 2788,
+    "y": 1700,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 134,
         "srcOutputId": 1
       }
     ],

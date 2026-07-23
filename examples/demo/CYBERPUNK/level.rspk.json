@@ -22,7 +22,9 @@
     "Colliders",
     "Player_Hurts",
     "Platformers",
-    "Sprites"
+    "Sprites",
+    "Platformer_Anim_Refs",
+    "Bullet_Refs"
   ],
   "types": {
     "Next_Entity_Id": "u32",
@@ -129,6 +131,43 @@
         "components": {
           "type": "vector",
           "value": "world.Platformer"
+        }
+      }
+    },
+    "world.Platformer_Anim_Ref": {
+      "type": "struct",
+      "fields": {
+        "atlas_base_id": "u32"
+      }
+    },
+    "Platformer_Anim_Refs": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Platformer_Anim_Ref"
+        }
+      }
+    },
+    "world.Bullet_Side": {
+      "type": "enum",
+      "value": ["Player", "Enemy"]
+    },
+    "world.Bullet_Ref": {
+      "type": "struct",
+      "fields": {
+        "pattern_id": "u32",
+        "side": "world.Bullet_Side"
+      }
+    },
+    "Bullet_Refs": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Bullet_Ref"
         }
       }
     },

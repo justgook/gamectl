@@ -15,20 +15,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [14]u32,
-	lengths: [14]u32,
+	offsets: [16]u32,
+	lengths: [16]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 14 {return Package{}, false}
-	if len(data) < 120 {return Package{}, false}
+	if int(read_u16(data, 6)) != 16 {return Package{}, false}
+	if len(data) < 136 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 14 {
+	for i in 0 ..< 16 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -38,7 +38,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 14 {return Reader{}, false}
+	if slot < 0 || slot >= 16 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -140,6 +140,16 @@ Platformers :: struct {
 	components: []world.Platformer,
 }
 
+Platformer_Anim_Refs :: struct {
+	entity_ids: Entity_Ids,
+	components: []world.Platformer_Anim_Ref,
+}
+
+Bullet_Refs :: struct {
+	entity_ids: Entity_Ids,
+	components: []world.Bullet_Ref,
+}
+
 Sprites :: struct {
 	entity_ids: Entity_Ids,
 	components: []world.Sprite,
@@ -200,6 +210,10 @@ DecodedSlots :: struct {
 	slot_12:     Platformers,
 	has_slot_13: bool,
 	slot_13:     Sprites,
+	has_slot_14: bool,
+	slot_14:     Platformer_Anim_Refs,
+	has_slot_15: bool,
+	slot_15:     Bullet_Refs,
 }
 
 @(private = "file")
@@ -641,7 +655,17 @@ decode_platformers :: proc(r: ^Reader, out: ^Platformers) -> bool {
 }
 
 @(private = "file")
-decode_sprites :: proc(r: ^Reader, out: ^Sprites) -> bool {
+decode_world_platformer_anim_ref :: proc(r: ^Reader, out: ^world.Platformer_Anim_Ref) -> bool {
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.atlas_base_id = v
+	}
+	return true
+}
+
+@(private = "file")
+decode_platformer_anim_refs :: proc(r: ^Reader, out: ^Platformer_Anim_Refs) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
@@ -657,10 +681,89 @@ decode_sprites :: proc(r: ^Reader, out: ^Sprites) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
-		out.components = make([]world.Sprite, int(count))
+		out.components = make([]world.Platformer_Anim_Ref, int(count))
 		for decode_index_17 in 0 ..< int(count) {
 			{
-				if !decode_world_sprite(r, &out.components[decode_index_17]) {return false}
+				if !decode_world_platformer_anim_ref(r, &out.components[decode_index_17]) {return false}
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_bullet_side :: proc(r: ^Reader, out: ^world.Bullet_Side) -> bool {
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out^ = world.Bullet_Side(v)
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_bullet_ref :: proc(r: ^Reader, out: ^world.Bullet_Ref) -> bool {
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.pattern_id = v
+	}
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.side = world.Bullet_Side(v)
+	}
+	return true
+}
+
+@(private = "file")
+decode_bullet_refs :: proc(r: ^Reader, out: ^Bullet_Refs) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.entity_ids = make(Entity_Ids, int(count))
+		for decode_index_18 in 0 ..< int(count) {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.entity_ids[decode_index_18] = v
+			}
+		}
+	}
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.components = make([]world.Bullet_Ref, int(count))
+		for decode_index_19 in 0 ..< int(count) {
+			{
+				if !decode_world_bullet_ref(r, &out.components[decode_index_19]) {return false}
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
+decode_sprites :: proc(r: ^Reader, out: ^Sprites) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.entity_ids = make(Entity_Ids, int(count))
+		for decode_index_20 in 0 ..< int(count) {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.entity_ids[decode_index_20] = v
+			}
+		}
+	}
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.components = make([]world.Sprite, int(count))
+		for decode_index_21 in 0 ..< int(count) {
+			{
+				if !decode_world_sprite(r, &out.components[decode_index_21]) {return false}
 			}
 		}
 	}
@@ -670,11 +773,11 @@ decode_sprites :: proc(r: ^Reader, out: ^Sprites) -> bool {
 @(private = "file")
 decode_i_vec4 :: proc(r: ^Reader, out: ^I_Vec4) -> bool {
 	{
-		for decode_index_18 in 0 ..< 4 {
+		for decode_index_22 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[decode_index_18] = transmute(i32)v
+				out^[decode_index_22] = transmute(i32)v
 			}
 		}
 	}
@@ -687,11 +790,11 @@ decode_entity_ids :: proc(r: ^Reader, out: ^Entity_Ids) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Entity_Ids, int(count))
-		for decode_index_19 in 0 ..< int(count) {
+		for decode_index_23 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[decode_index_19] = v
+				out^[decode_index_23] = v
 			}
 		}
 	}
@@ -701,11 +804,11 @@ decode_entity_ids :: proc(r: ^Reader, out: ^Entity_Ids) -> bool {
 @(private = "file")
 decode_world_position :: proc(r: ^Reader, out: ^world.Position) -> bool {
 	{
-		for decode_index_20 in 0 ..< 2 {
+		for decode_index_24 in 0 ..< 2 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[decode_index_20] = transmute(i32)v
+				out^[decode_index_24] = transmute(i32)v
 			}
 		}
 	}
@@ -718,11 +821,11 @@ decode_positions :: proc(r: ^Reader, out: ^Positions) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entity_ids = make(Entity_Ids, int(count))
-		for decode_index_21 in 0 ..< int(count) {
+		for decode_index_25 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.entity_ids[decode_index_21] = v
+				out.entity_ids[decode_index_25] = v
 			}
 		}
 	}
@@ -730,13 +833,13 @@ decode_positions :: proc(r: ^Reader, out: ^Positions) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.components = make([]world.Position, int(count))
-		for decode_index_22 in 0 ..< int(count) {
+		for decode_index_26 in 0 ..< int(count) {
 			{
-				for decode_index_23 in 0 ..< 2 {
+				for decode_index_27 in 0 ..< 2 {
 					{
 						v, ok := read_u32_reader(r)
 						if !ok {return false}
-						out.components[decode_index_22][decode_index_23] = transmute(i32)v
+						out.components[decode_index_26][decode_index_27] = transmute(i32)v
 					}
 				}
 			}
@@ -762,11 +865,11 @@ decode_director_entity_id :: proc(r: ^Reader, out: ^director.Entity_Id) -> bool 
 @(private = "file")
 decode_world_director_trigger_aabb :: proc(r: ^Reader, out: ^world.Director_Trigger_Aabb) -> bool {
 	{
-		for decode_index_24 in 0 ..< 4 {
+		for decode_index_28 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.bounds[decode_index_24] = transmute(i32)v
+				out.bounds[decode_index_28] = transmute(i32)v
 			}
 		}
 	}
@@ -803,11 +906,11 @@ decode_director_trigger_aabbs :: proc(r: ^Reader, out: ^Director_Trigger_Aabbs) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entity_ids = make(Entity_Ids, int(count))
-		for decode_index_25 in 0 ..< int(count) {
+		for decode_index_29 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.entity_ids[decode_index_25] = v
+				out.entity_ids[decode_index_29] = v
 			}
 		}
 	}
@@ -815,9 +918,9 @@ decode_director_trigger_aabbs :: proc(r: ^Reader, out: ^Director_Trigger_Aabbs) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.components = make([]world.Director_Trigger_Aabb, int(count))
-		for decode_index_26 in 0 ..< int(count) {
+		for decode_index_30 in 0 ..< int(count) {
 			{
-				if !decode_world_director_trigger_aabb(r, &out.components[decode_index_26]) {return false}
+				if !decode_world_director_trigger_aabb(r, &out.components[decode_index_30]) {return false}
 			}
 		}
 	}
@@ -830,11 +933,11 @@ decode_director_entities :: proc(r: ^Reader, out: ^Director_Entities) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entity_ids = make(Entity_Ids, int(count))
-		for decode_index_27 in 0 ..< int(count) {
+		for decode_index_31 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.entity_ids[decode_index_27] = v
+				out.entity_ids[decode_index_31] = v
 			}
 		}
 	}
@@ -842,9 +945,9 @@ decode_director_entities :: proc(r: ^Reader, out: ^Director_Entities) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.components = make([]world.Director_Entity, int(count))
-		for decode_index_28 in 0 ..< int(count) {
+		for decode_index_32 in 0 ..< int(count) {
 			{
-				if !decode_world_director_entity(r, &out.components[decode_index_28]) {return false}
+				if !decode_world_director_entity(r, &out.components[decode_index_32]) {return false}
 			}
 		}
 	}
@@ -888,11 +991,11 @@ decode_world_platformer_zone :: proc(r: ^Reader, out: ^world.Platformer_Zone) ->
 		out.kind = world.Platformer_Zone_Kind(v)
 	}
 	{
-		for decode_index_29 in 0 ..< 4 {
+		for decode_index_33 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.bounds[decode_index_29] = transmute(i32)v
+				out.bounds[decode_index_33] = transmute(i32)v
 			}
 		}
 	}
@@ -905,9 +1008,9 @@ decode_platformer_zones :: proc(r: ^Reader, out: ^Platformer_Zones) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Platformer_Zones, int(count))
-		for decode_index_30 in 0 ..< int(count) {
+		for decode_index_34 in 0 ..< int(count) {
 			{
-				if !decode_world_platformer_zone(r, &out^[decode_index_30]) {return false}
+				if !decode_world_platformer_zone(r, &out^[decode_index_34]) {return false}
 			}
 		}
 	}
@@ -920,13 +1023,13 @@ decode_segments :: proc(r: ^Reader, out: ^Segments) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Segments, int(count))
-		for decode_index_31 in 0 ..< int(count) {
+		for decode_index_35 in 0 ..< int(count) {
 			{
-				for decode_index_32 in 0 ..< 4 {
+				for decode_index_36 in 0 ..< 4 {
 					{
 						v, ok := read_u32_reader(r)
 						if !ok {return false}
-						out^[decode_index_31][decode_index_32] = transmute(i32)v
+						out^[decode_index_35][decode_index_36] = transmute(i32)v
 					}
 				}
 			}
@@ -1044,5 +1147,21 @@ read_slot_13_sprites :: proc(pkg: Package) -> (Sprites, bool) {
 	if !ok {return Sprites{}, false}
 	value: Sprites
 	if !decode_sprites(&r, &value) {return Sprites{}, false}
+	return value, true
+}
+
+read_slot_14_platformer_anim_refs :: proc(pkg: Package) -> (Platformer_Anim_Refs, bool) {
+	r, ok := slot_reader(pkg, 14)
+	if !ok {return Platformer_Anim_Refs{}, false}
+	value: Platformer_Anim_Refs
+	if !decode_platformer_anim_refs(&r, &value) {return Platformer_Anim_Refs{}, false}
+	return value, true
+}
+
+read_slot_15_bullet_refs :: proc(pkg: Package) -> (Bullet_Refs, bool) {
+	r, ok := slot_reader(pkg, 15)
+	if !ok {return Bullet_Refs{}, false}
+	value: Bullet_Refs
+	if !decode_bullet_refs(&r, &value) {return Bullet_Refs{}, false}
 	return value, true
 }

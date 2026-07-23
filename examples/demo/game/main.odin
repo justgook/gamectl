@@ -99,6 +99,16 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 	w.director_config = data_director.read_slot_2_world_director_config(game_data) or_return
 	assert(u64(w.director_config.player) < u64(len(director_data.entities)))
 	w.director = director.init(director_data)
+	for director_entity, index in w.director_entity.components {
+		assert(u64(director_entity.id) < u64(len(director_data.entities)))
+		world_entity := w.director_entity.entity_ids[index]
+		director.entity_set_stat(
+			&w.director,
+			director_entity.id,
+			w.director_config.world_entity,
+			i32(world_entity),
+		)
+	}
 
 	segment_trigger_defs := data_director.read_slot_1_segment_trigger_defs(game_data) or_return
 	defer delete(segment_trigger_defs)
@@ -215,6 +225,42 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	sprites := data_level.read_slot_13_sprites(game_data) or_return
 	assert(len(sprites.components) == len(sprites.entity_ids))
 	logic.load_storage(&w.sprite, sprites.components, sprites.entity_ids)
+
+	platformer_anim_refs := data_level.read_slot_14_platformer_anim_refs(game_data) or_return
+	defer delete(platformer_anim_refs.entity_ids)
+	defer delete(platformer_anim_refs.components)
+	assert(len(platformer_anim_refs.components) == len(platformer_anim_refs.entity_ids))
+	for ref, index in platformer_anim_refs.components {
+		entity_id := platformer_anim_refs.entity_ids[index]
+		base_id := int(ref.atlas_base_id)
+		logic.add_component(
+			&w.platformer_anim,
+			entity_id,
+			world.platformer_anim_create_char_from_atlas(&w.animation_atlas, base_id),
+		)
+		logic.add_component(
+			&w.animation,
+			entity_id,
+			world.animation_create(&w.animation_atlas.defs[base_id]),
+		)
+	}
+
+	bullet_refs := data_level.read_slot_15_bullet_refs(game_data) or_return
+	defer delete(bullet_refs.entity_ids)
+	defer delete(bullet_refs.components)
+	assert(len(bullet_refs.components) == len(bullet_refs.entity_ids))
+	for ref, index in bullet_refs.components {
+		entity_id := bullet_refs.entity_ids[index]
+		director_entity, has_director_entity := logic.get_component(&w.director_entity, entity_id)
+		assert(has_director_entity)
+		pattern_id := int(ref.pattern_id)
+		assert(pattern_id < len(w.bullet_patterns))
+		logic.add_component(
+			&w.bullet,
+			entity_id,
+			world.bullet_component(&w.bullet_patterns[pattern_id], director_entity.id, ref.side),
+		)
+	}
 
 	// host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 
