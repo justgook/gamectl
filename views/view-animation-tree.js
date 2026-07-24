@@ -1,8 +1,19 @@
 import { runtime, unwrap } from "/core/runtime.js"
+import {
+  ANIMATION_NODE_KINDS,
+  animationNodePath,
+  cloneAnimationNodeWithNewIds,
+  createAnimationNode,
+  createDemoAnimationTreeDocument,
+  validateAnimationTreeDocument,
+} from "/util/animation-tree.js"
+import { NodeGraph } from "/util/node-graph.js"
+import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
 import { StateMachineGraph } from "/util/state-machine-graph.js"
 import { StateMachineGraphRenderer } from "/util/state-machine-graph-renderer.js"
 import { UndoHistory } from "/util/undo.js"
+import "/widgets/breadcrumbs.js"
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -24,47 +35,67 @@ const NODE_TYPES = [
 
 const CLIPBOARD_FORMAT = "gams.animation-tree.nodes"
 
-const REQUIRED_NODES = [
-  {
-    node: { id: "start", type: "entry", name: "Start", icon: "play_arrow", style: "required", x: -120, y: 180 },
-    constraints: {
-      incoming: { max: 0 },
-      outgoing: { max: 1, edgeKind: "entry" },
-      deletable: false,
-      copyable: false,
-      renameable: false,
-    },
-  },
-  {
-    node: { id: "end", type: "exit", name: "End", icon: "stop", style: "required", x: 840, y: 180 },
-    constraints: {
-      incoming: { max: null },
-      outgoing: { max: 0, edgeKind: "transition" },
-      deletable: false,
-      copyable: false,
-      renameable: false,
-    },
-  },
+const BLEND_NODE_TYPES = [
+  { value: ANIMATION_NODE_KINDS.ANIMATION, label: "Animation" },
+  { value: ANIMATION_NODE_KINDS.BLEND_2, label: "Blend2" },
+  { value: ANIMATION_NODE_KINDS.BLEND_3, label: "Blend3" },
 ]
 
-function createInitialGraph() {
+function stateMachineRequiredNodes(node) {
+  return [
+    {
+      node: { id: "start", type: "entry", name: "Start", icon: "play_arrow", style: "required", ...node.graph.start.position },
+      constraints: {
+        incoming: { max: 0 },
+        outgoing: { max: 1, edgeKind: "entry" },
+        deletable: false,
+        copyable: false,
+        renameable: false,
+      },
+    },
+    {
+      node: { id: "end", type: "exit", name: "End", icon: "stop", style: "required", ...node.graph.end.position },
+      constraints: {
+        incoming: { max: null },
+        outgoing: { max: 0, edgeKind: "transition" },
+        deletable: false,
+        copyable: false,
+        renameable: false,
+      },
+    },
+  ]
+}
+
+function projectStateMachineGraph(node) {
   return {
-    nodes: [
-      { id: 1, type: "animation", name: "Idle", x: 80, y: 180 },
-      { id: 2, type: "animation", name: "Run", x: 360, y: 80 },
-      { id: 3, type: "animation", name: "Jump", x: 360, y: 280 },
-      { id: 4, type: "animation", name: "Fall", x: 640, y: 280 },
-    ],
-    edges: [
-      { id: 1, kind: "entry", from: "start", to: 1 },
-      { id: 2, kind: "transition", from: 1, to: 2, switchMode: "immediate" },
-      { id: 3, kind: "transition", from: 2, to: 1, switchMode: "immediate" },
-      { id: 4, kind: "transition", from: 1, to: 3, switchMode: "immediate" },
-      { id: 5, kind: "transition", from: 2, to: 3, switchMode: "immediate" },
-      { id: 6, kind: "transition", from: 3, to: 4, switchMode: "immediate" },
-      { id: 7, kind: "transition", from: 4, to: 1, switchMode: "immediate" },
-      { id: 8, kind: "transition", from: 4, to: "end", switchMode: "at-end" },
-    ],
+    nodes: node.graph.states.map((state) => ({
+      id: state.node.id,
+      type: state.node.kind,
+      name: state.node.name,
+      animationNode: structuredClone(state.node),
+      ...state.position,
+    })),
+    edges: structuredClone(node.graph.transitions),
+  }
+}
+
+function blendTreeRequiredNodes(node) {
+  return [{
+    node: {
+      id: node.graph.output.id,
+      kind: "output",
+      name: node.graph.output.name,
+      ports: [{ id: "animation", direction: "input", dataType: "animation", maxConnections: 1 }],
+      ...node.graph.output.position,
+    },
+    constraints: { deletable: false, copyable: false, renameable: false },
+  }]
+}
+
+function projectBlendTreeGraph(node) {
+  return {
+    nodes: node.graph.nodes.map((placement) => ({ ...structuredClone(placement.node), ...placement.position })),
+    edges: structuredClone(node.graph.edges),
   }
 }
 
@@ -72,14 +103,21 @@ export class ViewAnimationTree extends ViewCanvasBase {
   constructor() {
     super()
     this.renderer = null
+    this.nodeGraphRenderer = null
     this.history = new UndoHistory()
-    this.graphModel = new StateMachineGraph({ graph: createInitialGraph(), requiredNodes: REQUIRED_NODES })
-    this.graph = this.graphModel.graph
-    this.selectedNodeIds = new Set([1])
-    this.selectedNodeId = 1
+    this.animationTree = createDemoAnimationTreeDocument()
+    this.activeNodePath = [this.animationTree.root.id]
+    this.activeNode = this.animationTree.root
+    this.graphModel = null
+    this.graph = null
+    this.loadActiveGraph()
+    this.selectedNodeIds = new Set(["idle"])
+    this.selectedNodeId = "idle"
     this.selectedEdgeId = null
     this.hoveredNodeId = null
     this.hoveredTransitionNodeId = null
+    this.hoveredPort = null
+    this.nodeConnectionDrag = null
     this.draggedNodeId = null
     this.dragNodeStarts = null
     this.selectionDrag = null
@@ -94,6 +132,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.inspectorElement = null
     this.selectionOutput = null
     this.statusOutput = null
+    this.breadcrumbsElement = null
   }
 
   connectedCallback() {
@@ -102,6 +141,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     assert(this.viewConfig && typeof this.viewConfig === "object", "view-animation-tree viewConfig is required")
     assert(this.viewConfig.config && typeof this.viewConfig.config === "object", "view-animation-tree viewConfig.config is required")
     this.renderer = new StateMachineGraphRenderer(this.viewConfig.config.renderer)
+    this.nodeGraphRenderer = new NodeGraphRenderer(this.viewConfig.config.nodeGraphRenderer)
 
     this.innerHTML = `
       <canvas data-element="canvas"></canvas>
@@ -119,15 +159,19 @@ export class ViewAnimationTree extends ViewCanvasBase {
     assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-tree missing status output")
 
     super.connectedCallback()
+    this.mountBreadcrumbs()
     this.canvas.addEventListener("contextmenu", this._onContextMenu)
     this.setData(this.graph)
     this.renderInspector()
     this.syncHistoryControls()
     this.syncTransitionModeControl()
+    this.syncActiveEditorControls()
   }
 
   disconnectedCallback() {
     if (this.canvas instanceof HTMLCanvasElement) this.canvas.removeEventListener("contextmenu", this._onContextMenu)
+    if (this.breadcrumbsElement instanceof HTMLElement) this.breadcrumbsElement.remove()
+    this.breadcrumbsElement = null
     void runtime.call("ui.tooltip.closeAll")
     super.disconnectedCallback()
   }
@@ -138,17 +182,161 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.addState(input && input.type ? input.type : "animation")
         return { ok: true }
       },
-
     }
   }
 
+  loadActiveGraph() {
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
+      this.graphModel = new StateMachineGraph({
+        graph: projectStateMachineGraph(this.activeNode),
+        requiredNodes: stateMachineRequiredNodes(this.activeNode),
+      })
+      this.graph = this.graphModel.graph
+      return
+    }
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      this.graphModel = new NodeGraph({
+        graph: projectBlendTreeGraph(this.activeNode),
+        requiredNodes: blendTreeRequiredNodes(this.activeNode),
+        allowCycles: false,
+      })
+      this.graph = this.graphModel.graph
+      return
+    }
+    this.graphModel = null
+    this.graph = { nodes: [], edges: [] }
+  }
+
+  syncActiveGraph() {
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
+      assert(this.graphModel instanceof StateMachineGraph, "view-animation-tree active state machine model is required")
+      const requiredIds = new Set(["start", "end"])
+      this.activeNode.graph.states = this.graph.nodes
+        .filter((node) => !requiredIds.has(node.id))
+        .map((node) => {
+          const animationNode = structuredClone(node.animationNode)
+          animationNode.name = node.name
+          animationNode.kind = node.type
+          return { node: animationNode, position: { x: node.x, y: node.y } }
+        })
+      this.activeNode.graph.transitions = structuredClone(this.graph.edges)
+      const start = this.graph.nodes.find((node) => node.id === "start")
+      const end = this.graph.nodes.find((node) => node.id === "end")
+      assert(start && end, "view-animation-tree state machine requires start and end")
+      this.activeNode.graph.start.position = { x: start.x, y: start.y }
+      this.activeNode.graph.end.position = { x: end.x, y: end.y }
+      return
+    }
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      assert(this.graphModel instanceof NodeGraph, "view-animation-tree active blend tree model is required")
+      this.activeNode.graph.nodes = this.graph.nodes
+        .filter((node) => !this.graphModel.isRequired(node.id))
+        .map((node) => {
+          const animationNode = structuredClone(node)
+          delete animationNode.x
+          delete animationNode.y
+          return { node: animationNode, position: { x: node.x, y: node.y } }
+        })
+      this.activeNode.graph.edges = structuredClone(this.graph.edges)
+      const output = this.graph.nodes.find((node) => this.graphModel.isRequired(node.id))
+      assert(output, "view-animation-tree blend tree requires output")
+      this.activeNode.graph.output.position = { x: output.x, y: output.y }
+    }
+  }
+
+  mountBreadcrumbs() {
+    assert(this.parentElement, "view-animation-tree requires an Area parent")
+    const breadcrumbs = document.createElement("widget-breadcrumbs")
+    breadcrumbs.setAttribute("slot", "header-navigation")
+    breadcrumbs.items = this.breadcrumbItems()
+    breadcrumbs.addEventListener("navigate", (event) => this.navigateToAnimationNode(event.detail.id))
+    this.breadcrumbsElement = breadcrumbs
+    this.parentElement.appendChild(breadcrumbs)
+  }
+
+  breadcrumbItems() {
+    const path = animationNodePath(this.animationTree, this.activeNode.id)
+    assert(path, `view-animation-tree missing active node path ${this.activeNode.id}`)
+    return path.map((node, index) => ({
+      id: node.id,
+      label: index === 0 ? this.animationTree.name : node.name,
+      icon: index === 0 ? "account_tree" : this.animationNodeIcon(node.kind),
+    }))
+  }
+
+  animationNodeIcon(kind) {
+    if (kind === ANIMATION_NODE_KINDS.ANIMATION) return "animation"
+    if (kind === ANIMATION_NODE_KINDS.BLEND_TREE) return "schema"
+    if (kind === ANIMATION_NODE_KINDS.BLEND_SPACE_1D) return "linear_scale"
+    if (kind === ANIMATION_NODE_KINDS.BLEND_SPACE_2D) return "scatter_plot"
+    if (kind === ANIMATION_NODE_KINDS.STATE_MACHINE) return "account_tree"
+    if (kind === ANIMATION_NODE_KINDS.BLEND_2 || kind === ANIMATION_NODE_KINDS.BLEND_3) return "call_merge"
+    throw new Error(`view-animation-tree unknown animation node kind ${kind}`)
+  }
+
+  navigateToAnimationNode(nodeId) {
+    this.syncActiveGraph()
+    validateAnimationTreeDocument(this.animationTree)
+    const path = animationNodePath(this.animationTree, nodeId)
+    assert(path, `view-animation-tree missing animation node ${nodeId}`)
+    this.activeNodePath = path.map((node) => node.id)
+    this.activeNode = path[path.length - 1]
+    this.loadActiveGraph()
+    this.cancelTransitionDrag()
+    this.nodeConnectionDrag = null
+    this.hoveredPort = null
+    this.hoveredNodeId = null
+    this.hoveredTransitionNodeId = null
+    this.setNodeSelection([])
+    if (this.breadcrumbsElement) this.breadcrumbsElement.items = this.breadcrumbItems()
+    this.syncActiveEditorControls()
+    if (this.graphModel === null) {
+      this.scale = 1
+      this.offsetX = 0
+      this.offsetY = 0
+    }
+    this.setData(this.graph)
+    this.renderInspector()
+    this.setStatus(`Editing ${this.activeNode.name}`, "info")
+  }
+
+  async edit() {
+    if (this.selectedNodeIds.size !== 1) {
+      this.setStatus("Select exactly one node to edit", "warning")
+      return false
+    }
+    const nodeId = this.selectedNodeId ?? [...this.selectedNodeIds][0]
+    const path = animationNodePath(this.animationTree, nodeId)
+    if (!path) {
+      this.setStatus("Structural graph nodes have no embedded Animation Node", "warning")
+      return false
+    }
+    this.navigateToAnimationNode(nodeId)
+    return true
+  }
+
+  syncActiveEditorControls() {
+    const transition = this.queryHeaderControl('[data-action="transition-mode"]')
+    const add = this.queryHeaderControl('[data-action="add-state"]')
+    const remove = this.queryHeaderControl('[data-action="delete"]')
+    if (transition instanceof HTMLButtonElement) transition.hidden = this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE
+    if (add instanceof HTMLButtonElement) add.disabled = this.graphModel === null
+    if (remove instanceof HTMLButtonElement) remove.disabled = this.graphModel === null
+  }
+
   async add() {
+    if (this.graphModel === null) {
+      this.setStatus(`${this.activeNode.name} does not contain graph nodes`, "info")
+      return false
+    }
     await this.showNodeMenuAtCanvasCenter()
     return true
   }
 
   clearSelection() {
     this.cancelTransitionDrag()
+    this.nodeConnectionDrag = null
+    this.hoveredPort = null
     this.setNodeSelection([])
     this.renderInspector()
     this.draw()
@@ -240,8 +428,10 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   captureSnapshot() {
+    this.syncActiveGraph()
     return {
-      graph: structuredClone(this.graph),
+      animationTree: structuredClone(this.animationTree),
+      activeNodeId: this.activeNode.id,
       selectedNodeIds: [...this.selectedNodeIds],
       selectedNodeId: this.selectedNodeId,
       selectedEdgeId: this.selectedEdgeId,
@@ -251,8 +441,13 @@ export class ViewAnimationTree extends ViewCanvasBase {
   restoreSnapshot(snapshot) {
     assert(snapshot && typeof snapshot === "object", "view-animation-tree history snapshot is required")
     this.cancelTransitionDrag()
-    this.graphModel.replaceGraph(snapshot.graph)
-    this.graph = this.graphModel.graph
+    this.animationTree = structuredClone(snapshot.animationTree)
+    validateAnimationTreeDocument(this.animationTree)
+    const path = animationNodePath(this.animationTree, snapshot.activeNodeId)
+    assert(path, `view-animation-tree history missing active node ${snapshot.activeNodeId}`)
+    this.activeNodePath = path.map((node) => node.id)
+    this.activeNode = path[path.length - 1]
+    this.loadActiveGraph()
     this.selectedNodeIds = new Set(snapshot.selectedNodeIds)
     this.selectedNodeId = snapshot.selectedNodeId
     this.selectedEdgeId = snapshot.selectedEdgeId
@@ -260,6 +455,9 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.dragNodeStarts = null
     this.selectionDrag = null
     this.dragBeforeSnapshot = null
+    this.nodeConnectionDrag = null
+    if (this.breadcrumbsElement) this.breadcrumbsElement.items = this.breadcrumbItems()
+    this.syncActiveEditorControls()
     this.setData(this.graph, { autoFit: false })
     this.renderInspector()
     this.syncHistoryControls()
@@ -300,7 +498,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   clipboardPayload() {
-    if (this.selectedNodeIds.size === 0) return null
+    if (!(this.graphModel instanceof StateMachineGraph) || this.selectedNodeIds.size === 0) return null
     const selected = new Set([...this.selectedNodeIds].filter((id) => this.graphModel.canCopyNode(id)))
     if (selected.size === 0) return null
     return {
@@ -334,12 +532,20 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   async paste() {
+    if (!(this.graphModel instanceof StateMachineGraph)) {
+      this.setStatus("Copy and paste for this editor is not implemented", "info")
+      return false
+    }
     assert(navigator.clipboard, "view-animation-tree paste requires navigator.clipboard")
     const payload = this.parseClipboardPayload(await navigator.clipboard.readText())
     const before = this.captureSnapshot()
     const idMap = new Map()
-    let nextNodeId = Math.max(0, ...this.graph.nodes.filter((node) => Number.isInteger(node.id)).map((node) => node.id)) + 1
-    for (const node of payload.nodes) idMap.set(node.id, nextNodeId++)
+    const animationNodes = new Map()
+    for (const node of payload.nodes) {
+      const animationNode = cloneAnimationNodeWithNewIds(node.animationNode)
+      idMap.set(node.id, animationNode.id)
+      animationNodes.set(node.id, animationNode)
+    }
     const minX = Math.min(...payload.nodes.map((node) => node.x))
     const minY = Math.min(...payload.nodes.map((node) => node.y))
     const maxX = Math.max(...payload.nodes.map((node) => node.x + this.renderer.config.node.width))
@@ -347,12 +553,18 @@ export class ViewAnimationTree extends ViewCanvasBase {
     assert(this.lastPointerWorld, "view-animation-tree paste requires the pointer to have visited the canvas")
     const offsetX = this.lastPointerWorld.x - (minX + maxX) / 2
     const offsetY = this.lastPointerWorld.y - (minY + maxY) / 2
-    const nodes = payload.nodes.map((node) => ({
-      ...structuredClone(node),
-      id: idMap.get(node.id),
-      x: Math.round(node.x + offsetX),
-      y: Math.round(node.y + offsetY),
-    }))
+    const nodes = payload.nodes.map((node) => {
+      const animationNode = animationNodes.get(node.id)
+      assert(animationNode, `view-animation-tree missing cloned animation node ${node.id}`)
+      return {
+        id: animationNode.id,
+        type: animationNode.kind,
+        name: animationNode.name,
+        animationNode,
+        x: Math.round(node.x + offsetX),
+        y: Math.round(node.y + offsetY),
+      }
+    })
     let nextEdgeId = this.graph.edges.length ? Math.max(...this.graph.edges.map((edge) => edge.id)) + 1 : 1
     const edges = payload.edges.map((edge) => ({
       ...structuredClone(edge),
@@ -382,10 +594,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   nodeMenuItems() {
+    const types = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? BLEND_NODE_TYPES : NODE_TYPES
     return [
       {
-        label: "Animation tree nodes",
-        items: NODE_TYPES.map((type) => ({
+        label: this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? "Blend tree nodes" : "Animation tree nodes",
+        items: types.map((type) => ({
           label: type.label,
           keywords: [type.label, type.value],
           value: { type: type.value },
@@ -433,22 +646,27 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   addState(typeValue = "animation", worldPoint = null) {
-    const type = this.nodeType(typeValue)
+    assert(this.graphModel, "view-animation-tree active graph model is required")
+    const types = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? BLEND_NODE_TYPES : NODE_TYPES
+    const type = types.find((candidate) => candidate.value === typeValue)
+    assert(type, `view-animation-tree unknown node type ${typeValue}`)
     const before = this.captureSnapshot()
-    const id = Math.max(0, ...this.graph.nodes.filter((node) => Number.isInteger(node.id)).map((node) => node.id)) + 1
+    const animationNode = createAnimationNode(type.value, { name: type.label })
+    const activeRenderer = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? this.nodeGraphRenderer : this.renderer
+    const width = activeRenderer.config.node.width
     const point = worldPoint
-      ? {
-          x: worldPoint.x - this.renderer.config.node.width / 2,
-          y: worldPoint.y - this.renderer.config.node.height / 2,
+      ? { x: worldPoint.x - width / 2, y: worldPoint.y - 30 }
+      : { x: 120 + (this.graph.nodes.length % 4) * 240, y: 100 + Math.floor(this.graph.nodes.length / 4) * 160 }
+    const node = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE
+      ? { ...structuredClone(animationNode), x: Math.round(point.x), y: Math.round(point.y) }
+      : {
+          id: animationNode.id,
+          type: animationNode.kind,
+          name: animationNode.name,
+          animationNode,
+          x: Math.round(point.x),
+          y: Math.round(point.y),
         }
-      : { x: 120 + (id % 4) * 240, y: 100 + Math.floor(id / 4) * 160 }
-    const node = {
-      id,
-      type: type.value,
-      name: `${type.label} ${id}`,
-      x: Math.round(point.x),
-      y: Math.round(point.y),
-    }
     this.graphModel.addNode(node)
     this.cancelTransitionDrag()
     this.setNodeSelection([node.id], node.id)
@@ -550,6 +768,14 @@ export class ViewAnimationTree extends ViewCanvasBase {
     if (this.selectedEdgeId !== null) {
       const edge = this.selectedEdge()
       this.graphModel.removeEdge(edge.id)
+      if (this.graphModel instanceof NodeGraph) {
+        this.setNodeSelection([edge.from.nodeId], edge.from.nodeId)
+        this.renderInspector()
+        this.draw()
+        this.recordEdit("delete connection", before)
+        this.setStatus(`Deleted ${edge.from.nodeId}.${edge.from.portId} → ${edge.to.nodeId}.${edge.to.portId}`, "success")
+        return
+      }
       this.setNodeSelection([edge.from], edge.from)
       this.renderInspector()
       this.draw()
@@ -580,9 +806,84 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.statusOutput.classList.add(tone)
   }
 
+  renderNodeGraphInspector() {
+    if (this.selectedEdgeId !== null) {
+      const edge = this.selectedEdge()
+      this.selectionOutput.textContent = `Selected connection: ${edge.from.nodeId}.${edge.from.portId} → ${edge.to.nodeId}.${edge.to.portId}`
+      this.inspectorElement.innerHTML = `
+        <form data-element="connection-inspector">
+          <fieldset>
+            <legend>Connection</legend>
+            <label>From <output>${this.escapeAttribute(`${edge.from.nodeId}.${edge.from.portId}`)}</output></label>
+            <label>To <output>${this.escapeAttribute(`${edge.to.nodeId}.${edge.to.portId}`)}</output></label>
+          </fieldset>
+        </form>
+      `
+      return
+    }
+    if (this.selectedNodeIds.size === 0) {
+      this.selectionOutput.textContent = "No selection"
+      this.inspectorElement.innerHTML = "<output>Select a blend node or connection to inspect it.</output>"
+      return
+    }
+    const nodes = this.graph.nodes.filter((node) => this.selectedNodeIds.has(node.id))
+    if (nodes.length > 1) {
+      this.selectionOutput.textContent = `Selected: ${nodes.length} blend nodes`
+      this.inspectorElement.innerHTML = `
+        <table>
+          <caption>Selected blend nodes</caption>
+          <thead><tr><th>Name</th><th>Kind</th></tr></thead>
+          <tbody>${nodes.map((node) => `<tr><td>${this.escapeAttribute(node.name)}</td><td>${this.escapeAttribute(node.kind)}</td></tr>`).join("")}</tbody>
+        </table>
+      `
+      return
+    }
+    const node = nodes[0]
+    const required = this.graphModel.isRequired(node.id)
+    this.selectionOutput.textContent = `Selected: ${node.name}`
+    this.inspectorElement.innerHTML = `
+      <form data-element="blend-node-inspector">
+        <fieldset>
+          <legend>${required ? "Required node" : "Blend node"}</legend>
+          <label>Kind <output>${this.escapeAttribute(node.kind)}</output></label>
+          <label>Name ${required
+            ? `<output>${this.escapeAttribute(node.name)}</output>`
+            : `<input type="text" data-field="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`}
+          </label>
+        </fieldset>
+      </form>
+    `
+    if (required) return
+    const nameInput = this.inspectorElement.querySelector('[data-field="name"]')
+    assert(nameInput instanceof HTMLInputElement, "view-animation-tree missing blend node name input")
+    let before = null
+    nameInput.addEventListener("focus", () => { before = this.captureSnapshot() })
+    nameInput.addEventListener("input", () => {
+      const name = nameInput.value.trim()
+      assert(name.length > 0, "view-animation-tree blend node name must not be empty")
+      node.name = name
+      this.selectionOutput.textContent = `Selected: ${name}`
+      this.draw()
+    })
+    nameInput.addEventListener("change", () => {
+      assert(before, "view-animation-tree blend node name snapshot is required")
+      this.recordEdit("rename blend node", before)
+      this.setStatus(`Renamed node to ${node.name}`, "success")
+    })
+  }
+
   renderInspector() {
     assert(this.inspectorElement instanceof HTMLElement, "view-animation-tree inspector is not initialized")
     assert(this.selectionOutput instanceof HTMLOutputElement, "view-animation-tree selection output is not initialized")
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      this.renderNodeGraphInspector()
+      return
+    }
+    if (this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE) {
+      this.selectionOutput.textContent = `Editing: ${this.activeNode.name}`
+      this.inspectorElement.innerHTML = `<output>${this.escapeAttribute(this.activeNode.kind)} editor is not implemented in this prototype.</output>`
+      return
+    }
     if (this.selectedEdgeId !== null) {
       const edge = this.selectedEdge()
       const label = `${this.stateName(edge.from)} → ${this.stateName(edge.to)}`
@@ -688,9 +989,16 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   calculateContentBounds(graph) {
-    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     assert(graph === this.graph, "view-animation-tree data must reference its graph")
-    return this.renderer.contentBounds(graph.nodes)
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      assert(this.nodeGraphRenderer instanceof NodeGraphRenderer, "view-animation-tree node graph renderer is not initialized")
+      return this.nodeGraphRenderer.contentBounds(graph.nodes)
+    }
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
+      assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
+      return this.renderer.contentBounds(graph.nodes)
+    }
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
   }
 
   selectionRect() {
@@ -706,7 +1014,36 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
   drawContent(ctx, graph) {
     if (!graph) return
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      assert(this.graphModel instanceof NodeGraph, "view-animation-tree active node graph model is required")
+      this.nodeGraphRenderer.draw(ctx, graph, {
+        selectedNodeIds: this.selectedNodeIds,
+        selectedEdgeId: this.selectedEdgeId,
+        hoveredNodeId: this.hoveredNodeId,
+        hoveredPort: this.hoveredPort,
+        requiredNodeIds: new Set(graph.nodes.filter((node) => this.graphModel.isRequired(node.id)).map((node) => node.id)),
+      })
+      if (this.nodeConnectionDrag) {
+        const target = this.nodeGraphRenderer.hitPort(graph.nodes, this.nodeConnectionDrag.current)
+        const valid = Boolean(target && this.graphModel.canAddEdge(this.nodeConnectionDrag.from, { nodeId: target.node.id, portId: target.port.id }).ok)
+        this.nodeGraphRenderer.drawConnectionPreview(ctx, this.nodeConnectionDrag.start, this.nodeConnectionDrag.current, valid)
+      }
+      if (this.selectionDrag) this.nodeGraphRenderer.drawSelectionRect(ctx, this.selectionRect())
+      return
+    }
+    if (this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE) {
+      ctx.save()
+      ctx.fillStyle = "rgba(214, 236, 248, 0.85)"
+      ctx.font = "600 18px sans-serif"
+      ctx.textAlign = "center"
+      ctx.fillText(`${this.activeNode.name} editor`, this.canvas.width / (2 * this.scale), this.canvas.height / (2 * this.scale))
+      ctx.font = "13px sans-serif"
+      ctx.fillText("This Animation Node editor is not implemented in this prototype.", this.canvas.width / (2 * this.scale), this.canvas.height / (2 * this.scale) + 28)
+      ctx.restore()
+      return
+    }
     assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
+    assert(this.graphModel instanceof StateMachineGraph, "view-animation-tree active state machine model is required")
     this.renderer.draw(ctx, graph, {
       selectedNodeIds: this.selectedNodeIds,
       selectedEdgeId: this.selectedEdgeId,
@@ -727,11 +1064,12 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   async _onContextMenu(event) {
-    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
+    if (this.graphModel === null) return
+    const activeRenderer = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? this.nodeGraphRenderer : this.renderer
     const worldPoint = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = worldPoint
-    const node = this.renderer.hitNode(this.graph.nodes, worldPoint)
-    const edge = this.renderer.hitEdge(this.graph, worldPoint, 10 / this.scale)
+    const node = activeRenderer.hitNode(this.graph.nodes, worldPoint)
+    const edge = activeRenderer.hitEdge(this.graph, worldPoint, 10 / this.scale)
     if (node || edge) return
     event.preventDefault()
     this.focus()
@@ -742,11 +1080,16 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   onCanvasMouseDown(event) {
-    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     if (event.button !== 0) return
     this.focus()
     const point = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = point
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      this.onNodeGraphMouseDown(point)
+      return
+    }
+    if (this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE) return
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     const node = this.renderer.hitNode(this.graph.nodes, point)
     const inTransitionRegion = node && this.renderer.pointInTransitionRegion(node, point)
     const sourceState = node ? this.graphModel.transitionSourceState(node.id) : null
@@ -798,9 +1141,14 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   onCanvasMouseMove(event) {
-    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     const point = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = point
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      this.onNodeGraphMouseMove(point)
+      return
+    }
+    if (this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE) return
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     if (this.connectionSourceNodeId !== null) {
       this.connectionPointer = point
       const node = this.renderer.hitNode(this.graph.nodes, point)
@@ -857,6 +1205,130 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.draw()
   }
 
+  onNodeGraphMouseDown(point) {
+    assert(this.graphModel instanceof NodeGraph, "view-animation-tree active node graph model is required")
+    const portHit = this.nodeGraphRenderer.hitPort(this.graph.nodes, point)
+    if (portHit?.port.direction === "output") {
+      const before = this.captureSnapshot()
+      this.nodeConnectionDrag = {
+        from: { nodeId: portHit.node.id, portId: portHit.port.id },
+        start: portHit.point,
+        current: point,
+        before,
+      }
+      this.setNodeSelection([portHit.node.id], portHit.node.id)
+      this.renderInspector()
+      this.canvas.style.cursor = "crosshair"
+      this.draw()
+      this.setStatus(`Connect ${portHit.node.name}.${portHit.port.id} to an input`, "accent")
+      return
+    }
+    const node = this.nodeGraphRenderer.hitNode(this.graph.nodes, point)
+    if (node) {
+      if (!this.selectedNodeIds.has(node.id)) this.setNodeSelection([node.id], node.id)
+      else {
+        this.selectedNodeId = node.id
+        this.selectedEdgeId = null
+      }
+      this.dragBeforeSnapshot = this.captureSnapshot()
+      this.draggedNodeId = node.id
+      this.dragStartPoint = point
+      this.dragNodeStarts = new Map(
+        this.graph.nodes.filter((candidate) => this.selectedNodeIds.has(candidate.id)).map((candidate) => [candidate.id, { x: candidate.x, y: candidate.y }]),
+      )
+      this.canvas.style.cursor = "grabbing"
+      this.renderInspector()
+      this.draw()
+      return
+    }
+    const edge = this.nodeGraphRenderer.hitEdge(this.graph, point, 10 / this.scale)
+    if (edge) {
+      this.selectedNodeIds.clear()
+      this.selectedNodeId = null
+      this.selectedEdgeId = edge.id
+      this.renderInspector()
+      this.draw()
+      this.setStatus(`Selected connection ${edge.from.nodeId}.${edge.from.portId} → ${edge.to.nodeId}.${edge.to.portId}`, "info")
+      return
+    }
+    this.setNodeSelection([])
+    this.selectionDrag = { start: point, current: point }
+    this.renderInspector()
+    this.draw()
+  }
+
+  onNodeGraphMouseMove(point) {
+    if (this.nodeConnectionDrag) {
+      this.nodeConnectionDrag.current = point
+      const hit = this.nodeGraphRenderer.hitPort(this.graph.nodes, point)
+      this.hoveredPort = hit ? { nodeId: hit.node.id, portId: hit.port.id } : null
+      this.canvas.style.cursor = "crosshair"
+      this.draw()
+      return
+    }
+    if (this.draggedNodeId !== null) {
+      assert(this.dragStartPoint && this.dragNodeStarts instanceof Map, "view-animation-tree node graph drag state is required")
+      const deltaX = point.x - this.dragStartPoint.x
+      const deltaY = point.y - this.dragStartPoint.y
+      for (const node of this.graph.nodes) {
+        const start = this.dragNodeStarts.get(node.id)
+        if (!start) continue
+        node.x = start.x + deltaX
+        node.y = start.y + deltaY
+      }
+      this.contentBounds = this.calculateContentBounds(this.graph)
+      this.draw()
+      return
+    }
+    if (this.selectionDrag) {
+      this.selectionDrag.current = point
+      const rect = this.selectionRect()
+      const selected = this.graph.nodes.filter((node) => {
+        const bounds = this.nodeGraphRenderer.nodeBounds(node)
+        return bounds.x <= rect.x + rect.width && bounds.x + bounds.width >= rect.x && bounds.y <= rect.y + rect.height && bounds.y + bounds.height >= rect.y
+      }).map((node) => node.id)
+      this.setNodeSelection(selected)
+      this.renderInspector()
+      this.draw()
+      return
+    }
+    const portHit = this.nodeGraphRenderer.hitPort(this.graph.nodes, point)
+    const node = this.nodeGraphRenderer.hitNode(this.graph.nodes, point)
+    this.hoveredPort = portHit ? { nodeId: portHit.node.id, portId: portHit.port.id } : null
+    this.hoveredNodeId = node ? node.id : null
+    this.canvas.style.cursor = portHit?.port.direction === "output" ? "crosshair" : node ? "grab" : "default"
+    this.draw()
+  }
+
+  finishNodeGraphConnection(point) {
+    assert(this.nodeConnectionDrag, "view-animation-tree node graph connection drag is required")
+    const drag = this.nodeConnectionDrag
+    this.nodeConnectionDrag = null
+    const hit = this.nodeGraphRenderer.hitPort(this.graph.nodes, point)
+    if (!hit) {
+      this.setStatus("Connection cancelled", "info")
+      this.draw()
+      return false
+    }
+    const to = { nodeId: hit.node.id, portId: hit.port.id }
+    const result = this.graphModel.canAddEdge(drag.from, to)
+    if (!result.ok) {
+      this.setStatus(result.reason, "warning")
+      this.draw()
+      return false
+    }
+    const edge = { id: crypto.randomUUID(), from: drag.from, to }
+    this.graphModel.addEdge(edge)
+    this.selectedNodeIds.clear()
+    this.selectedNodeId = null
+    this.selectedEdgeId = edge.id
+    this.renderInspector()
+    this.draw()
+    this.recordEdit("connect blend nodes", drag.before)
+    this.setStatus(`Connected ${drag.from.nodeId}.${drag.from.portId} → ${to.nodeId}.${to.portId}`, "success")
+    return true
+  }
+
   finishNodeDrag() {
     if (this.draggedNodeId === null) return
     assert(this.dragBeforeSnapshot, "view-animation-tree drag history snapshot is required")
@@ -879,6 +1351,15 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   onCanvasMouseUp(event) {
+    if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
+      const point = this.getWorldPoint(event.clientX, event.clientY)
+      if (this.nodeConnectionDrag) this.finishNodeGraphConnection(point)
+      this.finishNodeDrag()
+      this.finishSelectionDrag()
+      this.canvas.style.cursor = this.hoveredNodeId === null ? "default" : "grab"
+      return
+    }
+    if (this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE) return
     if (this.connectionSourceNodeId !== null) {
       const sourceNodeId = this.connectionSourceNodeId
       const point = this.getWorldPoint(event.clientX, event.clientY)
@@ -900,6 +1381,10 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   onCanvasMouseLeave() {
+    if (this.nodeConnectionDrag) {
+      this.nodeConnectionDrag = null
+      this.setStatus("Connection cancelled", "info")
+    }
     if (this.connectionSourceNodeId !== null) {
       this.cancelTransitionDrag()
       this.setStatus("Transition cancelled · drag from a node frame to a target state", "info")
@@ -908,6 +1393,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.finishSelectionDrag()
     this.hoveredNodeId = null
     this.hoveredTransitionNodeId = null
+    this.hoveredPort = null
     this.draw()
   }
 }

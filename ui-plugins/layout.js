@@ -1,6 +1,10 @@
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
 import { runtime, unwrap } from "/core/runtime.js"
 
+// PROTOTYPE: header-navigation is not yet part of the approved Core View
+// vocabulary. Finalize it with widget-breadcrumbs before updating the guide.
+// or better move the breadcrumbs to the header-controls - and make it appear on left (add ability to align it, or make that on css level)
+
 function resultOk(value) {
     return { ok: value }
 }
@@ -54,7 +58,8 @@ export class ViewArea extends HTMLElement {
       <link rel="stylesheet" href="/css/base.css">
       <header part="header">
         <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
-        <slot name="header-controls"></slot>
+        <slot name="header-navigation" part="header-navigation"></slot>
+        <slot name="header-controls" part="header-controls"></slot>
       </header>
       <main><slot></slot></main>`
     }
@@ -111,9 +116,7 @@ export class ViewArea extends HTMLElement {
     }
 
     getCurrentView() {
-        return (
-            this.shadowRoot.querySelector("slot:not([name])")?.assignedElements?.()[0] || this.firstElementChild || null
-        )
+        return this.shadowRoot.querySelector("slot:not([name])")?.assignedElements?.()[0] || this.firstElementChild || null
     }
 
     getCurrentViewTag() {
@@ -409,10 +412,7 @@ export class UiLayout extends HTMLElement {
 
     async createView(tag, attrs = {}, innerHTML = "") {
         const entry = this.viewRegistry.get(tag) || null
-        const viewNode =
-            typeof entry?.create === "function"
-                ? await entry.create({ tag, attrs, innerHTML, layout: this })
-                : document.createElement(tag)
+        const viewNode = typeof entry?.create === "function" ? await entry.create({ tag, attrs, innerHTML, layout: this }) : document.createElement(tag)
         for (const [name, value] of Object.entries(attrs || {})) {
             if (name === "setup") continue
             if (!viewNode.hasAttribute?.(name)) viewNode.setAttribute?.(name, value)
@@ -490,12 +490,7 @@ export class UiLayout extends HTMLElement {
             this.cornerDrag.raf = 0
             if (!this.cornerDrag.active) return
             if (this.cornerDrag.x === this.cornerDrag.lastX && this.cornerDrag.y === this.cornerDrag.lastY) return
-            await this.tryCorner(
-                this.cornerDrag.contentId,
-                this.cornerDrag.cornerIndex,
-                this.cornerDrag.x,
-                this.cornerDrag.y,
-            )
+            await this.tryCorner(this.cornerDrag.contentId, this.cornerDrag.cornerIndex, this.cornerDrag.x, this.cornerDrag.y)
             this.cornerDrag.lastX = this.cornerDrag.x
             this.cornerDrag.lastY = this.cornerDrag.y
             this.render()
@@ -566,8 +561,7 @@ export class UiLayout extends HTMLElement {
         const target = Number.parseInt(targetText, 10)
         const percent = Number.parseInt(percentText, 10)
 
-        if (!Number.isInteger(target) || target < 0)
-            throw new Error(`layout child ${index}: invalid target '${targetText}'`)
+        if (!Number.isInteger(target) || target < 0) throw new Error(`layout child ${index}: invalid target '${targetText}'`)
         if (axis !== "v" && axis !== "h") throw new Error(`layout child ${index}: invalid axis '${axis}'`)
         if (!Number.isInteger(percent) || percent <= 0 || percent >= 100) {
             throw new Error(`layout child ${index}: invalid percent '${percentText}'`)

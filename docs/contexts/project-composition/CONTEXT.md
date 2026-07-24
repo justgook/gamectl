@@ -32,6 +32,18 @@ _Avoid_: View Plugin, because it extends one View rather than providing an indep
 The current minimap Project Unit, named `minimap.comp`, that converts tree-shaped room structure input into tilemap-shaped minimap output.
 _Avoid_: minimap2 when referring to the current Project Unit.
 
+**Animation Tree**:
+An authored animation-composition document containing one root Animation Node; composite Animation Nodes may recursively contain embedded child Animation Nodes.
+_Avoid_: using Animation Tree to mean only its State Machine Graph editor.
+
+**Animation Node**:
+A compositional unit within an Animation Tree. An Animation Node may select an animation or contain a Blend Tree, Blend Space, or State Machine.
+_Avoid_: graph node when the node's animation-composition role matters.
+
+**Node Graph**:
+A directed graph whose nodes expose explicit input and output ports and whose edges connect compatible output ports to input ports. Blend Trees are authored as Node Graphs; other domains may reuse the same graph vocabulary.
+_Avoid_: State Machine Graph, whose edges represent transitions between states rather than port connections.
+
 **Director**:
 The narrative world model and rule runtime whose authored DSL is compiled by the Director Compiler Project Unit.
 _Avoid_: ECS or game world when referring specifically to Director state.
@@ -67,6 +79,8 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - A **Core View** is a first-party **Project Unit** and should follow the GAMS View Development Guide.
 - **World Object Renderers** are configured within the World Editor's view-specific configuration rather than as a top-level Project Unit category.
 - A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
+- An **Animation Tree** owns exactly one root **Animation Node**, and composite Animation Nodes own their child Animation Nodes within the same document.
+- A **Node Graph** edge connects one output port to one input port; connection capacity and compatibility belong to the participating ports.
 - The Director Compiler is a **Project Unit** that compiles authored Director DSL into Director runtime data.
 - **Director Entity Availability** controls Director matching independently from any Host's ECS projection.
 - Hosts may react to selected **Director Applied Changes** without embedding Host behavior into Director rules.
