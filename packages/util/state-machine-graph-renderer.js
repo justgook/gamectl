@@ -23,20 +23,20 @@ function cssColor(value) {
   return `rgba(${Math.round(red * 255)}, ${Math.round(green * 255)}, ${Math.round(blue * 255)}, ${alpha})`
 }
 
-export function validateNodeGraphRendererConfig(input) {
-  const config = requireObject(input, "node graph renderer config")
-  const node = requireObject(config.node, "node graph renderer config.node")
-  const edge = requireObject(config.edge, "node graph renderer config.edge")
-  const text = requireObject(config.text, "node graph renderer config.text")
-  const theme = requireObject(config.theme, "node graph renderer config.theme")
+export function validateStateMachineGraphRendererConfig(input) {
+  const config = requireObject(input, "state machine graph renderer config")
+  const node = requireObject(config.node, "state machine graph renderer config.node")
+  const edge = requireObject(config.edge, "state machine graph renderer config.edge")
+  const text = requireObject(config.text, "state machine graph renderer config.text")
+  const theme = requireObject(config.theme, "state machine graph renderer config.theme")
 
   for (const key of ["width", "height", "radius", "borderWidth"])
-    requireNumber(node[key], `node graph renderer config.node.${key}`)
+    requireNumber(node[key], `state machine graph renderer config.node.${key}`)
   for (const key of ["width", "selectedWidth", "bidirectionalOffset", "arrowSize", "arrowInset"])
-    requireNumber(edge[key], `node graph renderer config.edge.${key}`)
+    requireNumber(edge[key], `state machine graph renderer config.edge.${key}`)
   for (const key of ["titleSize", "padding"])
-    requireNumber(text[key], `node graph renderer config.text.${key}`)
-  assert(typeof text.font === "string" && text.font.length > 0, "node graph renderer config.text.font must be a non-empty string")
+    requireNumber(text[key], `state machine graph renderer config.text.${key}`)
+  assert(typeof text.font === "string" && text.font.length > 0, "state machine graph renderer config.text.font must be a non-empty string")
 
   for (const key of [
     "node",
@@ -49,22 +49,22 @@ export function validateNodeGraphRendererConfig(input) {
     "edgeSymbol",
     "start",
   ])
-    requireColor(theme[key], `node graph renderer config.theme.${key}`)
+    requireColor(theme[key], `state machine graph renderer config.theme.${key}`)
 
-  assert(node.width > 0 && node.height > 0, "node graph renderer node dimensions must be positive")
-  assert(node.radius >= 0, "node graph renderer node radius must not be negative")
-  assert(edge.bidirectionalOffset > 0 && edge.arrowSize > 0 && edge.arrowInset > 0, "node graph renderer edge direction dimensions must be positive")
+  assert(node.width > 0 && node.height > 0, "state machine graph renderer node dimensions must be positive")
+  assert(node.radius >= 0, "state machine graph renderer node radius must not be negative")
+  assert(edge.bidirectionalOffset > 0 && edge.arrowSize > 0 && edge.arrowInset > 0, "state machine graph renderer edge direction dimensions must be positive")
   return config
 }
 
-export class NodeGraphRenderer {
+export class StateMachineGraphRenderer {
   constructor(config) {
-    this.config = validateNodeGraphRendererConfig(config)
+    this.config = validateStateMachineGraphRendererConfig(config)
   }
 
   nodeBounds(node) {
-    assert(node && typeof node === "object", "node graph renderer node must be an object")
-    assert(Number.isFinite(node.x) && Number.isFinite(node.y), "node graph renderer node position must be finite")
+    assert(node && typeof node === "object", "state machine graph renderer node must be an object")
+    assert(Number.isFinite(node.x) && Number.isFinite(node.y), "state machine graph renderer node position must be finite")
     return {
       x: node.x,
       y: node.y,
@@ -74,8 +74,8 @@ export class NodeGraphRenderer {
   }
 
   contentBounds(nodes, padding = 80) {
-    assert(Array.isArray(nodes), "node graph renderer nodes must be an array")
-    requireNumber(padding, "node graph renderer content padding")
+    assert(Array.isArray(nodes), "state machine graph renderer nodes must be an array")
+    requireNumber(padding, "state machine graph renderer content padding")
     if (nodes.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
 
     const bounds = nodes.map((node) => this.nodeBounds(node))
@@ -88,7 +88,7 @@ export class NodeGraphRenderer {
   }
 
   hitNode(nodes, point) {
-    assert(Array.isArray(nodes), "node graph renderer nodes must be an array")
+    assert(Array.isArray(nodes), "state machine graph renderer nodes must be an array")
     for (let index = nodes.length - 1; index >= 0; index -= 1) {
       const node = nodes[index]
       const rect = this.nodeBounds(node)
@@ -99,10 +99,10 @@ export class NodeGraphRenderer {
   }
 
   hitEdge(graph, point, threshold = 10) {
-    requireObject(graph, "node graph renderer graph")
-    assert(Array.isArray(graph.nodes), "node graph renderer graph.nodes must be an array")
-    assert(Array.isArray(graph.edges), "node graph renderer graph.edges must be an array")
-    requireNumber(threshold, "node graph renderer edge hit threshold")
+    requireObject(graph, "state machine graph renderer graph")
+    assert(Array.isArray(graph.nodes), "state machine graph renderer graph.nodes must be an array")
+    assert(Array.isArray(graph.edges), "state machine graph renderer graph.edges must be an array")
+    requireNumber(threshold, "state machine graph renderer edge hit threshold")
     const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
     const edgeDirections = new Set(graph.edges.map((edge) => `${edge.from}:${edge.to}`))
     let closest = null
@@ -128,16 +128,16 @@ export class NodeGraphRenderer {
     const deltaX = end.x - start.x
     const deltaY = end.y - start.y
     const lengthSquared = deltaX * deltaX + deltaY * deltaY
-    assert(lengthSquared > 0, "node graph renderer cannot hit-test a zero-length segment")
+    assert(lengthSquared > 0, "state machine graph renderer cannot hit-test a zero-length segment")
     const projection = Math.max(0, Math.min(1, ((point.x - start.x) * deltaX + (point.y - start.y) * deltaY) / lengthSquared))
     return Math.hypot(point.x - (start.x + projection * deltaX), point.y - (start.y + projection * deltaY))
   }
 
   draw(ctx, graph, state = {}) {
-    assert(ctx instanceof CanvasRenderingContext2D, "node graph renderer requires a 2d canvas context")
-    requireObject(graph, "node graph renderer graph")
-    assert(Array.isArray(graph.nodes), "node graph renderer graph.nodes must be an array")
-    assert(Array.isArray(graph.edges), "node graph renderer graph.edges must be an array")
+    assert(ctx instanceof CanvasRenderingContext2D, "state machine graph renderer requires a 2d canvas context")
+    requireObject(graph, "state machine graph renderer graph")
+    assert(Array.isArray(graph.nodes), "state machine graph renderer graph.nodes must be an array")
+    assert(Array.isArray(graph.edges), "state machine graph renderer graph.edges must be an array")
 
     const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
     const edgeDirections = new Set(graph.edges.map((edge) => `${edge.from}:${edge.to}`))
@@ -145,7 +145,7 @@ export class NodeGraphRenderer {
       const bidirectional = edgeDirections.has(`${edge.to}:${edge.from}`)
       this.drawEdge(ctx, edge, nodesById, state.selectedEdgeId === edge.id, bidirectional)
     }
-    assert(state.selectedNodeIds instanceof Set, "node graph renderer selectedNodeIds must be a Set")
+    assert(state.selectedNodeIds instanceof Set, "state machine graph renderer selectedNodeIds must be a Set")
     for (const node of graph.nodes)
       this.drawNode(ctx, node, {
         selected: state.selectedNodeIds.has(node.id),
@@ -154,9 +154,9 @@ export class NodeGraphRenderer {
   }
 
   drawSelectionRect(ctx, rect) {
-    requireObject(rect, "node graph renderer selection rect")
+    requireObject(rect, "state machine graph renderer selection rect")
     for (const key of ["x", "y", "width", "height"])
-      requireNumber(rect[key], `node graph renderer selection rect.${key}`)
+      requireNumber(rect[key], `state machine graph renderer selection rect.${key}`)
     const color = this.config.theme.edgeSelected
     ctx.save()
     ctx.fillStyle = cssColor([color[0], color[1], color[2], 0.14])
@@ -170,9 +170,9 @@ export class NodeGraphRenderer {
   edgeGeometry(edge, nodesById, bidirectional) {
     const from = nodesById.get(edge.from)
     const to = nodesById.get(edge.to)
-    assert(from, `node graph renderer edge ${edge.id} references missing from node ${edge.from}`)
-    assert(to, `node graph renderer edge ${edge.id} references missing to node ${edge.to}`)
-    assert(from.id !== to.id, `node graph renderer edge ${edge.id} self-transitions are not implemented`)
+    assert(from, `state machine graph renderer edge ${edge.id} references missing from node ${edge.from}`)
+    assert(to, `state machine graph renderer edge ${edge.id} references missing to node ${edge.to}`)
+    assert(from.id !== to.id, `state machine graph renderer edge ${edge.id} self-transitions are not implemented`)
 
     const fromRect = this.nodeBounds(from)
     const toRect = this.nodeBounds(to)
@@ -181,7 +181,7 @@ export class NodeGraphRenderer {
     const deltaX = end.x - start.x
     const deltaY = end.y - start.y
     const distance = Math.hypot(deltaX, deltaY)
-    assert(distance > 0, `node graph renderer edge ${edge.id} connects overlapping states`)
+    assert(distance > 0, `state machine graph renderer edge ${edge.id} connects overlapping states`)
     const normalX = -deltaY / distance
     const normalY = deltaX / distance
     const curveOffset = bidirectional ? this.config.edge.bidirectionalOffset : 0
@@ -212,7 +212,7 @@ export class NodeGraphRenderer {
     const arrow = this.quadraticPoint(start, control, end, arrowT)
     const tangent = this.quadraticTangent(start, control, end, arrowT)
     const tangentLength = Math.hypot(tangent.x, tangent.y)
-    assert(tangentLength > 0, `node graph renderer edge ${edge.id} has no direction`)
+    assert(tangentLength > 0, `state machine graph renderer edge ${edge.id} has no direction`)
     const directionX = tangent.x / tangentLength
     const directionY = tangent.y / tangentLength
 
@@ -222,7 +222,7 @@ export class NodeGraphRenderer {
     ctx.lineWidth = selected ? this.config.edge.selectedWidth : this.config.edge.width
     assert(
       edge.switchMode === "immediate" || edge.switchMode === "sync" || edge.switchMode === "at-end",
-      `node graph renderer edge ${edge.id} has unknown switch mode ${edge.switchMode}`,
+      `state machine graph renderer edge ${edge.id} has unknown switch mode ${edge.switchMode}`,
     )
     ctx.setLineDash([])
     ctx.beginPath()

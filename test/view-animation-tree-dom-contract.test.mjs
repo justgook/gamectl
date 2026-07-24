@@ -2,9 +2,9 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-const source = await readFile(new URL("../views/view-animation-graph.js", import.meta.url), "utf8")
+const source = await readFile(new URL("../views/view-animation-tree.js", import.meta.url), "utf8")
 
-test("animation graph does not shadow the DOM nodeName property", () => {
+test("animation tree does not shadow the DOM nodeName property", () => {
   assert.doesNotMatch(
     source,
     /^\s+nodeName\s*\(/m,

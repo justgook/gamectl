@@ -1,6 +1,6 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
-import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
+import { StateMachineGraphRenderer } from "/util/state-machine-graph-renderer.js"
 import { UndoHistory } from "/util/undo.js"
 
 function assert(condition, message) {
@@ -21,7 +21,7 @@ const NODE_TYPES = [
   { value: "state-machine", label: "State Machine" },
 ]
 
-const CLIPBOARD_FORMAT = "gams.animation-graph.nodes"
+const CLIPBOARD_FORMAT = "gams.animation-tree.nodes"
 
 function createInitialGraph() {
   return {
@@ -42,7 +42,7 @@ function createInitialGraph() {
   }
 }
 
-export class ViewAnimationGraph extends ViewCanvasBase {
+export class ViewAnimationTree extends ViewCanvasBase {
   constructor() {
     super()
     this.renderer = null
@@ -71,9 +71,9 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   connectedCallback() {
     if (this.dataset.ready) return
     this.dataset.ready = "1"
-    assert(this.viewConfig && typeof this.viewConfig === "object", "view-animation-graph viewConfig is required")
-    assert(this.viewConfig.config && typeof this.viewConfig.config === "object", "view-animation-graph viewConfig.config is required")
-    this.renderer = new NodeGraphRenderer(this.viewConfig.config.renderer)
+    assert(this.viewConfig && typeof this.viewConfig === "object", "view-animation-tree viewConfig is required")
+    assert(this.viewConfig.config && typeof this.viewConfig.config === "object", "view-animation-tree viewConfig.config is required")
+    this.renderer = new StateMachineGraphRenderer(this.viewConfig.config.renderer)
 
     this.innerHTML = `
       <canvas data-element="canvas"></canvas>
@@ -86,9 +86,9 @@ export class ViewAnimationGraph extends ViewCanvasBase {
     this.inspectorElement = this.querySelector('[data-element="inspector"]')
     this.selectionOutput = this.querySelector('[data-element="selection"]')
     this.statusOutput = this.querySelector('[data-element="status"]')
-    assert(this.inspectorElement instanceof HTMLElement, "view-animation-graph missing inspector")
-    assert(this.selectionOutput instanceof HTMLOutputElement, "view-animation-graph missing selection output")
-    assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-graph missing status output")
+    assert(this.inspectorElement instanceof HTMLElement, "view-animation-tree missing inspector")
+    assert(this.selectionOutput instanceof HTMLOutputElement, "view-animation-tree missing selection output")
+    assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-tree missing status output")
 
     super.connectedCallback()
     this.canvas.addEventListener("contextmenu", this._onContextMenu)
@@ -183,7 +183,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
       zoomOut: controls.querySelector('[data-action="zoom-out"]'),
     }
     for (const [name, button] of Object.entries(actions))
-      assert(button instanceof HTMLButtonElement, `view-animation-graph missing ${name} control`)
+      assert(button instanceof HTMLButtonElement, `view-animation-tree missing ${name} control`)
     actions.selectMode.addEventListener("click", () => this.selectMode())
     actions.transitionMode.addEventListener("click", () => this.cycleTransitionMode())
     actions.addState.addEventListener("click", () => this.showNodeMenuForButton(actions.addState))
@@ -201,27 +201,27 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   setNodeSelection(ids, activeId = null) {
     this.selectedNodeIds = new Set(ids)
     this.selectedNodeId = activeId === null ? (this.selectedNodeIds.size ? [...this.selectedNodeIds][this.selectedNodeIds.size - 1] : null) : activeId
-    if (this.selectedNodeId !== null) assert(this.selectedNodeIds.has(this.selectedNodeId), "view-animation-graph active node must be selected")
+    if (this.selectedNodeId !== null) assert(this.selectedNodeIds.has(this.selectedNodeId), "view-animation-tree active node must be selected")
     this.selectedEdgeId = null
   }
 
   selectedNode() {
-    assert(this.selectedNodeId !== null, "view-animation-graph has no selected node")
+    assert(this.selectedNodeId !== null, "view-animation-tree has no selected node")
     const node = this.graph.nodes.find((candidate) => candidate.id === this.selectedNodeId)
-    assert(node, `view-animation-graph missing selected node ${this.selectedNodeId}`)
+    assert(node, `view-animation-tree missing selected node ${this.selectedNodeId}`)
     return node
   }
 
   selectedEdge() {
-    assert(this.selectedEdgeId !== null, "view-animation-graph has no selected edge")
+    assert(this.selectedEdgeId !== null, "view-animation-tree has no selected edge")
     const edge = this.graph.edges.find((candidate) => candidate.id === this.selectedEdgeId)
-    assert(edge, `view-animation-graph missing selected edge ${this.selectedEdgeId}`)
+    assert(edge, `view-animation-tree missing selected edge ${this.selectedEdgeId}`)
     return edge
   }
 
   stateName(id) {
     const node = this.graph.nodes.find((candidate) => candidate.id === id)
-    assert(node, `view-animation-graph missing node ${id}`)
+    assert(node, `view-animation-tree missing node ${id}`)
     return node.name
   }
 
@@ -235,7 +235,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   restoreSnapshot(snapshot) {
-    assert(snapshot && typeof snapshot === "object", "view-animation-graph history snapshot is required")
+    assert(snapshot && typeof snapshot === "object", "view-animation-tree history snapshot is required")
     this.cancelConnecting({ silent: true })
     this.graph = structuredClone(snapshot.graph)
     this.selectedNodeIds = new Set(snapshot.selectedNodeIds)
@@ -301,7 +301,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
       this.setStatus("Select one or more states to copy", "warning")
       return false
     }
-    assert(navigator.clipboard, "view-animation-graph copy requires navigator.clipboard")
+    assert(navigator.clipboard, "view-animation-tree copy requires navigator.clipboard")
     await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
     this.setStatus(`Copied ${payload.nodes.length} state${payload.nodes.length === 1 ? "" : "s"}`, "success")
     return true
@@ -309,16 +309,16 @@ export class ViewAnimationGraph extends ViewCanvasBase {
 
   parseClipboardPayload(text) {
     const payload = JSON.parse(String(text))
-    assert(payload && typeof payload === "object", "view-animation-graph clipboard payload must be an object")
-    assert(payload.format === CLIPBOARD_FORMAT, "view-animation-graph clipboard format is not supported")
-    assert(payload.version === 1, "view-animation-graph clipboard version is not supported")
-    assert(Array.isArray(payload.nodes) && payload.nodes.length > 0, "view-animation-graph clipboard requires nodes")
-    assert(Array.isArray(payload.edges), "view-animation-graph clipboard requires edges")
+    assert(payload && typeof payload === "object", "view-animation-tree clipboard payload must be an object")
+    assert(payload.format === CLIPBOARD_FORMAT, "view-animation-tree clipboard format is not supported")
+    assert(payload.version === 1, "view-animation-tree clipboard version is not supported")
+    assert(Array.isArray(payload.nodes) && payload.nodes.length > 0, "view-animation-tree clipboard requires nodes")
+    assert(Array.isArray(payload.edges), "view-animation-tree clipboard requires edges")
     return payload
   }
 
   async paste() {
-    assert(navigator.clipboard, "view-animation-graph paste requires navigator.clipboard")
+    assert(navigator.clipboard, "view-animation-tree paste requires navigator.clipboard")
     const payload = this.parseClipboardPayload(await navigator.clipboard.readText())
     const before = this.captureSnapshot()
     const idMap = new Map()
@@ -328,7 +328,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
     const minY = Math.min(...payload.nodes.map((node) => node.y))
     const maxX = Math.max(...payload.nodes.map((node) => node.x + this.renderer.config.node.width))
     const maxY = Math.max(...payload.nodes.map((node) => node.y + this.renderer.config.node.height))
-    assert(this.lastPointerWorld, "view-animation-graph paste requires the pointer to have visited the canvas")
+    assert(this.lastPointerWorld, "view-animation-tree paste requires the pointer to have visited the canvas")
     const offsetX = this.lastPointerWorld.x - (minX + maxX) / 2
     const offsetY = this.lastPointerWorld.y - (minY + maxY) / 2
     const nodes = payload.nodes.map((node) => ({
@@ -345,7 +345,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
       from: idMap.get(edge.from),
       to: idMap.get(edge.to),
     }))
-    assert(edges.every((edge) => edge.from !== undefined && edge.to !== undefined), "view-animation-graph pasted edge must reference pasted nodes")
+    assert(edges.every((edge) => edge.from !== undefined && edge.to !== undefined), "view-animation-tree pasted edge must reference pasted nodes")
     this.graph.nodes.push(...nodes)
     this.graph.edges.push(...edges)
     this.selectMode({ silent: true })
@@ -359,14 +359,14 @@ export class ViewAnimationGraph extends ViewCanvasBase {
 
   nodeType(value) {
     const type = NODE_TYPES.find((candidate) => candidate.value === value)
-    assert(type, `view-animation-graph unknown node type ${value}`)
+    assert(type, `view-animation-tree unknown node type ${value}`)
     return type
   }
 
   nodeMenuItems() {
     return [
       {
-        label: "Animation graph nodes",
+        label: "Animation tree nodes",
         items: NODE_TYPES.map((type) => ({
           label: type.label,
           keywords: [type.label, type.value],
@@ -392,7 +392,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
       "ui.tooltip.contextMenu",
     )
     if (!result.ok) return false
-    assert(result.selected && result.selected.value, "view-animation-graph node menu selection is required")
+    assert(result.selected && result.selected.value, "view-animation-tree node menu selection is required")
     this.addState(result.selected.value.type, worldPoint)
     return true
   }
@@ -406,7 +406,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   async showNodeMenuForButton(button) {
-    assert(button instanceof HTMLButtonElement, "view-animation-graph add button is required")
+    assert(button instanceof HTMLButtonElement, "view-animation-tree add button is required")
     const rect = button.getBoundingClientRect()
     await this.showNodeMenu(
       { kind: "point", x: rect.left + rect.width / 2, y: rect.bottom },
@@ -443,13 +443,13 @@ export class ViewAnimationGraph extends ViewCanvasBase {
 
   transitionMode(value) {
     const mode = TRANSITION_MODES.find((candidate) => candidate.value === value)
-    assert(mode, `view-animation-graph unknown transition mode ${value}`)
+    assert(mode, `view-animation-tree unknown transition mode ${value}`)
     return mode
   }
 
   currentTransitionMode() {
     const mode = TRANSITION_MODES[this.transitionModeIndex]
-    assert(mode, `view-animation-graph missing transition mode ${this.transitionModeIndex}`)
+    assert(mode, `view-animation-tree missing transition mode ${this.transitionModeIndex}`)
     return mode
   }
 
@@ -466,7 +466,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
     transition.setAttribute("aria-label", `Transition mode: ${mode.label}`)
     transition.setAttribute("title", `Transition mode: ${mode.label}`)
     const icon = transition.querySelector("i")
-    assert(icon instanceof HTMLElement, "view-animation-graph transition mode icon is required")
+    assert(icon instanceof HTMLElement, "view-animation-tree transition mode icon is required")
     icon.textContent = mode.icon
   }
 
@@ -495,7 +495,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   chooseConnectionNode(node) {
-    assert(this.connecting, "view-animation-graph must be in transition creation mode")
+    assert(this.connecting, "view-animation-tree must be in transition creation mode")
     if (this.connectionSourceNodeId === null) {
       this.connectionSourceNodeId = node.id
       this.setNodeSelection([node.id], node.id)
@@ -549,7 +549,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
     }
 
     const selected = new Set(this.selectedNodeIds)
-    assert(selected.size > 0, "view-animation-graph node deletion requires selected states")
+    assert(selected.size > 0, "view-animation-tree node deletion requires selected states")
     if (selected.size >= this.graph.nodes.length) {
       this.setStatus("The graph requires at least one state", "warning")
       return false
@@ -559,7 +559,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
     this.graph.nodes = this.graph.nodes.filter((node) => !selected.has(node.id))
     this.graph.edges = this.graph.edges.filter((edge) => !selected.has(edge.from) && !selected.has(edge.to))
     const next = this.graph.nodes[0]
-    assert(next, "view-animation-graph requires a state after deletion")
+    assert(next, "view-animation-tree requires a state after deletion")
     if (deletedStart) next.start = true
     this.setNodeSelection([next.id], next.id)
     this.setData(this.graph, { autoFit: false })
@@ -569,15 +569,15 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   setStatus(message, tone) {
-    assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-graph status output is not initialized")
+    assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-tree status output is not initialized")
     this.statusOutput.textContent = message
     this.statusOutput.classList.remove("accent", "success", "warning", "danger", "info")
     this.statusOutput.classList.add(tone)
   }
 
   renderInspector() {
-    assert(this.inspectorElement instanceof HTMLElement, "view-animation-graph inspector is not initialized")
-    assert(this.selectionOutput instanceof HTMLOutputElement, "view-animation-graph selection output is not initialized")
+    assert(this.inspectorElement instanceof HTMLElement, "view-animation-tree inspector is not initialized")
+    assert(this.selectionOutput instanceof HTMLOutputElement, "view-animation-tree selection output is not initialized")
     if (this.selectedEdgeId !== null) {
       const edge = this.selectedEdge()
       const label = `${this.stateName(edge.from)} → ${this.stateName(edge.to)}`
@@ -597,7 +597,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
         </form>
       `
       const switchMode = this.inspectorElement.querySelector('[data-field="switch-mode"]')
-      assert(switchMode instanceof HTMLSelectElement, "view-animation-graph missing transition switch mode select")
+      assert(switchMode instanceof HTMLSelectElement, "view-animation-tree missing transition switch mode select")
       switchMode.addEventListener("change", () => {
         const before = this.captureSnapshot()
         const mode = this.transitionMode(switchMode.value)
@@ -644,27 +644,27 @@ export class ViewAnimationGraph extends ViewCanvasBase {
     `
     const nameInput = this.inspectorElement.querySelector('[data-field="name"]')
     const startInput = this.inspectorElement.querySelector('[data-field="start"]')
-    assert(nameInput instanceof HTMLInputElement, "view-animation-graph missing state name input")
-    assert(startInput instanceof HTMLInputElement, "view-animation-graph missing start state input")
+    assert(nameInput instanceof HTMLInputElement, "view-animation-tree missing state name input")
+    assert(startInput instanceof HTMLInputElement, "view-animation-tree missing start state input")
     let nameBefore = null
     nameInput.addEventListener("focus", () => {
       nameBefore = this.captureSnapshot()
     })
     nameInput.addEventListener("input", () => {
       const name = nameInput.value.trim()
-      assert(name.length > 0, "view-animation-graph state name must not be empty")
+      assert(name.length > 0, "view-animation-tree state name must not be empty")
       node.name = name
       this.selectionOutput.textContent = `Selected: ${node.name}`
       this.draw()
     })
     nameInput.addEventListener("change", () => {
-      assert(nameBefore, "view-animation-graph name edit snapshot is required")
+      assert(nameBefore, "view-animation-tree name edit snapshot is required")
       this.recordEdit("rename state", nameBefore)
       nameBefore = this.captureSnapshot()
       this.setStatus(`Renamed state to ${node.name}`, "success")
     })
     startInput.addEventListener("change", () => {
-      assert(startInput.checked, "view-animation-graph requires exactly one start state")
+      assert(startInput.checked, "view-animation-tree requires exactly one start state")
       const before = this.captureSnapshot()
       for (const candidate of this.graph.nodes) candidate.start = candidate.id === node.id
       this.renderInspector()
@@ -679,13 +679,13 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   calculateContentBounds(graph) {
-    assert(this.renderer instanceof NodeGraphRenderer, "view-animation-graph renderer is not initialized")
-    assert(graph === this.graph, "view-animation-graph data must reference its graph")
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
+    assert(graph === this.graph, "view-animation-tree data must reference its graph")
     return this.renderer.contentBounds(graph.nodes)
   }
 
   selectionRect() {
-    assert(this.selectionDrag, "view-animation-graph selection drag is required")
+    assert(this.selectionDrag, "view-animation-tree selection drag is required")
     const { start, current } = this.selectionDrag
     return {
       x: Math.min(start.x, current.x),
@@ -697,7 +697,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
 
   drawContent(ctx, graph) {
     if (!graph) return
-    assert(this.renderer instanceof NodeGraphRenderer, "view-animation-graph renderer is not initialized")
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     this.renderer.draw(ctx, graph, {
       selectedNodeIds: this.selectedNodeIds,
       selectedEdgeId: this.selectedEdgeId,
@@ -707,7 +707,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   async _onContextMenu(event) {
-    assert(this.renderer instanceof NodeGraphRenderer, "view-animation-graph renderer is not initialized")
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     const worldPoint = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = worldPoint
     const node = this.renderer.hitNode(this.graph.nodes, worldPoint)
@@ -722,7 +722,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   onCanvasMouseDown(event) {
-    assert(this.renderer instanceof NodeGraphRenderer, "view-animation-graph renderer is not initialized")
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     if (event.button !== 0) return
     this.focus()
     const point = this.getWorldPoint(event.clientX, event.clientY)
@@ -768,11 +768,11 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 
   onCanvasMouseMove(event) {
-    assert(this.renderer instanceof NodeGraphRenderer, "view-animation-graph renderer is not initialized")
+    assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     const point = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = point
     if (this.draggedNodeId !== null) {
-      assert(this.dragStartPoint && this.dragNodeStarts instanceof Map, "view-animation-graph group drag state is required")
+      assert(this.dragStartPoint && this.dragNodeStarts instanceof Map, "view-animation-tree group drag state is required")
       const deltaX = point.x - this.dragStartPoint.x
       const deltaY = point.y - this.dragStartPoint.y
       for (const node of this.graph.nodes) {
@@ -816,7 +816,7 @@ export class ViewAnimationGraph extends ViewCanvasBase {
 
   finishNodeDrag() {
     if (this.draggedNodeId === null) return
-    assert(this.dragBeforeSnapshot, "view-animation-graph drag history snapshot is required")
+    assert(this.dragBeforeSnapshot, "view-animation-tree drag history snapshot is required")
     const count = this.selectedNodeIds.size
     this.draggedNodeId = null
     this.dragNodeStarts = null
@@ -850,6 +850,6 @@ export class ViewAnimationGraph extends ViewCanvasBase {
   }
 }
 
-if (!customElements.get("view-animation-graph")) {
-  customElements.define("view-animation-graph", ViewAnimationGraph)
+if (!customElements.get("view-animation-tree")) {
+  customElements.define("view-animation-tree", ViewAnimationTree)
 }

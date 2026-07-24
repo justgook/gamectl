@@ -120,7 +120,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-animation-graph data-source=\"catalog/world/level.world.json\" />"
+          "layout": "<view-animation-tree data-source=\"catalog/world/level.world.json\" />"
         }
       }
     },
@@ -152,9 +152,9 @@
         "group": "TODO",
         "internal": false
       },
-      "view-animation-graph": {
-        "url": "views/view-animation-graph.js",
-        "label": "Animation Graph",
+      "view-animation-tree": {
+        "url": "views/view-animation-tree.js",
+        "label": "Animation Tree",
         "group": "Animation",
         "internal": false,
         "config": {
