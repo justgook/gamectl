@@ -19,6 +19,12 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
+function canvasBackgroundColor(value) {
+  assert(Array.isArray(value) && value.length === 4, "view-animation-tree background must contain four numbers")
+  value.forEach((channel, index) => assert(typeof channel === "number" && Number.isFinite(channel), `view-animation-tree background[${index}] must be finite`))
+  return `rgba(${Math.round(value[0] * 255)}, ${Math.round(value[1] * 255)}, ${Math.round(value[2] * 255)}, ${value[3]})`
+}
+
 const TRANSITION_MODES = [
   { value: "immediate", label: "Immediate", icon: "play_arrow" },
   { value: "sync", label: "Sync", icon: "resume" },
@@ -159,6 +165,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-tree missing status output")
 
     super.connectedCallback()
+    this.canvas.style.backgroundColor = canvasBackgroundColor(this.viewConfig.config.background)
     this.mountBreadcrumbs()
     this.canvas.addEventListener("contextmenu", this._onContextMenu)
     this.setData(this.graph)
