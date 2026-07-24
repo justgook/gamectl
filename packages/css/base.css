@@ -649,11 +649,6 @@
      Its Shadow DOM holds <header> + <slot> which form the popup card.
      ═══════════════════════════════════════════════════════════════════════════ */
 
-    /* only the topmost popup is visible */
-    popup-manager view-popup:not(:last-of-type) {
-        display: none;
-    }
-
     /* ═══════════════════════════════════════════════════════════════════════════
      Views helpers (build block)
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -967,6 +962,11 @@
         place-items: center;
         padding: var(--space-6);
         box-sizing: border-box;
+    }
+
+    /* only the topmost popup is visible */
+    popup-manager view-popup:not(:last-of-type) {
+        display: none;
     }
 
     /* sizes — applied as light-DOM classes by view-popup.js */
