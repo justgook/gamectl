@@ -63,15 +63,15 @@ export function createAnimationNode(kind, { id = createId(), name } = {}) {
   if (kind === ANIMATION_NODE_KINDS.ANIMATION)
     return { id, kind, name: label, animation: "", ports: animationPorts() }
   if (kind === ANIMATION_NODE_KINDS.ONE_SHOT)
-    return { id, kind, name: label, parameters: { active: false, fadeIn: 0.1, fadeOut: 0.1 }, ports: [inputPort("base"), inputPort("shot"), ...animationPorts()] }
+    return { id, kind, name: label, parameters: { active: false }, ports: [inputPort("base"), inputPort("shot"), ...animationPorts()] }
   if (kind === ANIMATION_NODE_KINDS.BLEND_2)
-    return { id, kind, name: label, parameters: { blendAmount: 0.5 }, ports: blendPorts(2) }
+    return { id, kind, name: label, ports: blendPorts(2) }
   if (kind === ANIMATION_NODE_KINDS.TIME_SEEK)
     return { id, kind, name: label, parameters: { seekTime: 0 }, ports: filterPorts() }
   if (kind === ANIMATION_NODE_KINDS.TIME_SCALE)
     return { id, kind, name: label, parameters: { scale: 1 }, ports: filterPorts() }
   if (kind === ANIMATION_NODE_KINDS.SWITCH)
-    return { id, kind, name: label, parameters: { currentInput: "input-1", crossFade: 0.1 }, ports: blendPorts(2, "input-") }
+    return { id, kind, name: label, parameters: { currentInput: "input-1" }, ports: blendPorts(2, "input-") }
   if (kind === ANIMATION_NODE_KINDS.BLEND_TREE)
     return {
       id,

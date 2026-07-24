@@ -342,6 +342,13 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     clearSelection() {
+        const hasSelection = this.selectedNodeIds.size > 0 || this.selectedEdgeId !== null
+        if (!hasSelection && this.activeNodePath.length > 1) {
+            const parentNodeId = this.activeNodePath[this.activeNodePath.length - 2]
+            assert(typeof parentNodeId === "string" && parentNodeId.length > 0, "view-animation-tree parent animation node id is required")
+            this.navigateToAnimationNode(parentNodeId)
+            return true
+        }
         this.cancelTransitionDrag()
         this.nodeConnectionDrag = null
         this.hoveredPort = null
@@ -838,12 +845,10 @@ export class ViewAnimationTree extends ViewCanvasBase {
         if (node.kind === ANIMATION_NODE_KINDS.ONE_SHOT)
             return {
                 legend: "OneShot",
-                fields: `<label>Active <input type="checkbox" data-target="parameters.active" ${node.parameters.active ? "checked" : ""}></label>
-          ${number("Fade in", "parameters.fadeIn", node.parameters.fadeIn, 'min="0" step="0.05"')}
-          ${number("Fade out", "parameters.fadeOut", node.parameters.fadeOut, 'min="0" step="0.05"')}`,
+                fields: `<label>Active <input type="checkbox" data-target="parameters.active" ${node.parameters.active ? "checked" : ""}></label>`,
             }
         if (node.kind === ANIMATION_NODE_KINDS.BLEND_2)
-            return { legend: "Blend", fields: number("Blend amount", "parameters.blendAmount", node.parameters.blendAmount, 'min="0" max="1" step="0.01"') }
+            return { legend: "Blend", fields: "<output>Combines both inputs fully.</output>" }
         if (node.kind === ANIMATION_NODE_KINDS.TIME_SEEK)
             return { legend: "TimeSeek", fields: number("Seek time", "parameters.seekTime", node.parameters.seekTime, 'min="0" step="0.01"') }
         if (node.kind === ANIMATION_NODE_KINDS.TIME_SCALE)
@@ -857,7 +862,6 @@ export class ViewAnimationTree extends ViewCanvasBase {
               ${inputs.map((port) => `<option value="${this.escapeAttribute(port.id)}" ${node.parameters.currentInput === port.id ? "selected" : ""}>${this.escapeAttribute(port.name)}</option>`).join("")}
             </select>
           </label>
-          ${number("Cross-fade", "parameters.crossFade", node.parameters.crossFade, 'min="0" step="0.05"')}
           <table class="compact-actions" data-element="switch-inputs">
             <caption>Inputs</caption>
             <thead><tr><th>Name</th><th aria-label="Actions"></th></tr></thead>
@@ -957,12 +961,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
     bindBlendNodeInspector(node) {
         for (const input of this.inspectorElement.querySelectorAll("[data-port-name]")) {
             assert(input instanceof HTMLInputElement, "view-animation-tree switch input name must be an input")
-            let before = null
-            input.addEventListener("focus", () => {
-                before = this.captureSnapshot()
-            })
             input.addEventListener("change", () => {
-                assert(before, "view-animation-tree switch input name snapshot is required")
+                const before = this.captureSnapshot()
                 const name = input.value.trim()
                 assert(name.length > 0, "view-animation-tree switch input name must not be empty")
                 const port = node.ports.find((candidate) => candidate.id === input.dataset.portName)
@@ -976,18 +976,13 @@ export class ViewAnimationTree extends ViewCanvasBase {
         }
         for (const input of this.inspectorElement.querySelectorAll("[data-target]")) {
             assert(input instanceof HTMLInputElement || input instanceof HTMLSelectElement, "view-animation-tree blend inspector field must be an input or select")
-            let before = null
-            input.addEventListener("focus", () => {
-                before = this.captureSnapshot()
-            })
             input.addEventListener("change", () => {
-                assert(before, `view-animation-tree ${input.dataset.target} snapshot is required`)
+                const before = this.captureSnapshot()
                 this.setBlendNodeValue(node, input.dataset.target, input)
                 assert(node.name.length > 0, "view-animation-tree blend node name must not be empty")
                 this.selectionOutput.textContent = `Selected: ${node.name}`
                 this.draw()
                 this.recordEdit(`edit ${node.kind}`, before)
-                before = this.captureSnapshot()
                 this.setStatus(`Updated ${node.name}`, "success")
             })
         }

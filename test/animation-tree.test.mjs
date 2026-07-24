@@ -15,6 +15,16 @@ test("animation tree embeds child animation nodes with document-wide identities"
   assert.deepEqual(animationNodePath(document, "movement-blend2").map((node) => node.id), ["root", "movement", "movement-blend2"])
 })
 
+test("sprite composition nodes only store parameters that affect 2D playback", () => {
+  const oneShot = createAnimationNode(ANIMATION_NODE_KINDS.ONE_SHOT, { id: "one-shot" })
+  const blend = createAnimationNode(ANIMATION_NODE_KINDS.BLEND_2, { id: "blend" })
+  const switchNode = createAnimationNode(ANIMATION_NODE_KINDS.SWITCH, { id: "switch" })
+
+  assert.deepEqual(oneShot.parameters, { active: false })
+  assert.equal("parameters" in blend, false)
+  assert.deepEqual(switchNode.parameters, { currentInput: "input-1" })
+})
+
 test("animation tree rejects duplicate embedded animation node ids", () => {
   const root = createAnimationNode(ANIMATION_NODE_KINDS.STATE_MACHINE, { id: "root", name: "Root" })
   root.graph.states.push(

@@ -20,6 +20,25 @@ test("breadcrumbs are a closed first child of header controls", () => {
   )
 })
 
+test("blend inspector changes capture undo snapshots at the change transaction boundary", () => {
+  const method = source.match(/bindBlendNodeInspector\(node\) \{[\s\S]*?\n    renderNodeGraphInspector/)
+  assert.ok(method, "bindBlendNodeInspector method must be present")
+  assert.doesNotMatch(method[0], /addEventListener\("focus"/, "blend inspector snapshots must not depend on focus events")
+  assert.equal(
+    [...method[0].matchAll(/addEventListener\("change", \(\) => \{\s*const before = this\.captureSnapshot\(\)/g)].length,
+    2,
+    "switch input names and node values must capture snapshots when their change begins",
+  )
+})
+
+test("clear selection only navigates to the parent animation node when nothing is selected", () => {
+  assert.match(
+    source,
+    /clearSelection\(\) \{\s*const hasSelection = this\.selectedNodeIds\.size > 0 \|\| this\.selectedEdgeId !== null\s*if \(!hasSelection && this\.activeNodePath\.length > 1\) \{[\s\S]*?this\.navigateToAnimationNode\(parentNodeId\)[\s\S]*?return true[\s\S]*?this\.setNodeSelection\(\[\]\)/,
+    "Escape should clear a node or edge selection before moving up one breadcrumb layer",
+  )
+})
+
 test("active animation node changes refresh header breadcrumbs", () => {
   for (const method of ["navigateToAnimationNode\\(nodeId\\)", "restoreSnapshot\\(snapshot\\)"]) {
     assert.match(
