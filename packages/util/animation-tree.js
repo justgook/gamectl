@@ -19,6 +19,33 @@ export const ROOT_ANIMATION_NODE_KINDS = Object.freeze([
   ANIMATION_NODE_KINDS.STATE_MACHINE,
 ])
 
+export const DEFAULT_ANIMATION_NODE_VIEWS = Object.freeze({
+  [ANIMATION_NODE_KINDS.ANIMATION]: "view-animation",
+  [ANIMATION_NODE_KINDS.ONE_SHOT]: null,
+  [ANIMATION_NODE_KINDS.BLEND_2]: null,
+  [ANIMATION_NODE_KINDS.TIME_SEEK]: null,
+  [ANIMATION_NODE_KINDS.TIME_SCALE]: null,
+  [ANIMATION_NODE_KINDS.SWITCH]: null,
+  [ANIMATION_NODE_KINDS.BLEND_TREE]: "view-animation-blend-tree",
+  [ANIMATION_NODE_KINDS.BLEND_SPACE_1D]: "view-animation-blend-space-1d",
+  [ANIMATION_NODE_KINDS.BLEND_SPACE_2D]: "view-animation-blend-space-2d",
+  [ANIMATION_NODE_KINDS.STATE_MACHINE]: "view-animation-state-machine",
+})
+
+export function validateAnimationNodeViews(views) {
+  requireObject(views, "animation node views")
+  const kinds = Object.values(ANIMATION_NODE_KINDS)
+  const configuredKinds = Object.keys(views)
+  assert(configuredKinds.length === kinds.length, "animation node views must configure every animation node kind")
+  for (const kind of kinds) {
+    assert(Object.hasOwn(views, kind), `animation node views missing ${kind}`)
+    const tag = views[kind]
+    assert(tag === null || (typeof tag === "string" && tag.length > 0), `animation node view ${kind} must be a non-empty view tag or null`)
+  }
+  for (const kind of configuredKinds) assert(kinds.includes(kind), `animation node views contains unknown kind ${kind}`)
+  return views
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -30,6 +57,16 @@ function requireObject(value, label) {
 
 function createId() {
   return crypto.randomUUID()
+}
+
+export function validateAnimationSelector(value, label = "animation selector") {
+  requireObject(value, label)
+  const keys = Object.keys(value)
+  assert(keys.length === 3 && keys.includes("url") && keys.includes("layer") && keys.includes("tag"), `${label} must contain only url, layer, and tag`)
+  assert(typeof value.url === "string", `${label}.url must be a string`)
+  assert(typeof value.layer === "string" && value.layer.length > 0, `${label}.layer must be a non-empty string`)
+  assert(typeof value.tag === "string" && value.tag.length > 0, `${label}.tag must be a non-empty string`)
+  return value
 }
 
 function animationPorts() {
@@ -61,7 +98,7 @@ export function createAnimationNode(kind, { id = createId(), name } = {}) {
   assert(typeof label === "string" && label.length > 0, "animation node name must be a non-empty string")
 
   if (kind === ANIMATION_NODE_KINDS.ANIMATION)
-    return { id, kind, name: label, animation: "", ports: animationPorts() }
+    return { id, kind, name: label, animation: { url: "", layer: "*", tag: "*" }, ports: animationPorts() }
   if (kind === ANIMATION_NODE_KINDS.ONE_SHOT)
     return { id, kind, name: label, parameters: { active: false }, ports: [inputPort("base"), inputPort("shot"), ...animationPorts()] }
   if (kind === ANIMATION_NODE_KINDS.BLEND_2)
@@ -191,6 +228,7 @@ export function validateAnimationTreeDocument(document) {
     ids.add(node.id)
     assert(typeof node.kind === "string" && node.kind.length > 0, `${label}.kind must be a non-empty string`)
     assert(typeof node.name === "string" && node.name.length > 0, `${label}.name must be a non-empty string`)
+    if (node.kind === ANIMATION_NODE_KINDS.ANIMATION) validateAnimationSelector(node.animation, `${label}.animation`)
     if (node.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
       requireObject(node.graph, `${label}.graph`)
       assert(Array.isArray(node.graph.states), `${label}.graph.states must be an array`)

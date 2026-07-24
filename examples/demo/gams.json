@@ -149,8 +149,8 @@
       "view-animation": {
         "url": "views/view-animation.js",
         "label": "Animation",
-        "group": "TODO",
-        "internal": false
+        "group": "Animation",
+        "internal": true
       },
       "view-animation-tree": {
         "url": "views/view-animation-tree.js",
@@ -158,6 +158,21 @@
         "group": "Animation",
         "internal": false,
         "config": {
+          "inputs": {
+            "animation": "<widget-input-animation></widget-input-animation>"
+          },
+          "nodeViews": {
+            "animation": "view-animation",
+            "one-shot": null,
+            "blend2": null,
+            "time-seek": null,
+            "time-scale": null,
+            "switch": null,
+            "blend-tree": "view-animation-blend-tree",
+            "blend-space-1d": "view-animation-blend-space-1d",
+            "blend-space-2d": "view-animation-blend-space-2d",
+            "state-machine": "view-animation-state-machine"
+          },
           "background": [0.043137254901960784, 0.09803921568627451, 0.13333333333333333, 1],
           "renderer": {
             "node": {
@@ -237,6 +252,21 @@
             }
           }
         }
+      },
+      "view-animation-selector": {
+        "url": "views/view-animation-selector.js",
+        "label": "Animation Selector",
+        "internal": true
+      },
+      "view-animation-blend-space-1d": {
+        "url": "views/view-animation-blend-spaces.js",
+        "label": "BlendSpace1D",
+        "internal": true
+      },
+      "view-animation-blend-space-2d": {
+        "url": "views/view-animation-blend-spaces.js",
+        "label": "BlendSpace2D",
+        "internal": true
       },
       "view-font": {
         "url": "views/view-font.js",

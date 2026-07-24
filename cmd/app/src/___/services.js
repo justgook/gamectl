@@ -24,6 +24,16 @@ function doInit(config) {
                     if (!entry) throw new Error(`Unknown view '${tag}'`)
                     return entry.config || null
                 },
+                async create(tag, props = {}) {
+                    const viewTag = String(tag || "")
+                    const entry = viewRegistry.get(viewTag)
+                    if (!entry) throw new Error(`Unknown view '${viewTag}'`)
+                    if (!props || typeof props !== "object" || Array.isArray(props))
+                        throw new Error("ui.views.create props must be an object")
+                    const element = await entry.create({ tag: viewTag, attrs: {}, innerHTML: "" })
+                    Object.assign(element, props)
+                    return element
+                },
             },
         })
 

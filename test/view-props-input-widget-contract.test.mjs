@@ -43,6 +43,8 @@ test("file input opens view-files chooser and publishes its selected path", () =
   assert.match(fileSource, /tag: "view-files"/)
   assert.match(fileSource, /mode: "chooser"/)
   assert.match(fileSource, /this\.value = payload\.selection\.path/)
+  assert.match(fileSource, /group\.setAttribute\("role", "buttongroup"\)/)
+  assert.match(fileSource, /group\.append\(input, button\)/)
   assert.match(fileSource, /new Event\("input", \{ bubbles: true \}\)/)
   assert.match(fileSource, /customElements\.define\("widget-input-file"/)
 })

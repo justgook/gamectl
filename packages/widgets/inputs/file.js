@@ -37,7 +37,10 @@ export class WidgetInputFile extends HTMLElement {
     button.appendChild(icon)
     button.addEventListener("click", () => void this.chooseFile())
 
-    this.replaceChildren(input, button)
+    const group = document.createElement("div")
+    group.setAttribute("role", "buttongroup")
+    group.append(input, button)
+    this.replaceChildren(group)
     this.inputElement = input
     this.buttonElement = button
   }

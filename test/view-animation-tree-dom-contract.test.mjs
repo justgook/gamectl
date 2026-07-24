@@ -4,6 +4,12 @@ import test from "node:test"
 
 const source = await readFile(new URL("../views/view-animation-tree.js", import.meta.url), "utf8")
 
+test("animation tree leaves standard edit result wrapping to registerViewPlugin", () => {
+  const methods = source.match(/createViewPluginMethods\(\) \{[\s\S]*?\n    \}/)
+  assert.ok(methods, "createViewPluginMethods must be present")
+  assert.doesNotMatch(methods[0], /\bedit\s*:/, "custom methods must not override the standard WIT-result-wrapped edit method")
+})
+
 test("animation tree does not shadow the DOM nodeName property", () => {
   assert.doesNotMatch(
     source,

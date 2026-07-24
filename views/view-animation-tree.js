@@ -5,6 +5,7 @@ import {
     cloneAnimationNodeWithNewIds,
     createAnimationNode,
     createDemoAnimationTreeDocument,
+    validateAnimationNodeViews,
     validateAnimationTreeDocument,
 } from "/util/animation-tree.js"
 import { NodeGraph } from "/util/node-graph.js"
@@ -41,6 +42,28 @@ const NODE_TYPES = [
 
 const CLIPBOARD_FORMAT = "gams.animation-tree.nodes"
 
+const INSPECTOR_INPUT_TARGETS = new Set([
+    "animation",
+    "parameters.active",
+    "parameters.seekTime",
+    "parameters.scale",
+    "parameters.currentInput",
+    "parameters.blendPosition",
+    "parameters.min",
+    "parameters.max",
+    "parameters.blendX",
+    "parameters.blendY",
+    "parameters.minX",
+    "parameters.maxX",
+    "parameters.minY",
+    "parameters.maxY",
+])
+
+const INTERNAL_NODE_VIEW_KINDS = Object.freeze({
+    "view-animation-state-machine": ANIMATION_NODE_KINDS.STATE_MACHINE,
+    "view-animation-blend-tree": ANIMATION_NODE_KINDS.BLEND_TREE,
+})
+
 const BLEND_NODE_TYPES = [
     { value: ANIMATION_NODE_KINDS.ANIMATION, label: "Animation" },
     { value: ANIMATION_NODE_KINDS.ONE_SHOT, label: "OneShot" },
@@ -53,6 +76,23 @@ const BLEND_NODE_TYPES = [
     { value: ANIMATION_NODE_KINDS.BLEND_SPACE_2D, label: "BlendSpace2D" },
     { value: ANIMATION_NODE_KINDS.STATE_MACHINE, label: "StateMachine" },
 ]
+
+function parseInspectorInputTemplates(inputs) {
+    assert(inputs && typeof inputs === "object" && !Array.isArray(inputs), "view-animation-tree config.inputs must be an object")
+    const templates = {}
+    for (const [target, markup] of Object.entries(inputs)) {
+        assert(INSPECTOR_INPUT_TARGETS.has(target), `view-animation-tree config.inputs contains unknown target ${target}`)
+        assert(typeof markup === "string" && markup.trim().length > 0, `view-animation-tree config.inputs.${target} must be non-empty HTML`)
+        const template = document.createElement("template")
+        template.innerHTML = markup.trim()
+        assert(template.content.children.length === 1, `view-animation-tree input ${target} must contain exactly one element`)
+        const element = template.content.firstElementChild
+        const tag = element.tagName.toLowerCase()
+        assert(/^widget-input-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tag), `view-animation-tree input ${target} must use a widget-input-* element`)
+        templates[target] = { markup, tag }
+    }
+    return templates
+}
 
 function stateMachineRequiredNodes(node) {
     return [
@@ -147,6 +187,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.inspectorElement = null
         this.selectionOutput = null
         this.statusOutput = null
+        this.mountedNodeView = null
+        this.inspectorInputTemplates = {}
     }
 
     connectedCallback() {
@@ -154,6 +196,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.dataset.ready = "1"
         assert(this.viewConfig && typeof this.viewConfig === "object", "view-animation-tree viewConfig is required")
         assert(this.viewConfig.config && typeof this.viewConfig.config === "object", "view-animation-tree viewConfig.config is required")
+        validateAnimationNodeViews(this.viewConfig.config.nodeViews)
+        const inspectorInputTemplates = parseInspectorInputTemplates(this.viewConfig.config.inputs)
         this.renderer = new StateMachineGraphRenderer(this.viewConfig.config.renderer)
         this.nodeGraphRenderer = new NodeGraphRenderer(this.viewConfig.config.nodeGraphRenderer)
 
@@ -180,10 +224,13 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.syncHistoryControls()
         this.syncTransitionModeControl()
         this.syncActiveEditorControls()
+        void this.loadInspectorInputTemplates(inspectorInputTemplates)
+        void this.activateNodeView()
     }
 
     disconnectedCallback() {
         if (this.canvas instanceof HTMLCanvasElement) this.canvas.removeEventListener("contextmenu", this._onContextMenu)
+        this.unmountNodeView()
         void runtime.call("ui.tooltip.closeAll")
         super.disconnectedCallback()
     }
@@ -280,6 +327,96 @@ export class ViewAnimationTree extends ViewCanvasBase {
         throw new Error(`view-animation-tree unknown animation node kind ${kind}`)
     }
 
+    async loadInspectorInputTemplates(templates) {
+        for (const { tag } of Object.values(templates)) {
+            const moduleName = tag.slice("widget-input-".length)
+            await import(new URL(`/widgets/inputs/${moduleName}.js`, location.origin).href)
+            assert(customElements.get(tag), `view-animation-tree input module did not register ${tag}`)
+        }
+        this.inspectorInputTemplates = templates
+        this.renderInspector()
+    }
+
+    inspectorInputMarkup(target, fallback) {
+        const entry = this.inspectorInputTemplates[target]
+        if (!entry) return fallback
+        const template = document.createElement("template")
+        template.innerHTML = entry.markup.trim()
+        const element = template.content.firstElementChild
+        assert(element instanceof HTMLElement, `view-animation-tree input ${target} element is required`)
+        element.dataset.target = target
+        return element.outerHTML
+    }
+
+    nodeViewTag(kind) {
+        return this.viewConfig.config.nodeViews[kind]
+    }
+
+    usesInternalNodeView(node) {
+        return INTERNAL_NODE_VIEW_KINDS[this.nodeViewTag(node.kind)] === node.kind
+    }
+
+    unmountNodeView() {
+        if (this.mountedNodeView) this.mountedNodeView.remove()
+        this.mountedNodeView = null
+        assert(this.canvas instanceof HTMLCanvasElement, "view-animation-tree canvas is required")
+        assert(this.inspectorElement instanceof HTMLElement, "view-animation-tree inspector is required")
+        const footer = this.querySelector('[data-element="footer"]')
+        assert(footer instanceof HTMLElement, "view-animation-tree footer is required")
+        this.canvas.hidden = false
+        this.inspectorElement.hidden = false
+        footer.hidden = false
+    }
+
+    async activateNodeView() {
+        const tag = this.nodeViewTag(this.activeNode.kind)
+        if (tag === null) {
+            this.unmountNodeView()
+            this.syncActiveEditorControls()
+            return
+        }
+        if (this.usesInternalNodeView(this.activeNode)) {
+            this.unmountNodeView()
+            this.syncActiveEditorControls()
+            return
+        }
+
+        this.unmountNodeView()
+        const nodeId = this.activeNode.id
+        const element = await runtime.call("ui.views.create", tag, { animationNode: structuredClone(this.activeNode) })
+        assert(element instanceof HTMLElement, `animation node view ${tag} must create an HTMLElement`)
+        if (this.activeNode.id !== nodeId || this.nodeViewTag(this.activeNode.kind) !== tag) return
+        element.dataset.element = "animation-node-view"
+        element.addEventListener("animation-node-change", (event) => this.applyNodeViewChange(event))
+        this.canvas.hidden = true
+        this.inspectorElement.hidden = true
+        const footer = this.querySelector('[data-element="footer"]')
+        assert(footer instanceof HTMLElement, "view-animation-tree footer is required")
+        footer.hidden = true
+        this.mountedNodeView = element
+        this.appendChild(element)
+        this.syncActiveEditorControls()
+    }
+
+    applyNodeViewChange(event) {
+        event.stopPropagation()
+        assert(event instanceof CustomEvent, "animation node change must be a CustomEvent")
+        assert(event.detail && typeof event.detail === "object", "animation node change requires detail")
+        const updated = structuredClone(event.detail.node)
+        assert(updated && typeof updated === "object", "animation node change requires detail.node")
+        assert(updated.id === this.activeNode.id, "animation node view cannot change node id")
+        assert(updated.kind === this.activeNode.kind, "animation node view cannot change node kind")
+        const before = this.captureSnapshot()
+        for (const key of Object.keys(this.activeNode)) delete this.activeNode[key]
+        Object.assign(this.activeNode, updated)
+        validateAnimationTreeDocument(this.animationTree)
+        const breadcrumbs = this.queryHeaderControl('[data-element="breadcrumbs"]')
+        assert(breadcrumbs instanceof HTMLElement && breadcrumbs.localName === "widget-breadcrumbs", "view-animation-tree missing breadcrumbs control")
+        breadcrumbs.items = this.breadcrumbItems()
+        this.recordEdit(`edit ${updated.kind}`, before)
+        this.setStatus(`Updated ${updated.name}`, "success")
+    }
+
     navigateToAnimationNode(nodeId) {
         this.syncActiveGraph()
         validateAnimationTreeDocument(this.animationTree)
@@ -306,6 +443,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.setData(this.graph)
         this.renderInspector()
         this.setStatus(`Editing ${this.activeNode.name}`, "info")
+        void this.activateNodeView()
     }
 
     async edit() {
@@ -319,6 +457,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
             this.setStatus("Structural graph nodes have no embedded Animation Node", "warning")
             return false
         }
+        const node = path[path.length - 1]
+        if (this.nodeViewTag(node.kind) === null) {
+            this.setStatus(`${node.name} has no configured editor`, "info")
+            return false
+        }
         this.navigateToAnimationNode(nodeId)
         return true
     }
@@ -327,9 +470,15 @@ export class ViewAnimationTree extends ViewCanvasBase {
         const transition = this.queryHeaderControl('[data-action="transition-mode"]')
         const add = this.queryHeaderControl('[data-action="add-state"]')
         const remove = this.queryHeaderControl('[data-action="delete"]')
-        if (transition instanceof HTMLButtonElement) transition.hidden = this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE
-        if (add instanceof HTMLButtonElement) add.disabled = this.graphModel === null
-        if (remove instanceof HTMLButtonElement) remove.disabled = this.graphModel === null
+        const edit = this.queryHeaderControl('[data-action="edit-node"]')
+        if (transition instanceof HTMLButtonElement) transition.hidden = this.activeNode.kind !== ANIMATION_NODE_KINDS.STATE_MACHINE || this.mountedNodeView !== null
+        if (add instanceof HTMLButtonElement) add.disabled = this.graphModel === null || this.mountedNodeView !== null
+        if (remove instanceof HTMLButtonElement) remove.disabled = this.graphModel === null || this.mountedNodeView !== null
+        if (edit instanceof HTMLButtonElement) {
+            const selectedId = this.selectedNodeIds.size === 1 ? (this.selectedNodeId ?? [...this.selectedNodeIds][0]) : null
+            const path = selectedId === null ? null : animationNodePath(this.animationTree, selectedId)
+            edit.disabled = !path || this.nodeViewTag(path[path.length - 1].kind) === null || this.mountedNodeView !== null
+        }
     }
 
     async add() {
@@ -372,6 +521,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="transition-mode" aria-label="New transition type: Immediate" title="New transition type: Immediate"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="edit-node" aria-label="Edit selected animation node" title="Edit selected animation node"><i aria-hidden="true">edit</i></button>
       </div>
       <div role="buttongroup" data-element="state-actions">
         <button type="button" data-action="add-state" aria-label="Add node" title="Add node"><i aria-hidden="true">add</i></button>
@@ -392,6 +542,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
         const actions = {
             transitionMode: controls.querySelector('[data-action="transition-mode"]'),
+            editNode: controls.querySelector('[data-action="edit-node"]'),
             addState: controls.querySelector('[data-action="add-state"]'),
             delete: controls.querySelector('[data-action="delete"]'),
             undo: controls.querySelector('[data-action="undo"]'),
@@ -410,6 +561,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
         for (const [name, button] of Object.entries(actions)) assert(button instanceof HTMLButtonElement, `view-animation-tree missing ${name} control`)
         actions.transitionMode.addEventListener("click", () => this.cycleTransitionMode())
+        actions.editNode.addEventListener("click", () => this.edit())
         actions.addState.addEventListener("click", () => this.showNodeMenuForButton(actions.addState))
         actions.delete.addEventListener("click", () => this.deleteSelected())
         actions.undo.addEventListener("click", () => this.undo())
@@ -427,6 +579,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.selectedNodeId = activeId === null ? (this.selectedNodeIds.size ? [...this.selectedNodeIds][this.selectedNodeIds.size - 1] : null) : activeId
         if (this.selectedNodeId !== null) assert(this.selectedNodeIds.has(this.selectedNodeId), "view-animation-tree active node must be selected")
         this.selectedEdgeId = null
+        this.syncActiveEditorControls()
     }
 
     selectedNode() {
@@ -484,6 +637,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.syncActiveEditorControls()
         this.setData(this.graph, { autoFit: false })
         this.renderInspector()
+        if (this.mountedNodeView) this.mountedNodeView.animationNode = structuredClone(this.activeNode)
         this.syncHistoryControls()
     }
 
@@ -836,16 +990,16 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
     blendNodeInspector(node) {
         const number = (label, target, value, attributes = "") =>
-            `<label>${label} <input type="number" data-target="${target}" data-value-type="number" value="${value}" ${attributes} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`
+            `<label>${label} ${this.inspectorInputMarkup(target, `<input type="number" data-target="${target}" data-value-type="number" value="${value}" ${attributes} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`)}</label>`
         if (node.kind === ANIMATION_NODE_KINDS.ANIMATION)
             return {
                 legend: "Animation",
-                fields: `<label>Animation <input type="text" data-target="animation" value="${this.escapeAttribute(node.animation)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`,
+                fields: `<label>Animation ${this.inspectorInputMarkup("animation", `<input type="text" data-target="animation" data-value-type="json" value="${this.escapeAttribute(JSON.stringify(node.animation))}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`)}</label>`,
             }
         if (node.kind === ANIMATION_NODE_KINDS.ONE_SHOT)
             return {
                 legend: "OneShot",
-                fields: `<label>Active <input type="checkbox" data-target="parameters.active" ${node.parameters.active ? "checked" : ""}></label>`,
+                fields: `<label>Active ${this.inspectorInputMarkup("parameters.active", `<input type="checkbox" data-target="parameters.active" ${node.parameters.active ? "checked" : ""}>`)}</label>`,
             }
         if (node.kind === ANIMATION_NODE_KINDS.BLEND_2)
             return { legend: "Blend", fields: "<output>Combines both inputs fully.</output>" }
@@ -858,9 +1012,9 @@ export class ViewAnimationTree extends ViewCanvasBase {
             return {
                 legend: "Switch",
                 fields: `<label>Current input
-            <select data-target="parameters.currentInput">
+            ${this.inspectorInputMarkup("parameters.currentInput", `<select data-target="parameters.currentInput">
               ${inputs.map((port) => `<option value="${this.escapeAttribute(port.id)}" ${node.parameters.currentInput === port.id ? "selected" : ""}>${this.escapeAttribute(port.name)}</option>`).join("")}
-            </select>
+            </select>`)}
           </label>
           <table class="compact-actions" data-element="switch-inputs">
             <caption>Inputs</caption>
@@ -913,17 +1067,25 @@ export class ViewAnimationTree extends ViewCanvasBase {
         throw new Error(`view-animation-tree missing inspector for animation node kind ${node.kind}`)
     }
 
+    blendNodeValue(node, target) {
+        let value = node
+        for (const part of target.split(".")) value = value[part]
+        return value
+    }
+
     setBlendNodeValue(node, target, input) {
         const path = target.split(".")
         let owner = node
         for (const part of path.slice(0, -1)) owner = owner[part]
         const key = path[path.length - 1]
-        if (input instanceof HTMLInputElement && input.type === "checkbox") owner[key] = input.checked
+        if (input.localName.startsWith("widget-input-")) owner[key] = structuredClone(input.value)
+        else if (input instanceof HTMLInputElement && input.type === "checkbox") owner[key] = input.checked
         else if (input.dataset.valueType === "number") {
             assert(input instanceof HTMLInputElement && input.value.length > 0, `view-animation-tree ${target} requires a number`)
             owner[key] = input.valueAsNumber
             assert(Number.isFinite(owner[key]), `view-animation-tree ${target} must be finite`)
-        } else owner[key] = input.value
+        } else if (input.dataset.valueType === "json") owner[key] = JSON.parse(input.value)
+        else owner[key] = input.value
     }
 
     addSwitchInput(node) {
@@ -975,7 +1137,12 @@ export class ViewAnimationTree extends ViewCanvasBase {
             })
         }
         for (const input of this.inspectorElement.querySelectorAll("[data-target]")) {
-            assert(input instanceof HTMLInputElement || input instanceof HTMLSelectElement, "view-animation-tree blend inspector field must be an input or select")
+            const customInput = input instanceof HTMLElement && input.localName.startsWith("widget-input-")
+            assert(input instanceof HTMLInputElement || input instanceof HTMLSelectElement || customInput, "view-animation-tree blend inspector field must be an input, select, or custom input widget")
+            if (customInput) {
+                assert("value" in input, `view-animation-tree ${input.localName} must expose value`)
+                input.value = structuredClone(this.blendNodeValue(node, input.dataset.target))
+            }
             input.addEventListener("change", () => {
                 const before = this.captureSnapshot()
                 this.setBlendNodeValue(node, input.dataset.target, input)
@@ -1062,7 +1229,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
           <label>Name <input type="text" data-target="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
           ${inspector.fields}
         </fieldset>
-        ${inspector.editor ? '<footer><button type="button" data-action="edit-node"><i aria-hidden="true">edit</i> Edit graph</button></footer>' : ""}
+        ${this.nodeViewTag(node.kind) !== null ? '<footer><button type="button" data-action="edit-node"><i aria-hidden="true">edit</i> Edit</button></footer>' : ""}
       </form>
     `
         this.bindBlendNodeInspector(node)
@@ -1147,6 +1314,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
       `
             return
         }
+        const animationInspector = this.blendNodeInspector(node.animationNode)
         this.inspectorElement.innerHTML = `
       <form data-element="state-inspector">
         <fieldset>
@@ -1155,8 +1323,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
           <label>Name <input type="text" data-field="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
         </fieldset>
         <fieldset>
-          <legend>Animation</legend>
-          <output>Animation assignment will be added after graph editing is validated.</output>
+          <legend>${animationInspector.legend}</legend>
+          ${animationInspector.fields}
         </fieldset>
       </form>
     `
@@ -1170,6 +1338,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
             const name = nameInput.value.trim()
             assert(name.length > 0, "view-animation-tree state name must not be empty")
             node.name = name
+            node.animationNode.name = name
             this.selectionOutput.textContent = `Selected: ${node.name}`
             this.draw()
         })
@@ -1179,6 +1348,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
             nameBefore = this.captureSnapshot()
             this.setStatus(`Renamed state to ${node.name}`, "success")
         })
+        this.bindBlendNodeInspector(node.animationNode)
     }
 
     escapeAttribute(value) {
