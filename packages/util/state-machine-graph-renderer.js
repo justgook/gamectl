@@ -26,12 +26,15 @@ function cssColor(value) {
 export function validateStateMachineGraphRendererConfig(input) {
   const config = requireObject(input, "state machine graph renderer config")
   const node = requireObject(config.node, "state machine graph renderer config.node")
+  const transitionRegion = requireObject(node.transitionRegion, "state machine graph renderer config.node.transitionRegion")
   const edge = requireObject(config.edge, "state machine graph renderer config.edge")
   const text = requireObject(config.text, "state machine graph renderer config.text")
   const theme = requireObject(config.theme, "state machine graph renderer config.theme")
 
   for (const key of ["width", "height", "radius", "borderWidth"])
     requireNumber(node[key], `state machine graph renderer config.node.${key}`)
+  for (const key of ["left", "right", "top", "bottom"])
+    requireNumber(transitionRegion[key], `state machine graph renderer config.node.transitionRegion.${key}`)
   for (const key of ["width", "selectedWidth", "bidirectionalOffset", "arrowSize", "arrowInset"])
     requireNumber(edge[key], `state machine graph renderer config.edge.${key}`)
   for (const key of ["titleSize", "padding"])
@@ -43,6 +46,8 @@ export function validateStateMachineGraphRendererConfig(input) {
     "nodeHover",
     "nodeSelected",
     "nodeBorder",
+    "transitionRegion",
+    "transitionRegionHover",
     "text",
     "edge",
     "edgeSelected",
@@ -53,6 +58,14 @@ export function validateStateMachineGraphRendererConfig(input) {
 
   assert(node.width > 0 && node.height > 0, "state machine graph renderer node dimensions must be positive")
   assert(node.radius >= 0, "state machine graph renderer node radius must not be negative")
+  assert(
+    Object.values(transitionRegion).every((value) => value >= 0),
+    "state machine graph renderer transition region insets must not be negative",
+  )
+  assert(
+    transitionRegion.left + transitionRegion.right < node.width && transitionRegion.top + transitionRegion.bottom < node.height,
+    "state machine graph renderer transition region must leave a positive node body",
+  )
   assert(edge.bidirectionalOffset > 0 && edge.arrowSize > 0 && edge.arrowInset > 0, "state machine graph renderer edge direction dimensions must be positive")
   return config
 }
@@ -71,6 +84,21 @@ export class StateMachineGraphRenderer {
       width: this.config.node.width,
       height: this.config.node.height,
     }
+  }
+
+  nodeBodyBounds(node) {
+    const rect = this.nodeBounds(node)
+    const region = this.config.node.transitionRegion
+    return {
+      x: rect.x + region.left,
+      y: rect.y + region.top,
+      width: rect.width - region.left - region.right,
+      height: rect.height - region.top - region.bottom,
+    }
+  }
+
+  pointInRect(point, rect) {
+    return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height
   }
 
   contentBounds(nodes, padding = 80) {
@@ -92,8 +120,16 @@ export class StateMachineGraphRenderer {
     for (let index = nodes.length - 1; index >= 0; index -= 1) {
       const node = nodes[index]
       const rect = this.nodeBounds(node)
-      if (point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height)
-        return node
+      if (this.pointInRect(point, rect)) return node
+    }
+    return null
+  }
+
+  hitTransitionRegion(nodes, point) {
+    assert(Array.isArray(nodes), "state machine graph renderer nodes must be an array")
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const node = nodes[index]
+      if (this.pointInRect(point, this.nodeBounds(node)) && !this.pointInRect(point, this.nodeBodyBounds(node))) return node
     }
     return null
   }
@@ -150,17 +186,19 @@ export class StateMachineGraphRenderer {
       this.drawNode(ctx, node, {
         selected: state.selectedNodeIds.has(node.id),
         hovered: state.hoveredNodeId === node.id,
+        transitionRegionHovered: state.hoveredTransitionNodeId === node.id,
       })
   }
 
-  drawTransitionPreview(ctx, fromNode, point, validTarget) {
+  drawTransitionPreview(ctx, start, point, validTarget) {
     assert(ctx instanceof CanvasRenderingContext2D, "state machine graph renderer transition preview requires a 2d canvas context")
+    requireObject(start, "state machine graph renderer transition preview start")
     requireObject(point, "state machine graph renderer transition preview point")
+    requireNumber(start.x, "state machine graph renderer transition preview start.x")
+    requireNumber(start.y, "state machine graph renderer transition preview start.y")
     requireNumber(point.x, "state machine graph renderer transition preview point.x")
     requireNumber(point.y, "state machine graph renderer transition preview point.y")
     assert(typeof validTarget === "boolean", "state machine graph renderer transition preview validTarget must be boolean")
-    const fromRect = this.nodeBounds(fromNode)
-    const start = { x: fromRect.x + fromRect.width / 2, y: fromRect.y + fromRect.height / 2 }
     const deltaX = point.x - start.x
     const deltaY = point.y - start.y
     const distance = Math.hypot(deltaX, deltaY)
@@ -318,26 +356,32 @@ export class StateMachineGraphRenderer {
   drawNode(ctx, node, state) {
     const { node: nodeConfig, text, theme } = this.config
     const rect = this.nodeBounds(node)
+    const body = this.nodeBodyBounds(node)
     const fill = state.selected ? theme.nodeSelected : state.hovered ? theme.nodeHover : theme.node
 
     ctx.save()
     ctx.beginPath()
     ctx.roundRect(rect.x, rect.y, rect.width, rect.height, nodeConfig.radius)
-    ctx.fillStyle = cssColor(fill)
+    ctx.fillStyle = cssColor(state.transitionRegionHovered ? theme.transitionRegionHover : theme.transitionRegion)
     ctx.fill()
     ctx.lineWidth = nodeConfig.borderWidth
     ctx.strokeStyle = cssColor(node.start ? theme.start : theme.nodeBorder)
     ctx.stroke()
 
+    ctx.beginPath()
+    ctx.roundRect(body.x, body.y, body.width, body.height, Math.max(0, nodeConfig.radius - 2))
+    ctx.fillStyle = cssColor(fill)
+    ctx.fill()
+
     ctx.fillStyle = cssColor(theme.text)
     ctx.font = `600 ${text.titleSize}px ${text.font}`
     ctx.textBaseline = "middle"
-    ctx.fillText(String(node.name), rect.x + text.padding, rect.y + rect.height / 2, rect.width - text.padding * 2)
+    ctx.fillText(String(node.name), body.x + text.padding, body.y + body.height / 2, body.width - text.padding * 2)
 
     if (node.start) {
       ctx.fillStyle = cssColor(theme.start)
       ctx.beginPath()
-      ctx.arc(rect.x + rect.width - text.padding, rect.y + text.padding, 4, 0, Math.PI * 2)
+      ctx.arc(body.x + body.width - text.padding, body.y + text.padding, 4, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()
