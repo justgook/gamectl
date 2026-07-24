@@ -43,8 +43,15 @@ const CLIPBOARD_FORMAT = "gams.animation-tree.nodes"
 
 const BLEND_NODE_TYPES = [
     { value: ANIMATION_NODE_KINDS.ANIMATION, label: "Animation" },
-    { value: ANIMATION_NODE_KINDS.BLEND_2, label: "Blend2" },
-    { value: ANIMATION_NODE_KINDS.BLEND_3, label: "Blend3" },
+    { value: ANIMATION_NODE_KINDS.ONE_SHOT, label: "OneShot" },
+    { value: ANIMATION_NODE_KINDS.BLEND_2, label: "Blend" },
+    { value: ANIMATION_NODE_KINDS.TIME_SEEK, label: "TimeSeek" },
+    { value: ANIMATION_NODE_KINDS.TIME_SCALE, label: "TimeScale" },
+    { value: ANIMATION_NODE_KINDS.SWITCH, label: "Switch" },
+    { value: ANIMATION_NODE_KINDS.BLEND_TREE, label: "BlendTree" },
+    { value: ANIMATION_NODE_KINDS.BLEND_SPACE_1D, label: "BlendSpace1D" },
+    { value: ANIMATION_NODE_KINDS.BLEND_SPACE_2D, label: "BlendSpace2D" },
+    { value: ANIMATION_NODE_KINDS.STATE_MACHINE, label: "StateMachine" },
 ]
 
 function stateMachineRequiredNodes(node) {
@@ -261,11 +268,15 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
     animationNodeIcon(kind) {
         if (kind === ANIMATION_NODE_KINDS.ANIMATION) return "animation"
+        if (kind === ANIMATION_NODE_KINDS.ONE_SHOT) return "looks_one"
+        if (kind === ANIMATION_NODE_KINDS.BLEND_2) return "call_merge"
+        if (kind === ANIMATION_NODE_KINDS.TIME_SEEK) return "more_time"
+        if (kind === ANIMATION_NODE_KINDS.TIME_SCALE) return "speed"
+        if (kind === ANIMATION_NODE_KINDS.SWITCH) return "toggle_on"
         if (kind === ANIMATION_NODE_KINDS.BLEND_TREE) return "schema"
         if (kind === ANIMATION_NODE_KINDS.BLEND_SPACE_1D) return "linear_scale"
         if (kind === ANIMATION_NODE_KINDS.BLEND_SPACE_2D) return "scatter_plot"
         if (kind === ANIMATION_NODE_KINDS.STATE_MACHINE) return "account_tree"
-        if (kind === ANIMATION_NODE_KINDS.BLEND_2 || kind === ANIMATION_NODE_KINDS.BLEND_3) return "call_merge"
         throw new Error(`view-animation-tree unknown animation node kind ${kind}`)
     }
 
@@ -816,6 +827,191 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.statusOutput.classList.add(tone)
     }
 
+    blendNodeInspector(node) {
+        const number = (label, target, value, attributes = "") =>
+            `<label>${label} <input type="number" data-target="${target}" data-value-type="number" value="${value}" ${attributes} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`
+        if (node.kind === ANIMATION_NODE_KINDS.ANIMATION)
+            return {
+                legend: "Animation",
+                fields: `<label>Animation <input type="text" data-target="animation" value="${this.escapeAttribute(node.animation)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`,
+            }
+        if (node.kind === ANIMATION_NODE_KINDS.ONE_SHOT)
+            return {
+                legend: "OneShot",
+                fields: `<label>Active <input type="checkbox" data-target="parameters.active" ${node.parameters.active ? "checked" : ""}></label>
+          ${number("Fade in", "parameters.fadeIn", node.parameters.fadeIn, 'min="0" step="0.05"')}
+          ${number("Fade out", "parameters.fadeOut", node.parameters.fadeOut, 'min="0" step="0.05"')}`,
+            }
+        if (node.kind === ANIMATION_NODE_KINDS.BLEND_2)
+            return { legend: "Blend", fields: number("Blend amount", "parameters.blendAmount", node.parameters.blendAmount, 'min="0" max="1" step="0.01"') }
+        if (node.kind === ANIMATION_NODE_KINDS.TIME_SEEK)
+            return { legend: "TimeSeek", fields: number("Seek time", "parameters.seekTime", node.parameters.seekTime, 'min="0" step="0.01"') }
+        if (node.kind === ANIMATION_NODE_KINDS.TIME_SCALE)
+            return { legend: "TimeScale", fields: number("Scale", "parameters.scale", node.parameters.scale, 'step="0.05"') }
+        if (node.kind === ANIMATION_NODE_KINDS.SWITCH) {
+            const inputs = node.ports.filter((port) => port.direction === "input")
+            return {
+                legend: "Switch",
+                fields: `<label>Current input
+            <select data-target="parameters.currentInput">
+              ${inputs.map((port) => `<option value="${this.escapeAttribute(port.id)}" ${node.parameters.currentInput === port.id ? "selected" : ""}>${this.escapeAttribute(port.name)}</option>`).join("")}
+            </select>
+          </label>
+          ${number("Cross-fade", "parameters.crossFade", node.parameters.crossFade, 'min="0" step="0.05"')}
+          <table class="compact-actions" data-element="switch-inputs">
+            <caption>Inputs</caption>
+            <thead><tr><th>Name</th><th aria-label="Actions"></th></tr></thead>
+            <tbody>
+              ${inputs
+                  .map(
+                      (port) => `<tr data-port-id="${this.escapeAttribute(port.id)}">
+                <td><input type="text" data-port-name="${this.escapeAttribute(port.id)}" value="${this.escapeAttribute(port.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></td>
+                <td><button type="button" class="danger" data-action="remove-switch-input" data-port-id="${this.escapeAttribute(port.id)}" aria-label="Delete ${this.escapeAttribute(port.name)}" title="Delete ${this.escapeAttribute(port.name)}" ${inputs.length <= 2 ? "disabled" : ""}><i aria-hidden="true">delete</i></button></td>
+              </tr>`,
+                  )
+                  .join("")}
+            </tbody>
+          </table>
+          <button type="button" data-action="add-switch-input"><i aria-hidden="true">add</i> Add input</button>`,
+            }
+        }
+        if (node.kind === ANIMATION_NODE_KINDS.BLEND_TREE)
+            return {
+                legend: "BlendTree",
+                fields: `<label>Nodes <output>${node.graph.nodes.length}</output></label><label>Connections <output>${node.graph.edges.length}</output></label>`,
+                editor: true,
+            }
+        if (node.kind === ANIMATION_NODE_KINDS.BLEND_SPACE_1D)
+            return {
+                legend: "BlendSpace1D",
+                fields: `${number("Blend position", "parameters.blendPosition", node.parameters.blendPosition, 'step="0.05"')}
+          ${number("Minimum", "parameters.min", node.parameters.min, 'step="0.05"')}
+          ${number("Maximum", "parameters.max", node.parameters.max, 'step="0.05"')}
+          <label>Points <output>${node.points.length}</output></label>`,
+            }
+        if (node.kind === ANIMATION_NODE_KINDS.BLEND_SPACE_2D)
+            return {
+                legend: "BlendSpace2D",
+                fields: `${number("Blend X", "parameters.blendX", node.parameters.blendX, 'step="0.05"')}
+          ${number("Blend Y", "parameters.blendY", node.parameters.blendY, 'step="0.05"')}
+          ${number("Minimum X", "parameters.minX", node.parameters.minX, 'step="0.05"')}
+          ${number("Maximum X", "parameters.maxX", node.parameters.maxX, 'step="0.05"')}
+          ${number("Minimum Y", "parameters.minY", node.parameters.minY, 'step="0.05"')}
+          ${number("Maximum Y", "parameters.maxY", node.parameters.maxY, 'step="0.05"')}
+          <label>Points <output>${node.points.length}</output></label>`,
+            }
+        if (node.kind === ANIMATION_NODE_KINDS.STATE_MACHINE)
+            return {
+                legend: "StateMachine",
+                fields: `<label>States <output>${node.graph.states.length}</output></label><label>Transitions <output>${node.graph.transitions.length}</output></label>`,
+                editor: true,
+            }
+        throw new Error(`view-animation-tree missing inspector for animation node kind ${node.kind}`)
+    }
+
+    setBlendNodeValue(node, target, input) {
+        const path = target.split(".")
+        let owner = node
+        for (const part of path.slice(0, -1)) owner = owner[part]
+        const key = path[path.length - 1]
+        if (input instanceof HTMLInputElement && input.type === "checkbox") owner[key] = input.checked
+        else if (input.dataset.valueType === "number") {
+            assert(input instanceof HTMLInputElement && input.value.length > 0, `view-animation-tree ${target} requires a number`)
+            owner[key] = input.valueAsNumber
+            assert(Number.isFinite(owner[key]), `view-animation-tree ${target} must be finite`)
+        } else owner[key] = input.value
+    }
+
+    addSwitchInput(node) {
+        assert(node.kind === ANIMATION_NODE_KINDS.SWITCH, "view-animation-tree add input requires a switch node")
+        const before = this.captureSnapshot()
+        const inputIds = new Set(node.ports.filter((port) => port.direction === "input").map((port) => port.id))
+        let index = 1
+        while (inputIds.has(`input-${index}`)) index += 1
+        const outputIndex = node.ports.findIndex((port) => port.direction === "output")
+        assert(outputIndex >= 0, "view-animation-tree switch output port is required")
+        node.ports.splice(outputIndex, 0, { id: `input-${index}`, name: `Input ${inputIds.size + 1}`, direction: "input", dataType: "animation", maxConnections: 1 })
+        this.setData(this.graph, { autoFit: false })
+        this.renderInspector()
+        this.recordEdit("add switch input", before)
+        this.setStatus(`Added input ${node.ports.filter((port) => port.direction === "input").length} to ${node.name}`, "success")
+    }
+
+    removeSwitchInput(node, portId) {
+        assert(node.kind === ANIMATION_NODE_KINDS.SWITCH, "view-animation-tree remove input requires a switch node")
+        const inputs = node.ports.filter((port) => port.direction === "input")
+        assert(inputs.length > 2, "view-animation-tree switch requires at least two inputs")
+        const removed = inputs.find((port) => port.id === portId)
+        assert(removed, `view-animation-tree missing switch input ${portId}`)
+        const before = this.captureSnapshot()
+        const endpoint = { nodeId: node.id, portId: removed.id }
+        for (const edge of [...this.graphModel.edgesForPort(endpoint)]) this.graphModel.removeEdge(edge.id)
+        node.ports.splice(node.ports.indexOf(removed), 1)
+        if (node.parameters.currentInput === removed.id) node.parameters.currentInput = inputs.find((port) => port.id !== removed.id).id
+        this.setData(this.graph, { autoFit: false })
+        this.renderInspector()
+        this.recordEdit("remove switch input", before)
+        this.setStatus(`Removed ${removed.name} from ${node.name}`, "success")
+    }
+
+    bindBlendNodeInspector(node) {
+        for (const input of this.inspectorElement.querySelectorAll("[data-port-name]")) {
+            assert(input instanceof HTMLInputElement, "view-animation-tree switch input name must be an input")
+            let before = null
+            input.addEventListener("focus", () => {
+                before = this.captureSnapshot()
+            })
+            input.addEventListener("change", () => {
+                assert(before, "view-animation-tree switch input name snapshot is required")
+                const name = input.value.trim()
+                assert(name.length > 0, "view-animation-tree switch input name must not be empty")
+                const port = node.ports.find((candidate) => candidate.id === input.dataset.portName)
+                assert(port && port.direction === "input", `view-animation-tree missing switch input ${input.dataset.portName}`)
+                port.name = name
+                this.draw()
+                this.recordEdit("rename switch input", before)
+                this.renderInspector()
+                this.setStatus(`Renamed switch input to ${name}`, "success")
+            })
+        }
+        for (const input of this.inspectorElement.querySelectorAll("[data-target]")) {
+            assert(input instanceof HTMLInputElement || input instanceof HTMLSelectElement, "view-animation-tree blend inspector field must be an input or select")
+            let before = null
+            input.addEventListener("focus", () => {
+                before = this.captureSnapshot()
+            })
+            input.addEventListener("change", () => {
+                assert(before, `view-animation-tree ${input.dataset.target} snapshot is required`)
+                this.setBlendNodeValue(node, input.dataset.target, input)
+                assert(node.name.length > 0, "view-animation-tree blend node name must not be empty")
+                this.selectionOutput.textContent = `Selected: ${node.name}`
+                this.draw()
+                this.recordEdit(`edit ${node.kind}`, before)
+                before = this.captureSnapshot()
+                this.setStatus(`Updated ${node.name}`, "success")
+            })
+        }
+        const addSwitchInput = this.inspectorElement.querySelector('[data-action="add-switch-input"]')
+        const removeSwitchInputs = [...this.inspectorElement.querySelectorAll('[data-action="remove-switch-input"]')]
+        if (node.kind === ANIMATION_NODE_KINDS.SWITCH) {
+            assert(addSwitchInput instanceof HTMLButtonElement, "view-animation-tree add switch input button is required")
+            const inputCount = node.ports.filter((port) => port.direction === "input").length
+            assert(removeSwitchInputs.length === inputCount, "view-animation-tree requires one remove action per switch input")
+            addSwitchInput.addEventListener("click", () => this.addSwitchInput(node))
+            for (const removeSwitchInput of removeSwitchInputs) {
+                assert(removeSwitchInput instanceof HTMLButtonElement, "view-animation-tree remove switch input button is required")
+                removeSwitchInput.addEventListener("click", () => this.removeSwitchInput(node, removeSwitchInput.dataset.portId))
+            }
+        } else {
+            assert(addSwitchInput === null && removeSwitchInputs.length === 0, "view-animation-tree switch input actions require a switch node")
+        }
+        const edit = this.inspectorElement.querySelector('[data-action="edit-node"]')
+        if (edit !== null) {
+            assert(edit instanceof HTMLButtonElement, "view-animation-tree edit node button is required")
+            edit.addEventListener("click", () => this.navigateToAnimationNode(node.id))
+        }
+    }
+
     renderNodeGraphInspector() {
         if (this.selectedEdgeId !== null) {
             const edge = this.selectedEdge()
@@ -851,39 +1047,30 @@ export class ViewAnimationTree extends ViewCanvasBase {
         const node = nodes[0]
         const required = this.graphModel.isRequired(node.id)
         this.selectionOutput.textContent = `Selected: ${node.name}`
+        if (required) {
+            this.inspectorElement.innerHTML = `
+        <form data-element="blend-output-inspector">
+          <fieldset>
+            <legend>Output</legend>
+            <label>Kind <output>${this.escapeAttribute(node.kind)}</output></label>
+            <label>Name <output>${this.escapeAttribute(node.name)}</output></label>
+          </fieldset>
+        </form>
+      `
+            return
+        }
+        const inspector = this.blendNodeInspector(node)
         this.inspectorElement.innerHTML = `
-      <form data-element="blend-node-inspector">
+      <form data-element="${this.escapeAttribute(node.kind)}-inspector">
         <fieldset>
-          <legend>${required ? "Required node" : "Blend node"}</legend>
-          <label>Kind <output>${this.escapeAttribute(node.kind)}</output></label>
-          <label>Name ${
-              required
-                  ? `<output>${this.escapeAttribute(node.name)}</output>`
-                  : `<input type="text" data-field="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`
-}
-          </label>
+          <legend>${inspector.legend}</legend>
+          <label>Name <input type="text" data-target="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
+          ${inspector.fields}
         </fieldset>
+        ${inspector.editor ? '<footer><button type="button" data-action="edit-node"><i aria-hidden="true">edit</i> Edit graph</button></footer>' : ""}
       </form>
     `
-        if (required) return
-        const nameInput = this.inspectorElement.querySelector('[data-field="name"]')
-        assert(nameInput instanceof HTMLInputElement, "view-animation-tree missing blend node name input")
-        let before = null
-        nameInput.addEventListener("focus", () => {
-            before = this.captureSnapshot()
-        })
-        nameInput.addEventListener("input", () => {
-            const name = nameInput.value.trim()
-            assert(name.length > 0, "view-animation-tree blend node name must not be empty")
-            node.name = name
-            this.selectionOutput.textContent = `Selected: ${name}`
-            this.draw()
-        })
-        nameInput.addEventListener("change", () => {
-            assert(before, "view-animation-tree blend node name snapshot is required")
-            this.recordEdit("rename blend node", before)
-            this.setStatus(`Renamed node to ${node.name}`, "success")
-        })
+        this.bindBlendNodeInspector(node)
     }
 
     renderInspector() {

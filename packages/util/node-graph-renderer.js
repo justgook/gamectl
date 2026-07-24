@@ -239,7 +239,7 @@ export class NodeGraphRenderer {
         ctx.font = `${text.size}px ${text.font}`
         ctx.textAlign = direction === "input" ? "left" : "right"
         const x = direction === "input" ? rect.x + nodeConfig.padding : rect.x + rect.width - nodeConfig.padding
-        ctx.fillText(String(port.id), x, center.y)
+        ctx.fillText(String(port.name ?? port.id), x, center.y)
       })
     }
     ctx.restore()

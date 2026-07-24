@@ -1,11 +1,14 @@
 export const ANIMATION_NODE_KINDS = Object.freeze({
   ANIMATION: "animation",
+  ONE_SHOT: "one-shot",
+  BLEND_2: "blend2",
+  TIME_SEEK: "time-seek",
+  TIME_SCALE: "time-scale",
+  SWITCH: "switch",
   BLEND_TREE: "blend-tree",
   BLEND_SPACE_1D: "blend-space-1d",
   BLEND_SPACE_2D: "blend-space-2d",
   STATE_MACHINE: "state-machine",
-  BLEND_2: "blend2",
-  BLEND_3: "blend3",
 })
 
 export const ROOT_ANIMATION_NODE_KINDS = Object.freeze([
@@ -33,16 +36,22 @@ function animationPorts() {
   return [{ id: "animation", direction: "output", dataType: "animation", maxConnections: null }]
 }
 
-function blendPorts(count) {
+function inputPort(id, name = id) {
+  return { id, name, direction: "input", dataType: "animation", maxConnections: 1 }
+}
+
+function blendPorts(count, prefix = "") {
   return [
-    ...Array.from({ length: count }, (_, index) => ({
-      id: String.fromCharCode("a".charCodeAt(0) + index),
-      direction: "input",
-      dataType: "animation",
-      maxConnections: 1,
-    })),
-    { id: "animation", direction: "output", dataType: "animation", maxConnections: null },
+    ...Array.from({ length: count }, (_, index) => {
+      const id = prefix ? `${prefix}${index + 1}` : String.fromCharCode("a".charCodeAt(0) + index)
+      return inputPort(id, prefix ? `Input ${index + 1}` : id)
+    }),
+    ...animationPorts(),
   ]
+}
+
+function filterPorts(inputId = "input") {
+  return [inputPort(inputId), ...animationPorts()]
 }
 
 export function createAnimationNode(kind, { id = createId(), name } = {}) {
@@ -52,16 +61,23 @@ export function createAnimationNode(kind, { id = createId(), name } = {}) {
   assert(typeof label === "string" && label.length > 0, "animation node name must be a non-empty string")
 
   if (kind === ANIMATION_NODE_KINDS.ANIMATION)
-    return { id, kind, name: label, animation: null, ports: animationPorts() }
+    return { id, kind, name: label, animation: "", ports: animationPorts() }
+  if (kind === ANIMATION_NODE_KINDS.ONE_SHOT)
+    return { id, kind, name: label, parameters: { active: false, fadeIn: 0.1, fadeOut: 0.1 }, ports: [inputPort("base"), inputPort("shot"), ...animationPorts()] }
   if (kind === ANIMATION_NODE_KINDS.BLEND_2)
     return { id, kind, name: label, parameters: { blendAmount: 0.5 }, ports: blendPorts(2) }
-  if (kind === ANIMATION_NODE_KINDS.BLEND_3)
-    return { id, kind, name: label, parameters: { blendAmount: 0.5 }, ports: blendPorts(3) }
+  if (kind === ANIMATION_NODE_KINDS.TIME_SEEK)
+    return { id, kind, name: label, parameters: { seekTime: 0 }, ports: filterPorts() }
+  if (kind === ANIMATION_NODE_KINDS.TIME_SCALE)
+    return { id, kind, name: label, parameters: { scale: 1 }, ports: filterPorts() }
+  if (kind === ANIMATION_NODE_KINDS.SWITCH)
+    return { id, kind, name: label, parameters: { currentInput: "input-1", crossFade: 0.1 }, ports: blendPorts(2, "input-") }
   if (kind === ANIMATION_NODE_KINDS.BLEND_TREE)
     return {
       id,
       kind,
       name: label,
+      ports: animationPorts(),
       graph: {
         nodes: [],
         edges: [],
@@ -73,6 +89,7 @@ export function createAnimationNode(kind, { id = createId(), name } = {}) {
       id,
       kind,
       name: label,
+      ports: animationPorts(),
       graph: {
         states: [],
         transitions: [],
@@ -81,9 +98,16 @@ export function createAnimationNode(kind, { id = createId(), name } = {}) {
       },
     }
   if (kind === ANIMATION_NODE_KINDS.BLEND_SPACE_1D)
-    return { id, kind, name: label, points: [] }
+    return { id, kind, name: label, parameters: { blendPosition: 0, min: -1, max: 1 }, points: [], ports: animationPorts() }
   if (kind === ANIMATION_NODE_KINDS.BLEND_SPACE_2D)
-    return { id, kind, name: label, points: [] }
+    return {
+      id,
+      kind,
+      name: label,
+      parameters: { blendX: 0, blendY: 0, minX: -1, maxX: 1, minY: -1, maxY: 1 },
+      points: [],
+      ports: animationPorts(),
+    }
   throw new Error(`unknown animation node kind ${kind}`)
 }
 
