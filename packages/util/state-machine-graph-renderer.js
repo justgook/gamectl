@@ -153,6 +153,45 @@ export class StateMachineGraphRenderer {
       })
   }
 
+  drawTransitionPreview(ctx, fromNode, point, validTarget) {
+    assert(ctx instanceof CanvasRenderingContext2D, "state machine graph renderer transition preview requires a 2d canvas context")
+    requireObject(point, "state machine graph renderer transition preview point")
+    requireNumber(point.x, "state machine graph renderer transition preview point.x")
+    requireNumber(point.y, "state machine graph renderer transition preview point.y")
+    assert(typeof validTarget === "boolean", "state machine graph renderer transition preview validTarget must be boolean")
+    const fromRect = this.nodeBounds(fromNode)
+    const start = { x: fromRect.x + fromRect.width / 2, y: fromRect.y + fromRect.height / 2 }
+    const deltaX = point.x - start.x
+    const deltaY = point.y - start.y
+    const distance = Math.hypot(deltaX, deltaY)
+    if (distance === 0) return
+
+    const directionX = deltaX / distance
+    const directionY = deltaY / distance
+    const normalX = -directionY
+    const normalY = directionX
+    const arrowSize = this.config.edge.arrowSize
+    const arrowBaseX = point.x - directionX * arrowSize
+    const arrowBaseY = point.y - directionY * arrowSize
+    const color = cssColor(validTarget ? this.config.theme.edgeSelected : this.config.theme.edge)
+
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.fillStyle = color
+    ctx.lineWidth = this.config.edge.selectedWidth
+    ctx.beginPath()
+    ctx.moveTo(start.x, start.y)
+    ctx.lineTo(point.x, point.y)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(point.x, point.y)
+    ctx.lineTo(arrowBaseX + normalX * arrowSize * 0.55, arrowBaseY + normalY * arrowSize * 0.55)
+    ctx.lineTo(arrowBaseX - normalX * arrowSize * 0.55, arrowBaseY - normalY * arrowSize * 0.55)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+
   drawSelectionRect(ctx, rect) {
     requireObject(rect, "state machine graph renderer selection rect")
     for (const key of ["x", "y", "width", "height"])

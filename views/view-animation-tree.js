@@ -56,8 +56,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.dragNodeStarts = null
     this.selectionDrag = null
     this.lastPointerWorld = null
-    this.connecting = false
     this.connectionSourceNodeId = null
+    this.connectionPointer = null
     this.dragStartPoint = null
     this.dragBeforeSnapshot = null
     this.interactionMode = "select"
@@ -472,8 +472,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
   selectMode({ silent = false } = {}) {
     this.interactionMode = "select"
-    this.connecting = false
     this.connectionSourceNodeId = null
+    this.connectionPointer = null
     this.syncModeControls()
     if (this.canvas instanceof HTMLCanvasElement) this.canvas.style.cursor = this.hoveredNodeId === null ? "default" : "grab"
     if (!silent) this.setStatus("Select mode", "info")
@@ -483,37 +483,43 @@ export class ViewAnimationTree extends ViewCanvasBase {
     if (this.interactionMode === "transition")
       this.transitionModeIndex = (this.transitionModeIndex + 1) % TRANSITION_MODES.length
     this.interactionMode = "transition"
-    this.connecting = true
     this.connectionSourceNodeId = null
+    this.connectionPointer = null
     this.syncModeControls()
     this.canvas.style.cursor = "crosshair"
-    this.setStatus(`${this.currentTransitionMode().label} transition: select the source state`, "accent")
+    this.setStatus(`${this.currentTransitionMode().label} transition: drag from a source state to a target state`, "accent")
   }
 
   cancelConnecting({ silent = false } = {}) {
     this.selectMode({ silent })
   }
 
-  chooseConnectionNode(node) {
-    assert(this.connecting, "view-animation-tree must be in transition creation mode")
-    if (this.connectionSourceNodeId === null) {
-      this.connectionSourceNodeId = node.id
-      this.setNodeSelection([node.id], node.id)
-      this.renderInspector()
+  beginTransitionDrag(node, point) {
+    assert(this.interactionMode === "transition", "view-animation-tree must be in transition creation mode")
+    this.connectionSourceNodeId = node.id
+    this.connectionPointer = point
+    this.setNodeSelection([node.id], node.id)
+    this.renderInspector()
+    this.draw()
+    this.setStatus(`${this.currentTransitionMode().label}: drag ${node.name} to a target state`, "accent")
+  }
+
+  finishTransitionDrag(target) {
+    assert(this.connectionSourceNodeId !== null, "view-animation-tree transition drag requires a source state")
+    const from = this.connectionSourceNodeId
+    this.connectionSourceNodeId = null
+    this.connectionPointer = null
+    if (!target || target.id === from) {
       this.draw()
-      this.setStatus(`${this.currentTransitionMode().label}: ${node.name} → select target`, "accent")
-      return
+      this.setStatus("Transition cancelled · drag from a source state to a different target state", "info")
+      return false
     }
 
-    const from = this.connectionSourceNodeId
-    const to = node.id
-    if (from === to) {
-      this.setStatus("Self-transitions are not implemented in this slice", "warning")
-      return
-    }
+    const to = target.id
     if (this.graph.edges.some((edge) => edge.from === from && edge.to === to)) {
+      this.draw()
       this.setStatus(`${this.stateName(from)} → ${this.stateName(to)} already exists`, "warning")
-      return
+      return false
     }
     const before = this.captureSnapshot()
     const id = this.graph.edges.length === 0 ? 1 : Math.max(...this.graph.edges.map((edge) => edge.id)) + 1
@@ -523,11 +529,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.selectedNodeIds.clear()
     this.selectedNodeId = null
     this.selectedEdgeId = edge.id
-    this.connectionSourceNodeId = null
     this.renderInspector()
     this.draw()
     this.recordEdit("add transition", before)
-    this.setStatus(`Added ${mode.label}: ${this.stateName(from)} → ${this.stateName(to)} · select another source`, "success")
+    this.setStatus(`Added ${mode.label}: ${this.stateName(from)} → ${this.stateName(to)} · drag to create another`, "success")
+    return true
   }
 
   deleteSelected() {
@@ -703,6 +709,18 @@ export class ViewAnimationTree extends ViewCanvasBase {
       selectedEdgeId: this.selectedEdgeId,
       hoveredNodeId: this.hoveredNodeId,
     })
+    if (this.connectionSourceNodeId !== null) {
+      assert(this.connectionPointer, "view-animation-tree transition drag requires a pointer")
+      const source = this.graph.nodes.find((node) => node.id === this.connectionSourceNodeId)
+      assert(source, `view-animation-tree missing transition source node ${this.connectionSourceNodeId}`)
+      const target = this.renderer.hitNode(this.graph.nodes, this.connectionPointer)
+      const validTarget = Boolean(
+        target &&
+        target.id !== source.id &&
+        !this.graph.edges.some((edge) => edge.from === source.id && edge.to === target.id),
+      )
+      this.renderer.drawTransitionPreview(ctx, source, this.connectionPointer, validTarget)
+    }
     if (this.selectionDrag) this.renderer.drawSelectionRect(ctx, this.selectionRect())
   }
 
@@ -728,8 +746,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
     const point = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = point
     const node = this.renderer.hitNode(this.graph.nodes, point)
-    if (this.connecting) {
-      if (node) this.chooseConnectionNode(node)
+    if (this.interactionMode === "transition") {
+      if (node) this.beginTransitionDrag(node, point)
       return
     }
     if (node) {
@@ -771,6 +789,14 @@ export class ViewAnimationTree extends ViewCanvasBase {
     assert(this.renderer instanceof StateMachineGraphRenderer, "view-animation-tree renderer is not initialized")
     const point = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = point
+    if (this.connectionSourceNodeId !== null) {
+      this.connectionPointer = point
+      const node = this.renderer.hitNode(this.graph.nodes, point)
+      this.hoveredNodeId = node && node.id !== this.connectionSourceNodeId ? node.id : null
+      this.canvas.style.cursor = "crosshair"
+      this.draw()
+      return
+    }
     if (this.draggedNodeId !== null) {
       assert(this.dragStartPoint && this.dragNodeStarts instanceof Map, "view-animation-tree group drag state is required")
       const deltaX = point.x - this.dragStartPoint.x
@@ -804,7 +830,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
     const node = this.renderer.hitNode(this.graph.nodes, point)
     const hoveredNodeId = node ? node.id : null
-    const cursor = this.connecting ? "crosshair" : node ? "grab" : "default"
+    const cursor = this.interactionMode === "transition" ? "crosshair" : node ? "grab" : "default"
     if (hoveredNodeId === this.hoveredNodeId) {
       this.canvas.style.cursor = cursor
       return
@@ -835,17 +861,32 @@ export class ViewAnimationTree extends ViewCanvasBase {
     this.setStatus(count ? `Selected ${count} state${count === 1 ? "" : "s"}` : "Selection cleared", "info")
   }
 
-  onCanvasMouseUp() {
+  onCanvasMouseUp(event) {
+    if (this.connectionSourceNodeId !== null) {
+      const sourceNodeId = this.connectionSourceNodeId
+      const point = this.getWorldPoint(event.clientX, event.clientY)
+      const target = this.renderer.hitNode(this.graph.nodes, point)
+      this.finishTransitionDrag(target)
+      this.hoveredNodeId = target && target.id !== sourceNodeId ? target.id : null
+      this.canvas.style.cursor = "crosshair"
+      this.draw()
+      return
+    }
     this.finishNodeDrag()
     this.finishSelectionDrag()
     this.canvas.style.cursor = this.hoveredNodeId === null ? "default" : "grab"
   }
 
   onCanvasMouseLeave() {
+    if (this.connectionSourceNodeId !== null) {
+      this.connectionSourceNodeId = null
+      this.connectionPointer = null
+      this.setStatus("Transition cancelled · drag from a source state to a target state", "info")
+    }
     this.finishNodeDrag()
     this.finishSelectionDrag()
     this.hoveredNodeId = null
-    if (this.connecting) this.canvas.style.cursor = "crosshair"
+    if (this.interactionMode === "transition") this.canvas.style.cursor = "crosshair"
     this.draw()
   }
 }
