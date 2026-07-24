@@ -27,11 +27,14 @@ function rendererConfig() {
       nodeBorder: [0, 0, 0, 1],
       transitionRegion: [0, 0, 0, 1],
       transitionRegionHover: [0, 0, 0, 1],
+      transitionRegionDisabled: [0, 0, 0, 1],
+      requiredNode: [0, 0, 0, 1],
+      requiredNodeHover: [0, 0, 0, 1],
+      requiredNodeSelected: [0, 0, 0, 1],
       text: [0, 0, 0, 1],
       edge: [0, 0, 0, 1],
       edgeSelected: [0, 0, 0, 1],
       edgeSymbol: [0, 0, 0, 1],
-      start: [0, 0, 0, 1],
     },
   }
 }

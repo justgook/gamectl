@@ -1,5 +1,6 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
+import { StateMachineGraph } from "/util/state-machine-graph.js"
 import { StateMachineGraphRenderer } from "/util/state-machine-graph-renderer.js"
 import { UndoHistory } from "/util/undo.js"
 
@@ -23,21 +24,46 @@ const NODE_TYPES = [
 
 const CLIPBOARD_FORMAT = "gams.animation-tree.nodes"
 
+const REQUIRED_NODES = [
+  {
+    node: { id: "start", type: "entry", name: "Start", icon: "play_arrow", style: "required", x: -120, y: 180 },
+    constraints: {
+      incoming: { max: 0 },
+      outgoing: { max: 1, edgeKind: "entry" },
+      deletable: false,
+      copyable: false,
+      renameable: false,
+    },
+  },
+  {
+    node: { id: "end", type: "exit", name: "End", icon: "stop", style: "required", x: 840, y: 180 },
+    constraints: {
+      incoming: { max: null },
+      outgoing: { max: 0, edgeKind: "transition" },
+      deletable: false,
+      copyable: false,
+      renameable: false,
+    },
+  },
+]
+
 function createInitialGraph() {
   return {
     nodes: [
-      { id: 1, type: "animation", name: "Idle", x: 80, y: 180, start: true },
-      { id: 2, type: "animation", name: "Run", x: 360, y: 80, start: false },
-      { id: 3, type: "animation", name: "Jump", x: 360, y: 280, start: false },
-      { id: 4, type: "animation", name: "Fall", x: 640, y: 280, start: false },
+      { id: 1, type: "animation", name: "Idle", x: 80, y: 180 },
+      { id: 2, type: "animation", name: "Run", x: 360, y: 80 },
+      { id: 3, type: "animation", name: "Jump", x: 360, y: 280 },
+      { id: 4, type: "animation", name: "Fall", x: 640, y: 280 },
     ],
     edges: [
-      { id: 1, from: 1, to: 2, switchMode: "immediate" },
-      { id: 2, from: 2, to: 1, switchMode: "immediate" },
-      { id: 3, from: 1, to: 3, switchMode: "immediate" },
-      { id: 4, from: 2, to: 3, switchMode: "immediate" },
-      { id: 5, from: 3, to: 4, switchMode: "immediate" },
-      { id: 6, from: 4, to: 1, switchMode: "immediate" },
+      { id: 1, kind: "entry", from: "start", to: 1 },
+      { id: 2, kind: "transition", from: 1, to: 2, switchMode: "immediate" },
+      { id: 3, kind: "transition", from: 2, to: 1, switchMode: "immediate" },
+      { id: 4, kind: "transition", from: 1, to: 3, switchMode: "immediate" },
+      { id: 5, kind: "transition", from: 2, to: 3, switchMode: "immediate" },
+      { id: 6, kind: "transition", from: 3, to: 4, switchMode: "immediate" },
+      { id: 7, kind: "transition", from: 4, to: 1, switchMode: "immediate" },
+      { id: 8, kind: "transition", from: 4, to: "end", switchMode: "at-end" },
     ],
   }
 }
@@ -47,7 +73,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
     super()
     this.renderer = null
     this.history = new UndoHistory()
-    this.graph = createInitialGraph()
+    this.graphModel = new StateMachineGraph({ graph: createInitialGraph(), requiredNodes: REQUIRED_NODES })
+    this.graph = this.graphModel.graph
     this.selectedNodeIds = new Set([1])
     this.selectedNodeId = 1
     this.selectedEdgeId = null
@@ -224,7 +251,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
   restoreSnapshot(snapshot) {
     assert(snapshot && typeof snapshot === "object", "view-animation-tree history snapshot is required")
     this.cancelTransitionDrag()
-    this.graph = structuredClone(snapshot.graph)
+    this.graphModel.replaceGraph(snapshot.graph)
+    this.graph = this.graphModel.graph
     this.selectedNodeIds = new Set(snapshot.selectedNodeIds)
     this.selectedNodeId = snapshot.selectedNodeId
     this.selectedEdgeId = snapshot.selectedEdgeId
@@ -273,7 +301,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
   clipboardPayload() {
     if (this.selectedNodeIds.size === 0) return null
-    const selected = new Set(this.selectedNodeIds)
+    const selected = new Set([...this.selectedNodeIds].filter((id) => this.graphModel.canCopyNode(id)))
+    if (selected.size === 0) return null
     return {
       format: CLIPBOARD_FORMAT,
       version: 1,
@@ -309,7 +338,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     const payload = this.parseClipboardPayload(await navigator.clipboard.readText())
     const before = this.captureSnapshot()
     const idMap = new Map()
-    let nextNodeId = Math.max(...this.graph.nodes.map((node) => node.id)) + 1
+    let nextNodeId = Math.max(0, ...this.graph.nodes.filter((node) => Number.isInteger(node.id)).map((node) => node.id)) + 1
     for (const node of payload.nodes) idMap.set(node.id, nextNodeId++)
     const minX = Math.min(...payload.nodes.map((node) => node.x))
     const minY = Math.min(...payload.nodes.map((node) => node.y))
@@ -323,7 +352,6 @@ export class ViewAnimationTree extends ViewCanvasBase {
       id: idMap.get(node.id),
       x: Math.round(node.x + offsetX),
       y: Math.round(node.y + offsetY),
-      start: false,
     }))
     let nextEdgeId = this.graph.edges.length ? Math.max(...this.graph.edges.map((edge) => edge.id)) + 1 : 1
     const edges = payload.edges.map((edge) => ({
@@ -333,8 +361,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
       to: idMap.get(edge.to),
     }))
     assert(edges.every((edge) => edge.from !== undefined && edge.to !== undefined), "view-animation-tree pasted edge must reference pasted nodes")
-    this.graph.nodes.push(...nodes)
-    this.graph.edges.push(...edges)
+    for (const node of nodes) this.graphModel.addNode(node)
+    for (const edge of edges) {
+      edge.kind = "transition"
+      this.graphModel.addEdge(edge)
+    }
     this.cancelTransitionDrag()
     this.setNodeSelection(nodes.map((node) => node.id), nodes[nodes.length - 1].id)
     this.setData(this.graph, { autoFit: false })
@@ -404,7 +435,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
   addState(typeValue = "animation", worldPoint = null) {
     const type = this.nodeType(typeValue)
     const before = this.captureSnapshot()
-    const id = Math.max(...this.graph.nodes.map((node) => node.id)) + 1
+    const id = Math.max(0, ...this.graph.nodes.filter((node) => Number.isInteger(node.id)).map((node) => node.id)) + 1
     const point = worldPoint
       ? {
           x: worldPoint.x - this.renderer.config.node.width / 2,
@@ -417,9 +448,8 @@ export class ViewAnimationTree extends ViewCanvasBase {
       name: `${type.label} ${id}`,
       x: Math.round(point.x),
       y: Math.round(point.y),
-      start: false,
     }
-    this.graph.nodes.push(node)
+    this.graphModel.addNode(node)
     this.cancelTransitionDrag()
     this.setNodeSelection([node.id], node.id)
     this.setData(this.graph, { autoFit: false })
@@ -464,43 +494,49 @@ export class ViewAnimationTree extends ViewCanvasBase {
   }
 
   beginTransitionDrag(node, point) {
+    assert(this.graphModel.transitionSourceState(node.id) === "available", `view-animation-tree node ${node.id} cannot start a transition`)
     this.connectionSourceNodeId = node.id
     this.connectionStartPoint = point
     this.connectionPointer = point
     this.setNodeSelection([node.id], node.id)
     this.renderInspector()
     this.draw()
-    this.setStatus(`${this.currentTransitionMode().label}: drag ${node.name} to a target state`, "accent")
+    const edgeKind = this.graphModel.edgeKindFrom(node.id)
+    const label = edgeKind === "entry" ? "Entry" : this.currentTransitionMode().label
+    this.setStatus(`${label}: drag ${node.name} to a target state`, "accent")
   }
 
   finishTransitionDrag(target) {
     assert(this.connectionSourceNodeId !== null, "view-animation-tree transition drag requires a source state")
     const from = this.connectionSourceNodeId
     this.cancelTransitionDrag()
-    if (!target || target.id === from) {
+    if (!target) {
       this.draw()
-      this.setStatus("Transition cancelled · drag from a source state to a different target state", "info")
+      this.setStatus("Transition cancelled · drag to a target state", "info")
       return false
     }
 
     const to = target.id
-    if (this.graph.edges.some((edge) => edge.from === from && edge.to === to)) {
+    const result = this.graphModel.canAddEdge(from, to)
+    if (!result.ok) {
       this.draw()
-      this.setStatus(`${this.stateName(from)} → ${this.stateName(to)} already exists`, "warning")
+      this.setStatus(result.reason, "warning")
       return false
     }
     const before = this.captureSnapshot()
     const id = this.graph.edges.length === 0 ? 1 : Math.max(...this.graph.edges.map((edge) => edge.id)) + 1
+    const kind = this.graphModel.edgeKindFrom(from)
     const mode = this.currentTransitionMode()
-    const edge = { id, from, to, switchMode: mode.value }
-    this.graph.edges.push(edge)
+    const edge = kind === "entry" ? { id, kind, from, to } : { id, kind, from, to, switchMode: mode.value }
+    this.graphModel.addEdge(edge)
     this.selectedNodeIds.clear()
     this.selectedNodeId = null
     this.selectedEdgeId = edge.id
     this.renderInspector()
     this.draw()
     this.recordEdit("add transition", before)
-    this.setStatus(`Added ${mode.label}: ${this.stateName(from)} → ${this.stateName(to)} · drag to create another`, "success")
+    const label = kind === "entry" ? "entry" : mode.label
+    this.setStatus(`Added ${label}: ${this.stateName(from)} → ${this.stateName(to)} · drag to create another`, "success")
     return true
   }
 
@@ -513,7 +549,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     const before = this.captureSnapshot()
     if (this.selectedEdgeId !== null) {
       const edge = this.selectedEdge()
-      this.graph.edges = this.graph.edges.filter((candidate) => candidate.id !== edge.id)
+      this.graphModel.removeEdge(edge.id)
       this.setNodeSelection([edge.from], edge.from)
       this.renderInspector()
       this.draw()
@@ -522,24 +558,19 @@ export class ViewAnimationTree extends ViewCanvasBase {
       return
     }
 
-    const selected = new Set(this.selectedNodeIds)
-    assert(selected.size > 0, "view-animation-tree node deletion requires selected states")
-    if (selected.size >= this.graph.nodes.length) {
-      this.setStatus("The graph requires at least one state", "warning")
+    assert(this.selectedNodeIds.size > 0, "view-animation-tree node deletion requires selected states")
+    const result = this.graphModel.removeNodes(this.selectedNodeIds)
+    if (result.removedNodeIds.length === 0) {
+      this.setStatus("Required nodes cannot be deleted", "warning")
       return false
     }
-    const deletedStart = this.graph.nodes.some((node) => selected.has(node.id) && node.start)
-    const deletedEdges = this.graph.edges.filter((edge) => selected.has(edge.from) || selected.has(edge.to)).length
-    this.graph.nodes = this.graph.nodes.filter((node) => !selected.has(node.id))
-    this.graph.edges = this.graph.edges.filter((edge) => !selected.has(edge.from) && !selected.has(edge.to))
-    const next = this.graph.nodes[0]
-    assert(next, "view-animation-tree requires a state after deletion")
-    if (deletedStart) next.start = true
-    this.setNodeSelection([next.id], next.id)
+    const nextSelection = result.preservedNodeIds.length > 0 ? result.preservedNodeIds : [this.graph.nodes[0].id]
+    this.setNodeSelection(nextSelection)
     this.setData(this.graph, { autoFit: false })
     this.renderInspector()
     this.recordEdit("delete states", before)
-    this.setStatus(`Deleted ${selected.size} state${selected.size === 1 ? "" : "s"} and ${deletedEdges} transition${deletedEdges === 1 ? "" : "s"}`, "success")
+    const preserved = result.preservedNodeIds.length > 0 ? ` · preserved ${result.preservedNodeIds.length} required` : ""
+    this.setStatus(`Deleted ${result.removedNodeIds.length} state${result.removedNodeIds.length === 1 ? "" : "s"} and ${result.removedEdgeCount} transition${result.removedEdgeCount === 1 ? "" : "s"}${preserved}`, "success")
   }
 
   setStatus(message, tone) {
@@ -555,21 +586,25 @@ export class ViewAnimationTree extends ViewCanvasBase {
     if (this.selectedEdgeId !== null) {
       const edge = this.selectedEdge()
       const label = `${this.stateName(edge.from)} → ${this.stateName(edge.to)}`
-      this.selectionOutput.textContent = `Selected transition: ${label}`
+      this.selectionOutput.textContent = `Selected ${edge.kind === "entry" ? "entry" : "transition"}: ${label}`
+      const switchModeField = edge.kind === "entry"
+        ? "<label>Kind <output>Entry</output></label>"
+        : `<label>Switch mode
+              <select data-field="switch-mode">
+                ${TRANSITION_MODES.map((mode) => `<option value="${mode.value}" ${mode.value === edge.switchMode ? "selected" : ""}>${mode.label}</option>`).join("")}
+            </select>
+          </label>`
       this.inspectorElement.innerHTML = `
         <form data-element="transition-inspector">
           <fieldset>
-            <legend>Transition</legend>
+            <legend>${edge.kind === "entry" ? "Entry" : "Transition"}</legend>
             <label>From <output>${this.escapeAttribute(this.stateName(edge.from))}</output></label>
             <label>To <output>${this.escapeAttribute(this.stateName(edge.to))}</output></label>
-            <label>Switch mode
-              <select data-field="switch-mode">
-                ${TRANSITION_MODES.map((mode) => `<option value="${mode.value}" ${mode.value === edge.switchMode ? "selected" : ""}>${mode.label}</option>`).join("")}
-              </select>
-            </label>
+            ${switchModeField}
           </fieldset>
         </form>
       `
+      if (edge.kind === "entry") return
       const switchMode = this.inspectorElement.querySelector('[data-field="switch-mode"]')
       assert(switchMode instanceof HTMLSelectElement, "view-animation-tree missing transition switch mode select")
       switchMode.addEventListener("change", () => {
@@ -594,7 +629,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         <table>
           <caption>Selected states</caption>
           <thead><tr><th>Name</th><th>Type</th></tr></thead>
-          <tbody>${nodes.map((node) => `<tr><td>${this.escapeAttribute(node.name)}</td><td>${this.escapeAttribute(this.nodeType(node.type).label)}</td></tr>`).join("")}</tbody>
+          <tbody>${nodes.map((node) => `<tr><td>${this.escapeAttribute(node.name)}</td><td>${this.escapeAttribute(this.graphModel.isRequired(node.id) ? "Required" : this.nodeType(node.type).label)}</td></tr>`).join("")}</tbody>
         </table>
       `
       return
@@ -602,13 +637,24 @@ export class ViewAnimationTree extends ViewCanvasBase {
 
     const node = this.selectedNode()
     this.selectionOutput.textContent = `Selected: ${node.name}`
+    if (this.graphModel.isRequired(node.id)) {
+      this.inspectorElement.innerHTML = `
+        <form data-element="state-inspector">
+          <fieldset>
+            <legend>Required state</legend>
+            <label>Type <output>${this.escapeAttribute(node.type)}</output></label>
+            <label>Name <output>${this.escapeAttribute(node.name)}</output></label>
+          </fieldset>
+        </form>
+      `
+      return
+    }
     this.inspectorElement.innerHTML = `
       <form data-element="state-inspector">
         <fieldset>
           <legend>State</legend>
           <label>Type <input type="text" value="${this.escapeAttribute(this.nodeType(node.type).label)}" disabled autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
           <label>Name <input type="text" data-field="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
-          <label>Start state <input type="radio" name="start-state" data-field="start" ${node.start ? "checked" : ""}></label>
         </fieldset>
         <fieldset>
           <legend>Animation</legend>
@@ -617,9 +663,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
       </form>
     `
     const nameInput = this.inspectorElement.querySelector('[data-field="name"]')
-    const startInput = this.inspectorElement.querySelector('[data-field="start"]')
     assert(nameInput instanceof HTMLInputElement, "view-animation-tree missing state name input")
-    assert(startInput instanceof HTMLInputElement, "view-animation-tree missing start state input")
     let nameBefore = null
     nameInput.addEventListener("focus", () => {
       nameBefore = this.captureSnapshot()
@@ -636,15 +680,6 @@ export class ViewAnimationTree extends ViewCanvasBase {
       this.recordEdit("rename state", nameBefore)
       nameBefore = this.captureSnapshot()
       this.setStatus(`Renamed state to ${node.name}`, "success")
-    })
-    startInput.addEventListener("change", () => {
-      assert(startInput.checked, "view-animation-tree requires exactly one start state")
-      const before = this.captureSnapshot()
-      for (const candidate of this.graph.nodes) candidate.start = candidate.id === node.id
-      this.renderInspector()
-      this.draw()
-      this.recordEdit("set start state", before)
-      this.setStatus(`${node.name} is the start state`, "success")
     })
   }
 
@@ -677,6 +712,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
       selectedEdgeId: this.selectedEdgeId,
       hoveredNodeId: this.hoveredNodeId,
       hoveredTransitionNodeId: this.hoveredTransitionNodeId,
+      transitionSourceStates: new Map(graph.nodes.map((node) => [node.id, this.graphModel.transitionSourceState(node.id)])),
     })
     if (this.connectionSourceNodeId !== null) {
       assert(this.connectionStartPoint, "view-animation-tree transition drag requires a start point")
@@ -684,11 +720,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
       const source = this.graph.nodes.find((node) => node.id === this.connectionSourceNodeId)
       assert(source, `view-animation-tree missing transition source node ${this.connectionSourceNodeId}`)
       const target = this.renderer.hitNode(this.graph.nodes, this.connectionPointer)
-      const validTarget = Boolean(
-        target &&
-        target.id !== source.id &&
-        !this.graph.edges.some((edge) => edge.from === source.id && edge.to === target.id),
-      )
+      const validTarget = Boolean(target && this.graphModel.canAddEdge(source.id, target.id).ok)
       this.renderer.drawTransitionPreview(ctx, this.connectionStartPoint, this.connectionPointer, validTarget)
     }
     if (this.selectionDrag) this.renderer.drawSelectionRect(ctx, this.selectionRect())
@@ -716,9 +748,18 @@ export class ViewAnimationTree extends ViewCanvasBase {
     const point = this.getWorldPoint(event.clientX, event.clientY)
     this.lastPointerWorld = point
     const node = this.renderer.hitNode(this.graph.nodes, point)
-    const transitionNode = this.renderer.hitTransitionRegion(this.graph.nodes, point)
-    if (transitionNode) {
-      this.beginTransitionDrag(transitionNode, point)
+    const inTransitionRegion = node && this.renderer.pointInTransitionRegion(node, point)
+    const sourceState = node ? this.graphModel.transitionSourceState(node.id) : null
+    if (inTransitionRegion && sourceState === "available") {
+      this.beginTransitionDrag(node, point)
+      return
+    }
+    if (inTransitionRegion && sourceState === "disabled") {
+      this.setNodeSelection([node.id], node.id)
+      this.renderInspector()
+      this.draw()
+      const maximum = this.graphModel.constraints(node.id).outgoing.max
+      this.setStatus(`${node.name} already has its maximum of ${maximum} outgoing transition${maximum === 1 ? "" : "s"}`, "warning")
       return
     }
     if (node) {
@@ -801,10 +842,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
       return
     }
     const node = this.renderer.hitNode(this.graph.nodes, point)
-    const transitionNode = this.renderer.hitTransitionRegion(this.graph.nodes, point)
-    const hoveredNodeId = node && !transitionNode ? node.id : null
-    const hoveredTransitionNodeId = transitionNode ? transitionNode.id : null
-    const cursor = transitionNode ? "crosshair" : node ? "grab" : "default"
+    const sourceState = node ? this.graphModel.transitionSourceState(node.id) : null
+    const transitionRegionHovered = Boolean(node && sourceState && this.renderer.pointInTransitionRegion(node, point))
+    const hoveredNodeId = node && !transitionRegionHovered ? node.id : null
+    const hoveredTransitionNodeId = transitionRegionHovered ? node.id : null
+    const cursor = transitionRegionHovered ? (sourceState === "disabled" ? "not-allowed" : "crosshair") : node ? "grab" : "default"
     if (hoveredNodeId === this.hoveredNodeId && hoveredTransitionNodeId === this.hoveredTransitionNodeId) {
       this.canvas.style.cursor = cursor
       return
@@ -841,11 +883,14 @@ export class ViewAnimationTree extends ViewCanvasBase {
       const sourceNodeId = this.connectionSourceNodeId
       const point = this.getWorldPoint(event.clientX, event.clientY)
       const target = this.renderer.hitNode(this.graph.nodes, point)
-      const transitionTarget = this.renderer.hitTransitionRegion(this.graph.nodes, point)
+      const targetSourceState = target ? this.graphModel.transitionSourceState(target.id) : null
+      const transitionTargetHovered = Boolean(target && targetSourceState && this.renderer.pointInTransitionRegion(target, point))
       this.finishTransitionDrag(target)
-      this.hoveredNodeId = target && !transitionTarget && target.id !== sourceNodeId ? target.id : null
-      this.hoveredTransitionNodeId = transitionTarget && transitionTarget.id !== sourceNodeId ? transitionTarget.id : null
-      this.canvas.style.cursor = this.hoveredTransitionNodeId === null ? (this.hoveredNodeId === null ? "default" : "grab") : "crosshair"
+      this.hoveredNodeId = target && !transitionTargetHovered && target.id !== sourceNodeId ? target.id : null
+      this.hoveredTransitionNodeId = transitionTargetHovered && target.id !== sourceNodeId ? target.id : null
+      this.canvas.style.cursor = this.hoveredTransitionNodeId === null
+        ? (this.hoveredNodeId === null ? "default" : "grab")
+        : targetSourceState === "disabled" ? "not-allowed" : "crosshair"
       this.draw()
       return
     }

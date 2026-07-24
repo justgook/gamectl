@@ -48,11 +48,14 @@ export function validateStateMachineGraphRendererConfig(input) {
     "nodeBorder",
     "transitionRegion",
     "transitionRegionHover",
+    "transitionRegionDisabled",
+    "requiredNode",
+    "requiredNodeHover",
+    "requiredNodeSelected",
     "text",
     "edge",
     "edgeSelected",
     "edgeSymbol",
-    "start",
   ])
     requireColor(theme[key], `state machine graph renderer config.theme.${key}`)
 
@@ -125,11 +128,15 @@ export class StateMachineGraphRenderer {
     return null
   }
 
+  pointInTransitionRegion(node, point) {
+    return this.pointInRect(point, this.nodeBounds(node)) && !this.pointInRect(point, this.nodeBodyBounds(node))
+  }
+
   hitTransitionRegion(nodes, point) {
     assert(Array.isArray(nodes), "state machine graph renderer nodes must be an array")
     for (let index = nodes.length - 1; index >= 0; index -= 1) {
       const node = nodes[index]
-      if (this.pointInRect(point, this.nodeBounds(node)) && !this.pointInRect(point, this.nodeBodyBounds(node))) return node
+      if (this.pointInTransitionRegion(node, point)) return node
     }
     return null
   }
@@ -182,11 +189,13 @@ export class StateMachineGraphRenderer {
       this.drawEdge(ctx, edge, nodesById, state.selectedEdgeId === edge.id, bidirectional)
     }
     assert(state.selectedNodeIds instanceof Set, "state machine graph renderer selectedNodeIds must be a Set")
+    assert(state.transitionSourceStates instanceof Map, "state machine graph renderer transitionSourceStates must be a Map")
     for (const node of graph.nodes)
       this.drawNode(ctx, node, {
         selected: state.selectedNodeIds.has(node.id),
         hovered: state.hoveredNodeId === node.id,
         transitionRegionHovered: state.hoveredTransitionNodeId === node.id,
+        transitionSourceState: state.transitionSourceStates.get(node.id),
       })
   }
 
@@ -297,10 +306,12 @@ export class StateMachineGraphRenderer {
     ctx.strokeStyle = cssColor(selected ? this.config.theme.edgeSelected : this.config.theme.edge)
     ctx.fillStyle = ctx.strokeStyle
     ctx.lineWidth = selected ? this.config.edge.selectedWidth : this.config.edge.width
-    assert(
-      edge.switchMode === "immediate" || edge.switchMode === "sync" || edge.switchMode === "at-end",
-      `state machine graph renderer edge ${edge.id} has unknown switch mode ${edge.switchMode}`,
-    )
+    assert(edge.kind === "entry" || edge.kind === "transition", `state machine graph renderer edge ${edge.id} has unknown kind ${edge.kind}`)
+    if (edge.kind === "transition")
+      assert(
+        edge.switchMode === "immediate" || edge.switchMode === "sync" || edge.switchMode === "at-end",
+        `state machine graph renderer edge ${edge.id} has unknown switch mode ${edge.switchMode}`,
+      )
     ctx.setLineDash([])
     ctx.beginPath()
     ctx.moveTo(start.x, start.y)
@@ -322,7 +333,7 @@ export class StateMachineGraphRenderer {
     ctx.closePath()
     ctx.fill()
 
-    if (edge.switchMode === "sync" || edge.switchMode === "at-end") {
+    if (edge.kind === "transition" && (edge.switchMode === "sync" || edge.switchMode === "at-end")) {
       const sync = edge.switchMode === "sync"
       const side = sync ? -1 : 1
       const gap = arrowSize * (sync ? 0.22 : 0.04)
@@ -356,34 +367,46 @@ export class StateMachineGraphRenderer {
   drawNode(ctx, node, state) {
     const { node: nodeConfig, text, theme } = this.config
     const rect = this.nodeBounds(node)
-    const body = this.nodeBodyBounds(node)
-    const fill = state.selected ? theme.nodeSelected : state.hovered ? theme.nodeHover : theme.node
+    const hasTransitionRegion = state.transitionSourceState !== null
+    const body = hasTransitionRegion ? this.nodeBodyBounds(node) : rect
+    const required = node.style === "required"
+    const fill = required
+      ? state.selected ? theme.requiredNodeSelected : state.hovered ? theme.requiredNodeHover : theme.requiredNode
+      : state.selected ? theme.nodeSelected : state.hovered ? theme.nodeHover : theme.node
 
     ctx.save()
     ctx.beginPath()
     ctx.roundRect(rect.x, rect.y, rect.width, rect.height, nodeConfig.radius)
-    ctx.fillStyle = cssColor(state.transitionRegionHovered ? theme.transitionRegionHover : theme.transitionRegion)
+    if (hasTransitionRegion) {
+      const regionColor = state.transitionSourceState === "disabled"
+        ? theme.transitionRegionDisabled
+        : state.transitionRegionHovered ? theme.transitionRegionHover : theme.transitionRegion
+      ctx.fillStyle = cssColor(regionColor)
+    } else {
+      ctx.fillStyle = cssColor(fill)
+    }
     ctx.fill()
     ctx.lineWidth = nodeConfig.borderWidth
-    ctx.strokeStyle = cssColor(node.start ? theme.start : theme.nodeBorder)
+    ctx.strokeStyle = cssColor(theme.nodeBorder)
     ctx.stroke()
 
-    ctx.beginPath()
-    ctx.roundRect(body.x, body.y, body.width, body.height, Math.max(0, nodeConfig.radius - 2))
-    ctx.fillStyle = cssColor(fill)
-    ctx.fill()
+    if (hasTransitionRegion) {
+      ctx.beginPath()
+      ctx.roundRect(body.x, body.y, body.width, body.height, Math.max(0, nodeConfig.radius - 2))
+      ctx.fillStyle = cssColor(fill)
+      ctx.fill()
+    }
 
     ctx.fillStyle = cssColor(theme.text)
     ctx.font = `600 ${text.titleSize}px ${text.font}`
     ctx.textBaseline = "middle"
-    ctx.fillText(String(node.name), body.x + text.padding, body.y + body.height / 2, body.width - text.padding * 2)
-
-    if (node.start) {
-      ctx.fillStyle = cssColor(theme.start)
-      ctx.beginPath()
-      ctx.arc(body.x + body.width - text.padding, body.y + text.padding, 4, 0, Math.PI * 2)
-      ctx.fill()
+    const iconOffset = node.icon ? text.titleSize + 6 : 0
+    if (node.icon) {
+      ctx.font = `${text.titleSize + 3}px "Material Symbols Rounded"`
+      ctx.fillText(String(node.icon), body.x + text.padding, body.y + body.height / 2)
+      ctx.font = `600 ${text.titleSize}px ${text.font}`
     }
+    ctx.fillText(String(node.name), body.x + text.padding + iconOffset, body.y + body.height / 2, body.width - text.padding * 2 - iconOffset)
     ctx.restore()
   }
 }
