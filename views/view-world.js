@@ -20,6 +20,25 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error)
 }
 
+function parsePropertyInputs(config) {
+  const inputs = config.inputs
+  if (inputs === undefined) return {}
+  assert(
+    inputs && typeof inputs === "object" && !Array.isArray(inputs),
+    "view-world config.inputs must be an object",
+  )
+  const result = {}
+  for (const [key, markup] of Object.entries(inputs)) {
+    assert(key.length > 0, "view-world config.inputs key must be non-empty")
+    assert(
+      typeof markup === "string" && markup.trim().length > 0,
+      `view-world config.inputs.${key} must be non-empty HTML`,
+    )
+    result[key] = markup
+  }
+  return result
+}
+
 function parseAxisInversion(config) {
   const invert = config.invert
   if (invert === undefined) return { x: false, y: false }
@@ -683,6 +702,7 @@ export class ViewWorld extends ViewCanvasBase {
     this.hoverTooltipId = 0
     this.invertX = false
     this.invertY = false
+    this.propertyInputs = {}
     this.syncingDataSource = false
   }
 
@@ -815,6 +835,7 @@ export class ViewWorld extends ViewCanvasBase {
     const inversion = parseAxisInversion(this.viewConfig.config)
     this.invertX = inversion.x
     this.invertY = inversion.y
+    this.propertyInputs = parsePropertyInputs(this.viewConfig.config)
     this.setBusy(true)
     this.rendererRegistry = await WorldObjectRendererRegistry.create(
       this.viewConfig.config,
@@ -1152,7 +1173,12 @@ export class ViewWorld extends ViewCanvasBase {
         title,
         size: "medium",
         tag: "view-props",
-        props: { title, dataSource: object.props, valueMode: "json" },
+        props: {
+          title,
+          dataSource: object.props,
+          valueMode: "json",
+          inputs: this.propertyInputs,
+        },
       }),
     )
     if (!payload || payload.cancelled) return

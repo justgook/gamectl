@@ -206,6 +206,12 @@ Core Views should share reusable custom UI elements instead of hard-coding dupli
 - `widget-breadcrumbs` - reusable path navigation for hierarchical editors.
 - `widget-timeline` - reusable timeline widget for layers, frames, cels, and later tags.
 
+### Custom input widgets
+
+Reusable custom input elements live in `packages/widgets/inputs/` and are imported through absolute browser paths under `/widgets/inputs/`. Their custom-element names must start with `widget-input-`; the remaining tag name maps to the module filename in that directory. Custom input widgets must expose a `value` property containing the authored value. Views that host configurable custom inputs must select the widget by the authored property name and replace the value editor when that name changes.
+
+When the available input widgets are documented here, each widget entry should contain only its custom-element name followed by a short description. Detailed usage belongs outside this guide.
+
 ## Reusable UI utilities
 
 Reusable non-custom-element UI helpers may live in `packages/util/` when they create short-lived browser UI behavior rather than a mounted component. Floating tooltip-family UI is not a utility concern; Core Views must use the `ui.tooltip` UI Service for tips, context menus, and autocomplete menus.

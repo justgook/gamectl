@@ -40,6 +40,37 @@ function resolveValueMode(props, element) {
     return mode
 }
 
+function createInputElement(markup, key) {
+    const template = document.createElement("template")
+    template.innerHTML = markup.trim()
+    assert(template.content.children.length === 1, `view-props input ${key} must contain exactly one element`)
+    for (const node of template.content.childNodes) {
+        assert(node.nodeType === Node.ELEMENT_NODE || String(node.textContent).trim() === "", `view-props input ${key} must contain only one element`)
+    }
+    const editor = template.content.firstElementChild
+    const tag = editor.tagName.toLowerCase()
+    assert(/^widget-input-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tag), `view-props input ${key} must use a widget-input-* element`)
+    return editor
+}
+
+async function loadInputTemplates(input) {
+    if (input === undefined) return {}
+    assert(input && typeof input === "object" && !Array.isArray(input), "view-props inputs must be an object")
+    const templates = {}
+    for (const [key, markup] of Object.entries(input)) {
+        assert(key.length > 0, "view-props input property name must be non-empty")
+        assert(typeof markup === "string" && markup.trim().length > 0, `view-props input ${key} must be non-empty HTML`)
+        const editor = createInputElement(markup, key)
+        const tag = editor.tagName.toLowerCase()
+        const moduleName = tag.slice("widget-input-".length)
+        const moduleUrl = new URL(`/widgets/inputs/${moduleName}.js`, location.origin).href
+        await import(moduleUrl)
+        assert(customElements.get(tag), `view-props input ${key} module did not register ${tag}`)
+        templates[key] = markup
+    }
+    return templates
+}
+
 export class ViewProps extends HTMLElement {
     static get observedAttributes() {
         return ["data-source", "data-title", "data-value-mode"]
@@ -53,6 +84,7 @@ export class ViewProps extends HTMLElement {
         this.statusElement = null
         this.rowsElement = null
         this.props = {}
+        this.inputTemplates = {}
         this.valueMode = "string"
     }
 
@@ -111,29 +143,25 @@ export class ViewProps extends HTMLElement {
             if (this.rowsElement.children.length === 0) this.addRow("", "")
         })
 
-        this.load()
+        void this.load()
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
         if (oldValue === newValue) return
         if (!this.dataset.ready) return
-        if (name === "data-source" || name === "data-title" || name === "data-value-mode") this.load()
+        if (name === "data-source" || name === "data-title" || name === "data-value-mode") void this.load()
     }
 
-    load() {
+    async load() {
         const props = this.popupProps || {}
         const title = String(props.title || this.getAttribute("data-title") || "Properties")
         this.legendElement.textContent = title
         this.valueMode = resolveValueMode(props, this)
+        this.inputTemplates = await loadInputTemplates(props.inputs)
         const dataSource = this.readDataSource(props)
         this.props = this.valueMode === "json" ? cloneJsonProps(dataSource) : cloneStringProps(dataSource)
         this.renderRows()
-        this.setStatus(
-            this.valueMode === "json"
-                ? 'Values must be JSON literals; quote strings like "text"'
-                : "Edit string properties",
-            "info",
-        )
+        this.setStatus(this.valueMode === "json" ? 'Values must be JSON literals; quote strings like "text"' : "Edit string properties", "info")
     }
 
     readDataSource(props) {
@@ -171,16 +199,12 @@ export class ViewProps extends HTMLElement {
         row.appendChild(keyCell)
 
         const valueCell = document.createElement("td")
-        const valueInput = document.createElement("input")
-        valueInput.type = "text"
-        valueInput.name = "prop-value"
-        valueInput.value = value
-        valueInput.placeholder = this.valueMode === "json" ? "JSON value" : "value"
-        valueInput.setAttribute("autocomplete", "off")
-        valueInput.setAttribute("autocorrect", "off")
-        valueInput.setAttribute("autocapitalize", "off")
-        valueInput.spellcheck = false
-        valueCell.appendChild(valueInput)
+        const initialValue = key === "" && value === "" ? undefined : this.decodeStoredValue(value, key)
+        this.mountValueEditor(valueCell, key, initialValue)
+        keyInput.addEventListener("input", () => {
+            const currentValue = this.readValueEditor(row, { allowInvalidJson: true })
+            this.mountValueEditor(valueCell, keyInput.value.trim(), currentValue)
+        })
         row.appendChild(valueCell)
 
         const actionsCell = document.createElement("td")
@@ -197,29 +221,74 @@ export class ViewProps extends HTMLElement {
         this.rowsElement.appendChild(row)
     }
 
+    decodeStoredValue(value, key) {
+        if (this.valueMode === "string") return value
+        try {
+            return JSON.parse(value)
+        } catch (error) {
+            throw new Error(`Property ${key} must be valid JSON: ${error instanceof Error ? error.message : String(error)}`)
+        }
+    }
+
+    mountValueEditor(valueCell, key, value) {
+        valueCell.replaceChildren()
+        const markup = this.inputTemplates[key]
+        if (markup !== undefined) {
+            const parsedEditor = createInputElement(markup, key)
+            const tag = parsedEditor.tagName.toLowerCase()
+            assert(customElements.get(tag), `view-props input ${key} custom element ${tag} is not registered`)
+            const registeredEditor = document.createElement(tag)
+            for (const attribute of parsedEditor.attributes) {
+                registeredEditor.setAttribute(attribute.name, attribute.value)
+            }
+            registeredEditor.append(...[...parsedEditor.childNodes].map((node) => node.cloneNode(true)))
+            assert("value" in registeredEditor, `view-props input ${key} must expose value`)
+            valueCell.appendChild(registeredEditor)
+            if (value !== undefined) registeredEditor.value = value
+            return
+        }
+
+        const valueInput = document.createElement("input")
+        valueInput.type = "text"
+        valueInput.name = "prop-value"
+        valueInput.value = value === undefined ? "" : this.valueMode === "json" ? stringifyJsonValue(value, `view-props property ${key}`) : String(value)
+        valueInput.placeholder = this.valueMode === "json" ? "JSON value" : "value"
+        valueInput.setAttribute("autocomplete", "off")
+        valueInput.setAttribute("autocorrect", "off")
+        valueInput.setAttribute("autocapitalize", "off")
+        valueInput.spellcheck = false
+        valueCell.appendChild(valueInput)
+    }
+
+    readValueEditor(row, { allowInvalidJson = false } = {}) {
+        const valueCell = row.children[1]
+        assert(valueCell instanceof HTMLTableCellElement, "view-props row missing value cell")
+        const editor = valueCell.firstElementChild
+        assert(editor instanceof HTMLElement, "view-props row missing value editor")
+        if (editor.tagName.toLowerCase().startsWith("widget-input-")) return editor.value
+        assert(editor instanceof HTMLInputElement && editor.name === "prop-value", "view-props row has invalid value editor")
+        if (this.valueMode === "string") return editor.value
+        try {
+            return JSON.parse(editor.value)
+        } catch (error) {
+            if (allowInvalidJson) return undefined
+            throw new Error(`Property value must be valid JSON: ${error instanceof Error ? error.message : String(error)}`)
+        }
+    }
+
     collectProps() {
         const props = {}
         const seen = new Set()
         for (const row of this.rowsElement.querySelectorAll('tr[data-element="prop-row"]')) {
             const keyInput = row.querySelector('input[name="prop-key"]')
-            const valueInput = row.querySelector('input[name="prop-value"]')
             assert(keyInput instanceof HTMLInputElement, "view-props row missing key input")
-            assert(valueInput instanceof HTMLInputElement, "view-props row missing value input")
             const key = keyInput.value.trim()
             if (!key) continue
             if (seen.has(key)) throw new Error(`Duplicate property key ${key}`)
             seen.add(key)
-            if (this.valueMode === "string") {
-                props[key] = valueInput.value
-                continue
-            }
-            try {
-                props[key] = JSON.parse(valueInput.value)
-            } catch (error) {
-                throw new Error(
-                    `Property ${key} must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
-                )
-            }
+            const value = this.readValueEditor(row)
+            assert(value !== undefined, `Property ${key} requires a value`)
+            props[key] = value
         }
         return props
     }

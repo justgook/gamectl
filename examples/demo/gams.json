@@ -718,6 +718,11 @@
           "invert": {
             "y": true
           },
+          "inputs": {
+            "layer": "<widget-input-enum type=\"int\" front=\"1\" back=\"3\" middle=\"2\"></widget-input-enum>",
+            "url": "<widget-input-file filter=\"*.png,*.jpg,*.jpeg,*.webp,*.gif,*.bmp\"></widget-input-file>",
+            "tilemap": "<widget-input-file filter=\"*.tilemap.json,*.map.json,*.json\"></widget-input-file>"
+          },
           "renderers": {
             "rectangle": {
               "url": "world-renderers/rectangle.js",

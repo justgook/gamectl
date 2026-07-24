@@ -12,7 +12,8 @@
     "render": "rectangle",
     "width": 64,
     "height": 16,
-    "color": "#7aa2ff"
+    "color": "#7aa2ff",
+    "layer": 1
   },
   {
     "x": 112,
