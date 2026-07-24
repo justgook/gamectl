@@ -1,10 +1,6 @@
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
 import { runtime, unwrap } from "/core/runtime.js"
 
-// PROTOTYPE: header-navigation is not yet part of the approved Core View
-// vocabulary. Finalize it with widget-breadcrumbs before updating the guide.
-// or better move the breadcrumbs to the header-controls - and make it appear on left (add ability to align it, or make that on css level)
-
 function resultOk(value) {
     return { ok: value }
 }
@@ -58,7 +54,6 @@ export class ViewArea extends HTMLElement {
       <link rel="stylesheet" href="/css/base.css">
       <header part="header">
         <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
-        <slot name="header-navigation" part="header-navigation"></slot>
         <slot name="header-controls" part="header-controls"></slot>
       </header>
       <main><slot></slot></main>`

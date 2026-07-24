@@ -1,7 +1,6 @@
-// PROTOTYPE: widget-breadcrumbs and the header-navigation slot use an
-// undocumented Core View UI pattern. Do not treat this markup or API as stable
-// until the breadcrumb vocabulary is approved and added to the GAMS View
-// Development Guide.
+// PROTOTYPE: widget-breadcrumbs uses an undocumented Core View UI pattern.
+// Do not treat this markup or API as stable until the breadcrumb vocabulary is
+// approved and added to the GAMS View Development Guide.
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -37,6 +36,8 @@ export class WidgetBreadcrumbs extends HTMLElement {
   }
 
   connectedCallback() {
+    this.setAttribute("role", "navigation")
+    this.setAttribute("aria-label", "Breadcrumb")
     this.render()
   }
 
@@ -44,17 +45,11 @@ export class WidgetBreadcrumbs extends HTMLElement {
     if (!this.isConnected) return
     assert(this._items.length > 0, "widget-breadcrumbs requires at least one item")
     const lastIndex = this._items.length - 1
-    this.innerHTML = `
-      <nav aria-label="Breadcrumb">
-        <ol>
-          ${this._items.map((item, index) => {
-            const content = `${item.icon ? `<i aria-hidden="true">${escapeHtml(item.icon)}</i>` : ""}<span>${escapeHtml(item.label)}</span>`
-            if (index === lastIndex) return `<li><output aria-current="page">${content}</output></li>`
-            return `<li><button type="button" data-index="${index}">${content}</button><i aria-hidden="true">chevron_right</i></li>`
-          }).join("")}
-        </ol>
-      </nav>
-    `
+    this.innerHTML = this._items.map((item, index) => {
+      const content = `${item.icon ? `<i aria-hidden="true">${escapeHtml(item.icon)}</i>` : ""}<span>${escapeHtml(item.label)}</span>`
+      if (index === lastIndex) return `<output aria-current="page">${content}</output>`
+      return `<button type="button" data-index="${index}">${content}</button><i aria-hidden="true">chevron_right</i>`
+    }).join("")
     for (const button of this.querySelectorAll("button[data-index]")) {
       button.addEventListener("click", () => {
         const index = Number(button.dataset.index)

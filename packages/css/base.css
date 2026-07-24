@@ -665,12 +665,6 @@
         overflow: hidden;
     }
 
-    [slot="header-navigation"] {
-        flex: 1 1 auto;
-        min-width: 0;
-        float: left;
-    }
-
     main {
         min-width: 0;
         min-height: 0;
@@ -886,49 +880,34 @@
     }
 
     /* PROTOTYPE: pending breadcrumb vocabulary in the Core View guide. */
-    widget-breadcrumbs[slot="header-navigation"] {
-        display: block;
-        min-width: 0;
-        overflow: hidden;
-    }
 
-    widget-breadcrumbs nav,
-    widget-breadcrumbs ol,
-    widget-breadcrumbs li,
+    widget-breadcrumbs,
     widget-breadcrumbs button,
     widget-breadcrumbs output {
         min-width: 0;
     }
 
-    widget-breadcrumbs ol,
-    widget-breadcrumbs li,
+    widget-breadcrumbs,
     widget-breadcrumbs button,
     widget-breadcrumbs output {
         display: flex;
         align-items: center;
     }
 
-    widget-breadcrumbs ol {
-        margin: 0;
-        padding: 0;
-        list-style: none;
+    widget-breadcrumbs {
         overflow: hidden;
-    }
-
-    widget-breadcrumbs li {
-        flex: 0 1 auto;
-        overflow: hidden;
-    }
-
-    widget-breadcrumbs li:last-child {
-        flex-shrink: 1;
     }
 
     widget-breadcrumbs button,
     widget-breadcrumbs output {
+        flex: 0 1 auto;
         gap: var(--space-1);
         overflow: hidden;
         white-space: nowrap;
+    }
+
+    widget-breadcrumbs > i {
+        flex: 0 0 auto;
     }
 
     widget-breadcrumbs button {
