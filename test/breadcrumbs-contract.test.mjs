@@ -4,14 +4,17 @@ import test from "node:test"
 
 const layoutSource = await readFile(new URL("../ui-plugins/layout.js", import.meta.url), "utf8")
 const widgetSource = await readFile(new URL("../packages/widgets/breadcrumbs.js", import.meta.url), "utf8")
+const guideSource = await readFile(new URL("../docs/reference/gams-view-development-guide.md", import.meta.url), "utf8")
 
 test("Area exposes header controls without a separate header navigation slot", () => {
   assert.doesNotMatch(layoutSource, /header-navigation/)
   assert.match(layoutSource, /<slot name="header-controls" part="header-controls"><\/slot>/)
 })
 
-test("breadcrumb widget remains explicitly provisional until guide approval", () => {
-  assert.match(widgetSource, /^\/\/ PROTOTYPE:/)
+test("breadcrumb widget is documented as reusable Core View vocabulary", () => {
+  assert.doesNotMatch(widgetSource, /PROTOTYPE/)
+  assert.match(guideSource, /## Breadcrumb widget/)
+  assert.match(guideSource, /`navigate` - bubbling event/)
   assert.match(widgetSource, /CustomEvent\("navigate"/)
 })
 

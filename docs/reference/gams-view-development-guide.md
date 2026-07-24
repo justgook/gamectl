@@ -35,6 +35,7 @@ Optional elements should appear at most once per view.
 
 - `header` - should not be used inside view HTML.
 - `[slot="header-controls"]` - header tools/actions area for the view.
+- `widget-breadcrumbs[data-element="breadcrumbs"]` - optional path navigation for hierarchical editors; when present, it should be the first header control.
 - Header controls should use grouped button clusters in this order when present: `file-actions`, tool/domain actions, `edit-actions`, `view-actions`, `config-actions`.
 - `[role="buttongroup"][data-element="file-actions"]` - new/open/save/save-as/reload source actions.
 - `[role="buttongroup"][data-element="tool-actions"]` - primary view-specific tools/actions.
@@ -202,11 +203,20 @@ Core Views should share reusable custom UI elements instead of hard-coding dupli
 
 - `code-editor` - text area for code editing with highlight.
 - `view-pagination` - generic pagination widget for paged views.
+- `widget-breadcrumbs` - reusable path navigation for hierarchical editors.
 - `widget-timeline` - reusable timeline widget for layers, frames, cels, and later tags.
 
 ## Reusable UI utilities
 
 Reusable non-custom-element UI helpers may live in `packages/util/` when they create short-lived browser UI behavior rather than a mounted component. Floating tooltip-family UI is not a utility concern; Core Views must use the `ui.tooltip` UI Service for tips, context menus, and autocomplete menus.
+
+## Breadcrumb widget
+
+Import `/widgets/breadcrumbs.js`, create `widget-breadcrumbs`, and set its required `items` property before connecting it to the document. The widget owns its navigation landmark semantics and rendered child markup; views should interact with its property and event API rather than its internal elements.
+
+- `items` - non-empty array of `{ id, label, icon? }` records. Each `id` must be a unique non-empty string, each `label` must be a non-empty string, and optional `icon` values must be non-empty Material Symbol names.
+- Setting `items` replaces and rerenders the complete path. The final item is the current page and is not interactive; preceding items are navigation controls.
+- `navigate` - bubbling event emitted when a preceding item is activated. `event.detail` is `{ id, index }`, identifying the selected item.
 
 ## Timeline widget
 

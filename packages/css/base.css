@@ -879,8 +879,6 @@
         background: var(--border);
     }
 
-    /* PROTOTYPE: pending breadcrumb vocabulary in the Core View guide. */
-
     widget-breadcrumbs,
     widget-breadcrumbs button,
     widget-breadcrumbs output {

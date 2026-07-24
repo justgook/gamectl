@@ -1,7 +1,3 @@
-// PROTOTYPE: widget-breadcrumbs uses an undocumented Core View UI pattern.
-// Do not treat this markup or API as stable until the breadcrumb vocabulary is
-// approved and added to the GAMS View Development Guide.
-
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
