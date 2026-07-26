@@ -20,6 +20,7 @@ This section documents the wiki engine and its authoring features. It is intenti
 
 ## Guide pages
 
+- [[Wiki/Content Style Guide|Content style guide]] defines the preferred order for presenting information: chart, schema, image, table, formula, then text.
 - [[Wiki/Markdown Authoring|Markdown and navigation]] explains pages, metadata, links, and sidebar structure.
 - [[Wiki/Markdown Cheat Sheet|Markdown cheat sheet]] demonstrates common text, list, table, quote, and code syntax.
 - [[Wiki/Formulas|Formula examples]] documents LaTeX-style inline and display math rendered with KaTeX.

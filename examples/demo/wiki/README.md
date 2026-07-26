@@ -18,7 +18,8 @@ A local HTTP server is required because browsers do not allow `fetch()` to read 
 
 - Pages are Markdown files under `content/`.
 - Every page requires YAML frontmatter with a `title` and a status: `accepted`, `in-progress`, `todo`, or `reference`.
-- Status marker blockquotes such as `> **Accepted** — ...`, `> **Open question** — ...`, and `> **Needs image** — ...` distinguish decided content from missing work inside a page.
+- Status marker blockquotes such as `> **Accepted** — ...`, `> **Open question** — ...`, and `> **Needs evidence** — ...` distinguish decided content from missing work inside a page.
+- Required images must always be embedded as dedicated image files. If the final asset is unavailable, use a placeholder whose contents describe the required replacement; do not put image replacement instructions in page prose.
 - `content/_sidebar.md` defines navigation using Markdown headings and lists.
 - Headings are section separators. A top-level list item with children becomes a collapsible category and must itself be a wiki link to a content page.
 - `content/_config.md` defines the wiki title, description, and home page.

@@ -58,6 +58,7 @@
 
 ## Wiki guide
 
+- [[Wiki/Content Style Guide|Content style guide]]
 - [[Wiki/Overview|Using this wiki]]
   - [[Wiki/Markdown Authoring|Markdown and navigation]]
   - [[Wiki/Markdown Cheat Sheet|Markdown cheat sheet]]
