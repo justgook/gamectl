@@ -61,6 +61,9 @@ Cooperative and competitive multiplayer, console certification, mobile, touch, a
 
 - [[Design/Player Experience]]
 - [[Design/Design Pillars]]
+- [[World/Overview]]
+- [[World/Progression Map]]
+- [[Characters/Overview]]
 - [[Design/Art Direction]]
 - [[Gameplay/Core Loop]]
 - [[Production/Scope]]

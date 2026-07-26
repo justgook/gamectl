@@ -11,6 +11,10 @@ This page contains questions, not design truth. When a question is resolved, upd
 
 > **Accepted** — The first internal One Pager is complete enough to guide deeper design. Remaining uncertainties are explicitly marked and should be resolved through focused design work rather than adding more high-level concepts.
 
+## Current narrative decision
+
+> **Open question** — What explanation does the controller give after suppressing the killed-in-action biometric record, and how much doubt do the other crew members express over radio?
+
 ## Current validation step
 
 > **Needs evidence** — Build the flat freight-terminal blockout and tune movement, jump, camera, projectile timing, enemy spacing, integrity values, and encounter duration through play.
@@ -43,6 +47,10 @@ These remain important but should not interrupt completion of the One Pager:
 
 ## Recently resolved
 
+- **First contradiction:** the rail-control system recognizes the Rifle Marine under an unknown designation officially recorded as killed in action; the controller suppresses the connection.
+- **Opening delivery:** control begins immediately; objective and crew familiarity arrive through operational radio dialogue during the safe-arrival beat.
+- **Opening progression:** new game deploys directly into Restore the Cargo Line with preselected Rifle Marine and Baseline Rifle; first success unlocks the Hub.
+- **Hub presentation:** compact navigable side-view Zone with direct shortcuts to character, equipment, Mission, and Memory interfaces.
 - **Private asset workflow:** licensed CraftPix source and derivatives stay under the git-ignored `examples/demo/game/assets.private/craftpix/` directory. See [[Design/Art Direction|Art direction]].
 - **Baseline camera:** smooth side-follow with dead zones, gradual movement-based look-ahead, vertical bias, authored bounds, backward support, and no forced scrolling.
 - **Baseline encounter sequence:** safe arrival, low-fire sentry, high-fire sentry, Shield Enforcer, brief reset, crane-plus-sentry, then rail-control terminal.
@@ -59,14 +67,14 @@ These remain important but should not interrupt completion of the One Pager:
 - **Baseline threat sequence:** teach a ranged sentry, then an advancing enemy, then combine the sentry with one timed freight hazard.
 - **Encounter build order:** begin with a flat single path; add one fork only after the action baseline works, then add a Memory-gated route as a third pass. See [[Gameplay/Representative Encounter|Representative encounter]].
 - **Representative setting:** the first validation slice is an industrial freight terminal built from a constrained threat and route vocabulary. See [[Gameplay/Representative Encounter|Representative encounter]].
-- **Baseline character:** a balanced Rifle Marine serves as the control case for movement, shooting, evasion, and route discovery. See [[Design/Characters|Characters]].
+- **Baseline character:** a balanced Rifle Marine serves as the control case for movement, shooting, evasion, and route discovery. See [[Characters/Rifle Marine|Rifle Marine]].
 - **Title and tagline:** **Imprint Zero** — *You know how to fight. Not who you are.* See [[Design/Game Vision|Game vision]].
-- **Campaign premise:** a conditioned recovery crew knows its missions and operational skills but lacks reliable autobiographical identity and knowledge of its true controller. See [[Design/World|World]].
-- **Opening knowledge:** the crew and player know immediately that personal identity is missing or unreliable; whether the crew members are originals, clones, or manufactured people remains a central mystery. See [[Design/Characters|Characters]].
+- **Campaign premise:** a conditioned recovery crew knows its missions and operational skills but lacks reliable autobiographical identity and knowledge of its true controller. See [[World/Overview|World]].
+- **Opening knowledge:** the crew and player know immediately that personal identity is missing or unreliable; whether the crew members are originals, clones, or manufactured people remains a central mystery. See [[Characters/Overview|Playable crew]].
 - **Initial obedience:** soldiering is the crew's only stable identity; refusal is physically possible, but conditioning makes doubt feel improper and unsafe. See [[Design/Player Experience|Player experience]].
-- **Mission morality:** early operations create genuine local benefits while secretly advancing the controller's larger purpose. See [[Design/World|World]].
-- **Concealed project:** the controller is rebuilding an industrial system for extracting, editing, copying, and deploying human identity. See [[Design/World|World]].
-- **Memory Imprints:** recovered memories reveal truth and grant capability; they expand rather than replace character identity. See [[Gameplay/Mechanics|Mechanics]].
+- **Mission morality:** early operations create genuine local benefits while secretly advancing the controller's larger purpose. See [[Missions/Restore the Cargo Line|Restore the Cargo Line]].
+- **Concealed project:** the controller is rebuilding an industrial system for extracting, editing, copying, and deploying human identity. See [[World/Overview|World]].
+- **Memory Imprints:** recovered memories reveal truth and grant capability; they expand rather than replace character identity. See [[Equipment/Memory Imprints|Memory Imprints]].
 - **Intended audience:** players seeking readable but demanding authored 2D action, character-specific replay, consequential discovery, and atmospheric mystery delivered through play. See [[Design/Game Vision|Game vision]].
 - **Design pillars:** familiarity without repetition, character choice transforms play, and discovery changes understanding and action. See [[Design/Design Pillars|Design pillars]].
 - **Release mode:** strictly single-player, with one locally controlled character per deployment and no multiplayer requirement. See [[Production/Scope|Scope and non-goals]].
@@ -74,7 +82,7 @@ These remain important but should not interrupt completion of the One Pager:
 - **Platform and input:** PC first; gamepad defines action design; fully remappable keyboard controls are required. See [[Production/Scope|Scope and non-goals]].
 - **Macro structure:** authored campaign with selective exploration and death-cycle elements. See [[Gameplay/Progression|Progression]].
 - **Procedural generation:** not part of the current direction. See [[Production/Scope|Scope and non-goals]].
-- **Character death:** unlocked authored characters remain available for free reselection. See [[Design/Characters|Characters]].
-- **Crew model:** all playable characters coexist at a shared hub and participate in one persistent campaign. See [[Design/Characters|Characters]].
-- **Deployment model:** one selected character is controlled per deployment; switching occurs only at the hub after death or voluntary return. See [[Design/Characters|Characters]].
-- **Ownership model:** equipment and ordinary inventory are shared; item upgrades stay with the item; innate abilities and mastery stay with the character. See [[Design/Characters|Characters]].
+- **Character death:** unlocked authored characters remain available for free reselection. See [[Characters/Overview|Playable crew]].
+- **Crew model:** all playable characters coexist at a shared Hub and participate in one persistent campaign. See [[Characters/Overview|Playable crew]].
+- **Deployment model:** one selected character is controlled per deployment; switching occurs only at the Hub after death or voluntary return. See [[Characters/Overview|Playable crew]].
+- **Ownership model:** equipment and ordinary inventory are shared; item upgrades stay with the item; innate abilities and mastery stay with the character. See [[Equipment/Overview|Equipment]].

@@ -39,6 +39,10 @@ The player's first form of rebellion is therefore not defeating the controller�
 
 > **Accepted** — Early missions create genuine local benefits while concealing their institutional purpose. Questioning an order is morally difficult because abandoning the mission may hurt people who actually need its stated outcome.
 
+## Opening experience
+
+> **Accepted** — A new game gives control almost immediately. Mission objective and other crew voices arrive over radio during safe movement. The player learns action before receiving the first identity contradiction; the Hub becomes the first quiet narrative pause.
+
 ## Representative play
 
 > **Needs evidence** — The action loop is described, but one playable encounter must prove its decisions, feedback, and character-specific variation.

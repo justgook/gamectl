@@ -38,4 +38,4 @@ Open [http://localhost:8080](http://localhost:8080). A local HTTP server is requ
 
 ## Boundary
 
-Pages under **Start here**, **Game design**, and **Production** describe the game. Pages under **Wiki guide** describe this documentation tool. Example source files used only by this guide live under `content/wiki/examples/`.
+All sidebar sections above **Wiki guide** describe the game and its production. Pages under **Wiki guide** describe this documentation tool. Example source files used only by this guide live under `content/wiki/examples/`.

@@ -33,9 +33,17 @@ Selected supporting elements may include:
 
 Procedural level generation and a complete randomized run reset are outside the current direction. “Roguelite” is therefore too ambiguous to name the structure; this wiki uses **authored campaign** and **death cycle** until the latter is precisely defined.
 
-## Detailed pages
+## System pages
 
 - [[Gameplay/Core Loop|Core loop]] defines repeated actions, feedback, and consequences.
-- [[Gameplay/Representative Encounter|Representative encounter]] validates the foundation in one industrial freight-terminal slice.
-- [[Gameplay/Mechanics|Mechanics]] defines player verbs, rules, resources, and interactions.
-- [[Gameplay/Progression|Progression]] defines what changes within a stage, after death, and across the game.
+- [[Gameplay/Representative Encounter|Representative encounter]] validates the foundation in one freight-terminal slice.
+- [[Gameplay/Mechanics|Mechanics]] owns cross-cutting action, input, camera, damage, and ownership rules.
+- [[Gameplay/Progression|Progression]] defines what changes within a deployment, after death, and across the campaign.
+
+## Canonical content
+
+- [[World/Progression Map|Progression Map]] — Zone, Mission, deployment, and return relationships.
+- [[Characters/Overview|Playable Crew]] — roster and character ownership.
+- [[Enemies/Overview|Enemy Catalogue]] — enemy roles and tactical rules.
+- [[Equipment/Overview|Equipment Catalogue]] — weapons, items, and Memory Imprints.
+- [[Missions/Overview|Mission Catalogue]] — objective-driven Zone deployments.

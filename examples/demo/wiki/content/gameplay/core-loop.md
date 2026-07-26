@@ -23,15 +23,21 @@ Authored encounters may shift emphasis between traversal, combat, discovery, and
 
 ## Character transformation
 
+See [[Characters/Overview|Playable Crew]] for roster rules and [[Characters/Rifle Marine|Rifle Marine]] for the baseline.
+
 The selected character must alter how the player reads, chooses, or executes within this loop. Cosmetic differences and small statistical changes are insufficient.
 
 > **Needs example** — Define a baseline character and contrasting character against the same representative encounter.
 
-## Macro loop
+## Opening exception
+
+> **Accepted** — A new game skips the Hub and menus. The [[Characters/Rifle Marine|Rifle Marine]], [[Equipment/Baseline Rifle|Baseline Rifle]], and [[Missions/Restore the Cargo Line|introduction Mission]] are preselected so the player begins in action. First success unlocks the Hub.
+
+## Standard macro loop
 
 > **In progress** — The authored-campaign spine is accepted; exact return and persistence rules remain open.
 
-1. Select one crew member and loadout at the shared hub, then deploy into the authored campaign.
+1. Select one crew member, [[Equipment/Overview|loadout]], and [[Missions/Overview|Mission]] at the [[World/Hub|Hub]].
 2. Advance through encounters, routes, and set pieces.
 3. Discover persistent knowledge, access, equipment, or shortcuts.
 4. Reach a major objective or die.
@@ -44,4 +50,4 @@ The player cannot swap characters during a deployment. The exact spatial and fic
 
 Death should reopen meaningful choices rather than randomize the authored world. It may support experimentation with another character, route, weapon, or upgrade investment.
 
-> **Open question** — Define return conditions, retained equipment and upgrades, recovery, transfer rules, and the intended emotional cost of repeated traversal. Shared world discoveries and shortcuts persist for the crew.
+> **Open question** — Define return conditions, retained equipment and upgrades, recovery, transfer rules, and the intended emotional cost of repeated traversal. Shared world discoveries and shortcuts persist for the crew. See [[World/Progression Map|Progression Map]].

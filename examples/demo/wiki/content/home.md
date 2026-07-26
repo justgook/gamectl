@@ -23,7 +23,7 @@ The world draws from late-20th-century cyberpunk: industrial decay, technologica
 
 Recovered **Memory Imprints** are both evidence and progression: each reveals truth about an identity, institution, or place while granting a technique, tactical understanding, interaction, or route permission. Imprints expand a character without replacing that character's innate combat identity.
 
-The structural spine is an **authored campaign**. The player deploys one selected crew member at a time; changing characters happens at the hub after death or voluntary return. Exploration, persistent shortcuts, death recovery, and post-death choices may support the campaign, but procedural generation and complete randomized runs do not define it.
+The **authored campaign** opens directly in the Freight Terminal with a preselected Rifle Marine, rifle, and Mission. First success introduces the Hub; later deployments begin there with character, loadout, and destination choice. Shortcuts and death recovery support the campaign, but procedural generation and randomized runs do not define it.
 
 > **Accepted** — The first release targets PC and is strictly single-player, with one locally controlled character per deployment. Gamepad defines the action design; fully remappable keyboard controls are required. Multiplayer, console certification, mobile, touch, and mouse-dependent play are not requirements.
 
@@ -63,7 +63,7 @@ See [[Production/References|References]].
 
 > **In progress** — The setting and visual thesis have direction; premise, narrative tone, and audio identity remain open.
 
-See [[Design/World and Content|World and content]] and [[Design/Art Direction|art direction]].
+See [[World/Overview|World]], [[World/Progression Map|Progression Map]], and [[Design/Art Direction|Art Direction]].
 
 ## First releasable scope
 
