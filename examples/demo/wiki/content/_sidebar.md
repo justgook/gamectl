@@ -11,13 +11,24 @@
   - [[World/Progression Map|Progression map]]
   - [[World/Freight Terminal|Freight terminal]]
   - [[World/Hub|Hub]]
+  - [[World/Flood Control Works|Flood-Control Works]]
+  - [[World/Automated Fabrication Plant|Automated Fabrication Plant]]
 - [[Missions/Overview|Missions]]
   - [[Missions/Restore the Cargo Line|Restore the Cargo Line]]
+  - [[Missions/Open the Floodgates|Open the Floodgates]]
+  - [[Missions/Restart the Deep Pumps|Restart the Deep Pumps]]
+  - [[Missions/Breach the Lockdown|Breach the Lockdown]]
+  - [[Missions/Lift the Governor|Lift the Governor]]
 
 ## Game content
 
 - [[Characters/Overview|Playable crew]]
-  - [[Characters/Rifle Marine|Rifle Marine]]
+  - [[Characters/Rook|ROOK]]
+  - [[Characters/Vector|VECTOR]]
+  - [[Characters/Ram|RAM]]
+  - [[Characters/Relay|RELAY]]
+- [[NPCs/Overview|NPCs]]
+  - [[NPCs/Operator|OPERATOR]]
 - [[Enemies/Overview|Enemies]]
   - [[Enemies/Horizontal Sentry|Horizontal sentry]]
   - [[Enemies/Shield Enforcer|Shield Enforcer]]
@@ -32,6 +43,7 @@
   - [[Gameplay/Representative Encounter|Representative encounter]]
   - [[Gameplay/Mechanics|Mechanics]]
   - [[Gameplay/Progression|Progression]]
+  - [[Gameplay/Overdrive|Specializations and Overdrive]]
 
 ## Presentation
 

@@ -39,11 +39,13 @@ Procedural level generation and a complete randomized run reset are outside the 
 - [[Gameplay/Representative Encounter|Representative encounter]] validates the foundation in one freight-terminal slice.
 - [[Gameplay/Mechanics|Mechanics]] owns cross-cutting action, input, camera, damage, and ownership rules.
 - [[Gameplay/Progression|Progression]] defines what changes within a deployment, after death, and across the campaign.
+- [[Gameplay/Overdrive|Specializations and Overdrive]] defines the twelve selectable play styles and their temporary transformations.
 
 ## Canonical content
 
 - [[World/Progression Map|Progression Map]] — Zone, Mission, deployment, and return relationships.
 - [[Characters/Overview|Playable Crew]] — roster and character ownership.
+- [[NPCs/Overview|NPC Catalogue]] — recurring non-playable people and perceived operational entities.
 - [[Enemies/Overview|Enemy Catalogue]] — enemy roles and tactical rules.
 - [[Equipment/Overview|Equipment Catalogue]] — weapons, items, and Memory Imprints.
 - [[Missions/Overview|Mission Catalogue]] — objective-driven Zone deployments.

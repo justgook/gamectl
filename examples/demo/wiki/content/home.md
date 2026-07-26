@@ -17,13 +17,13 @@ This page is the starting point for the internal development team. It should rem
 
 > **In progress** — Choose from an active crew of original heroes gathered at a shared hub, then run, jump, shoot, and discover routes through a modern 16-bit side-scrolling action platformer. Each character materially changes how the journey is played.
 
-The crew receives clear operational missions to recover stolen technology, people, and memories from sealed industrial zones. They know themselves as soldiers or marines and retain the conditioning needed to fight, but know from the opening that their personal histories are missing or unreliable. They do not know whether they are brainwashed originals, clones, manufactured people, or something else. Each deployment produces a genuine local benefit—rescuing people, restoring infrastructure, or recovering something needed—while unknowingly rebuilding an industrial identity-control system. The recovered infrastructure, archives, biological material, and expertise could let the controller extract, edit, copy, and deploy personhood at scale. Deployments expose contradictions in the crew's identities, orders, and larger purpose.
+The crew receives clear operational missions to recover stolen technology, people, and memories from sealed industrial zones. They know themselves as soldiers or marines and retain the conditioning needed to fight, but know from the opening that their personal histories are missing or unreliable. They do not know whether they are brainwashed originals, clones, manufactured people, or something else. Each deployment produces a genuine local benefit—rescuing people, restoring infrastructure, or recovering something needed—while unknowingly rebuilding an industrial identity-control system. The recovered infrastructure, archives, biological material, and expertise could let the authority behind the Missions extract, edit, copy, and deploy personhood at scale. Deployments expose contradictions in the crew's identities, orders, and larger purpose.
 
 The world draws from late-20th-century cyberpunk: industrial decay, technological power, manufactured identity, memory, and institutional control rather than contemporary neon consumer spectacle.
 
 Recovered **Memory Imprints** are both evidence and progression: each reveals truth about an identity, institution, or place while granting a technique, tactical understanding, interaction, or route permission. Imprints expand a character without replacing that character's innate combat identity.
 
-The **authored campaign** opens directly in the Freight Terminal with a preselected Rifle Marine, rifle, and Mission. First success introduces the Hub; later deployments begin there with character, loadout, and destination choice. Shortcuts and death recovery support the campaign, but procedural generation and randomized runs do not define it.
+The **authored campaign** opens directly in the Freight Terminal with preselected ROOK, a rifle, and a Mission. First success introduces the Hub; later deployments begin there with character, loadout, and destination choice. Shortcuts and death recovery support the campaign, but procedural generation and randomized runs do not define it.
 
 > **Accepted** — The first release targets PC and is strictly single-player, with one locally controlled character per deployment. Gamepad defines the action design; fully remappable keyboard controls are required. Multiplayer, console certification, mobile, touch, and mouse-dependent play are not requirements.
 
@@ -75,4 +75,4 @@ See [[Production/Scope|Scope and non-goals]].
 
 ## Next validation target
 
-> **In progress** — Build the [[Gameplay/Representative Encounter|industrial freight-terminal encounter]] for the baseline Rifle Marine and its combat slide, then show how a contrasting character and one Memory Imprint each transform it.
+> **In progress** — Build the [[Gameplay/Representative Encounter|industrial freight-terminal encounter]] for ROOK's default Specialization and Combat Slide, then show how [[Characters/Vector|VECTOR]] and one Memory Imprint each transform it.

@@ -9,7 +9,7 @@ status: in-progress
 
 - **Zone:** [[World/Freight Terminal|Freight Terminal]]
 - **Mission:** [[Missions/Restore the Cargo Line|Restore the Cargo Line]]
-- **Character:** [[Characters/Rifle Marine|Rifle Marine]]
+- **Character:** [[Characters/Rook|ROOK]]
 - **Weapon:** [[Equipment/Baseline Rifle|Baseline Rifle]]
 - **Enemies:** [[Enemies/Horizontal Sentry|Horizontal Sentry]] and [[Enemies/Shield Enforcer|Shield Enforcer]]
 
@@ -17,7 +17,7 @@ Those pages own content specifications. This page owns encounter order, combinat
 
 ## Purpose
 
-> **Accepted** — Prove shared action fundamentals before building train spectacle, bosses, broad progression, a contrasting character, Memory-route gameplay, or the complete death cycle.
+> **Accepted** — Prove shared action fundamentals before implementation expands into train spectacle, bosses, broad progression, VECTOR's contrasting pass, Memory-route gameplay, or the complete death cycle.
 
 The flat pass should take approximately three to five minutes on a successful first attempt and remain cheap to rebuild.
 
@@ -50,7 +50,7 @@ flowchart LR
 4. **Shield Enforcer:** provide room to jump over its charge, reverse, and attack the exposed rear.
 5. **Brief reset:** reveal the rail-control objective from safety.
 6. **Crane and sentry:** combine a fixed low–high pattern with the cycling cargo container.
-7. **Rail-control terminal:** complete the Mission; briefly recognize the Rifle Marine under an unknown designation marked killed in action; let the controller suppress it as legacy corruption while crew voices show brief doubt and conditioned dismissal.
+7. **Rail-control terminal:** complete the Mission; briefly recognize ROOK under an unknown designation marked killed in action; let [[NPCs/Operator|OPERATOR]] suppress it as legacy corruption and an archive ghost while VECTOR leaves doubt audible.
 
 Each beat teaches or combines one demand. No optional enemy, collectible, dialogue sequence, or route complexity belongs in the flat pass.
 
@@ -75,7 +75,7 @@ Use the cross-cutting [[Gameplay/Mechanics|camera and integrity rules]]. Reachin
 
 ## Playable geometric blockout
 
-> **Needs evidence** — A throwaway no-asset browser prototype now implements the seven flat-baseline beats, Rifle Marine controls, integrity, sentries, Shield Enforcer, crane, camera, terminal, and opening radio sequence.
+> **Needs evidence** — A throwaway no-asset browser prototype now implements the seven flat-baseline beats, ROOK controls, integrity, sentries, Shield Enforcer, crane, camera, terminal, and opening radio sequence.
 
 Run it with:
 
@@ -92,7 +92,7 @@ Prototype source and the evidence checklist live in `examples/demo/game/prototyp
 
 The flat baseline passes only when:
 
-1. the Rifle Marine is satisfying without special progression;
+1. ROOK is satisfying without special progression;
 2. each threat teaches a readable response;
 3. combined pressure creates a decision rather than noise;
 4. the player can explain what hurt them and what they would try next.
@@ -100,7 +100,7 @@ The flat baseline passes only when:
 Later passes additionally require:
 
 - upper and lower routes with different tactical value;
-- a contrasting character that materially transforms the space;
+- VECTOR materially transforming the space through precision and mobility;
 - one Memory Imprint that changes both understanding and action.
 
 ## Art and licensing

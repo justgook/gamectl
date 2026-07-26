@@ -39,7 +39,7 @@ Its later validation must:
 - reveal why the sealed identity archive matters;
 - open a maintenance route or meaningful interaction;
 - change how the player understands the introduction Mission;
-- preserve the [[Characters/Rifle Marine|Rifle Marine's]] innate identity.
+- preserve the [[Characters/Rook|ROOK's]] innate identity.
 
 ## Unknown rules
 

@@ -9,7 +9,11 @@ A **Mission** is an objective-driven deployment into a [[World/Overview|Zone]]. 
 
 ## Accepted Missions
 
-- [[Missions/Restore the Cargo Line|Restore the Cargo Line]] — introduction Mission in the [[World/Freight Terminal|Freight Terminal]].
+1. [[Missions/Restore the Cargo Line|Restore the Cargo Line]] — ROOK introduction in the [[World/Freight Terminal|Freight Terminal]]; unlocks the Hub and VECTOR.
+2. [[Missions/Open the Floodgates|Open the Floodgates]] — first post-Hub Mission in the [[World/Flood Control Works|Flood-Control Works]]; ends with the first boss.
+3. [[Missions/Restart the Deep Pumps|Restart the Deep Pumps]] — second Works Mission; RAM intervenes during the second boss and joins afterward.
+4. [[Missions/Breach the Lockdown|Breach the Lockdown]] — RAM-required [[World/Automated Fabrication Plant|Plant]] extraction; unlocks RELAY.
+5. [[Missions/Lift the Governor|Lift the Governor]] — RELAY-led Plant activation; unlocks Overdrive globally.
 
 ## Page rule
 
@@ -23,4 +27,4 @@ Every accepted Mission receives one page containing:
 - discoveries and progression consequences;
 - unresolved narrative or gameplay work.
 
-> **TODO** — Add another Mission only when its role in the [[World/Progression Map|Progression Map]] is accepted.
+> **TODO** — Add the Mission following Lift the Governor only when its role in the [[World/Progression Map|Progression Map]] is accepted.

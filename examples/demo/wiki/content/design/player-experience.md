@@ -35,13 +35,13 @@ The choice must not accidentally punish an uninformed player. It remains unresol
 
 > **Accepted** — The crew begins with an “act first, ask later” orientation. Soldiering is its only stable identity. Crew members are physically capable of refusal, but operational conditioning makes questioning orders or selfhood feel improper, unsafe, and unlike themselves.
 
-The player's first form of rebellion is therefore not defeating the controller—it is recognizing that asking “why?” is possible.
+The player's first form of rebellion is therefore not defeating OPERATOR or an unseen command authority—it is recognizing that asking “why?” is possible.
 
 > **Accepted** — Early missions create genuine local benefits while concealing their institutional purpose. Questioning an order is morally difficult because abandoning the mission may hurt people who actually need its stated outcome.
 
 ## Opening experience
 
-> **Accepted** — A new game gives control almost immediately. Mission objective and other crew voices arrive over radio during safe movement. The player learns action before receiving the first identity contradiction. The controller calmly labels it legacy corruption; one crew voice hesitates while another normalizes it. The Hub becomes the first quiet narrative pause. Arrival remains player-controlled, connects radio voices to physically present crew, and exposes direct selection shortcuts without a forced tour.
+> **Accepted** — A new game gives control almost immediately. Mission objective and other crew voices arrive over radio during safe movement. The player learns action before receiving the first identity contradiction. [[NPCs/Operator|OPERATOR]] calmly labels it legacy corruption and an archive ghost while VECTOR hesitates. The Hub becomes the first quiet narrative pause. Arrival remains player-controlled, connects radio voices to physically present crew, and exposes direct selection shortcuts without a forced tour.
 
 ## Representative play
 

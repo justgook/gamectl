@@ -9,9 +9,19 @@ status: in-progress
 
 > **Accepted** — All playable characters coexist as one active crew at the [[World/Hub|Hub]] and participate in one persistent campaign.
 
-A new game preselects the [[Characters/Rifle Marine|Rifle Marine]] and deploys directly into the introduction Mission. Other crew members speak over radio during the introduction before the player physically reaches the Hub. They establish operational familiarity and role, not biography or exposition. After the killed-in-action record appears, one voice briefly questions it while another dismisses it as an archive ghost, establishing different levels of doubt and conditioning.
+A new game preselects [[Characters/Rook|ROOK]], the crew's Rifle Marine, and deploys directly into the introduction Mission. [[Characters/Vector|VECTOR]] speaks over radio before the player physically reaches the Hub, establishing operational familiarity and role rather than biography. After the killed-in-action record appears, VECTOR questions it while [[NPCs/Operator|OPERATOR]] dismisses it as an archive ghost. [[Characters/Ram|RAM]] and [[Characters/Relay|RELAY]] join later in the campaign.
 
-After the introduction, the player deploys one crew member at a time. The active character remains fixed until death or voluntary return. At the Hub, any unlocked character can be selected freely; death does not remove or randomize characters.
+After the introduction, the player ordinarily deploys one crew member at a time. The active character remains fixed until death or voluntary return. At the Hub, any unlocked character can be selected freely; death does not remove or randomize characters. Scripted character handoffs inside [[Missions/Lift the Governor|Lift the Governor]] are the sole accepted exception.
+
+## Deployment identity
+
+> **Accepted** — Character, Specialization, and Overdrive are separate concepts.
+
+- A **Character** is the persistent person and owns innate movement identity, narrative identity, and equipment compatibility.
+- A **Specialization** is one of three Hub-selected play styles belonging to that Character. The baseline is the default Specialization, not a separate fourth configuration.
+- **Overdrive** is the temporary transformation unique to the selected Specialization.
+
+The four Characters therefore provide twelve selectable Specializations. Selecting a Specialization changes the entire normal Mission kit; the character does not remain in a shared baseline state while waiting to activate Overdrive.
 
 ## Identity
 
@@ -21,16 +31,22 @@ Soldiering is initially their only stable identity. They can refuse orders physi
 
 ## Accepted roster
 
-- [[Characters/Rifle Marine|Rifle Marine]] — balanced baseline and mechanical control case.
-- **Questioning crew member — requires clarification:** the voice that doubts the killed-in-action record; immediately selectable when the Hub first unlocks; name, identity, and mechanics remain undefined.
+- [[Characters/Rook|ROOK]] — Rifle Marine; balanced baseline and mechanical control case; available at new game.
+- [[Characters/Vector|VECTOR]] — Recon Operative; precision, mobility, and alternate routes; available at the first Hub arrival.
+- [[Characters/Ram|RAM]] — Breach Trooper; close-range commitment and environmental force; introduced during the second boss Encounter in [[Missions/Restart the Deep Pumps|Restart the Deep Pumps]].
+- [[Characters/Relay|RELAY]] — Systems Specialist; infrastructure and area control; recovered through the RAM-required [[Missions/Breach the Lockdown|Breach the Lockdown]] Special Mission.
 
-> **Accepted** — The first Hub arrival offers the questioning crew member as a contrasting playable character alongside the Rifle Marine. Hearing their hesitation during the Mission creates recognition and a reason to inspect the alternative character at the Hub.
+> **Accepted** — The first Hub arrival offers VECTOR as a contrasting playable character alongside ROOK. Hearing VECTOR question the archive record during the introduction creates recognition and a reason to inspect the alternative Character at the Hub.
 
-> **TODO** — Create the contrasting character's dedicated page only after the Rifle Marine baseline produces playable evidence and the character has concrete content.
+> **In progress** — Mission names and early Zone order are accepted. Boss identities, exact introduction staging, and failure rules surrounding RAM and RELAY still require design.
 
 ## Character-page rule
 
-Every accepted playable character receives one page containing:
+Every accepted playable character receives one page beginning with a Character card and three dedicated Specialization cards. Graphic slots remain explicit placeholders until presentation assets exist.
+
+The Character card contains institutional codename, operational role, personal-identity status, availability, default Specialization, broad stats, innate skill, and equipment identity. Each Specialization card contains its own portrait and sprite slots, normal kit, stats, skills, compatible weapon and armour classes, Overdrive, and unlock status.
+
+The page also documents:
 
 - gameplay fantasy and role;
 - shared and innate verbs;
@@ -47,6 +63,8 @@ Every accepted playable character receives one page containing:
 - Equipment and ordinary inventory belong to the crew stash.
 - Item upgrades remain attached to the item.
 - Innate abilities and personal mastery remain character-owned.
+- Specializations define stats, skills, weapon classes, armour classes, and unique Overdrives.
+- Equipment remains crew-owned and can be used only by compatible Specializations.
 - World discoveries and shortcuts belong to the campaign.
 
-> **Needs image** — Produce a silhouette lineup only after a second gameplay role is accepted.
+> **Needs image** — Replace card placeholders and produce a four-Character silhouette lineup after gameplay prototypes validate proportions, equipment scale, and movement poses.

@@ -12,13 +12,14 @@ status: in-progress
 - Upgrades applied to a weapon or armour item remain attached to that item.
 - Innate moves, personal skills, and character mastery remain character-owned.
 - World discoveries, shortcuts, and routes remain campaign-owned.
-- Compatibility restrictions may follow from character mechanics, not arbitrary ownership.
+- [[Gameplay/Overdrive|Specializations]] define compatible weapon and armour classes; restrictions follow from play-style requirements rather than item ownership.
+- Compatible equipment may substantially vary damage, cadence, range, projectile behavior, or technology while preserving the Specialization's defining commitments.
 
 ## Accepted categories
 
 ### Weapons
 
-- [[Equipment/Baseline Rifle|Baseline Rifle]] — always-available control weapon for the Rifle Marine.
+- [[Equipment/Baseline Rifle|Baseline Rifle]] — always-available control weapon for ROOK.
 
 ### Memory Imprints
 
@@ -35,7 +36,7 @@ Every accepted equipment type receives one page containing:
 - gameplay role;
 - ownership and transfer;
 - input and resource behavior;
-- compatibility;
+- compatible Characters, Specializations, and equipment classes;
 - acquisition and persistence;
 - upgrades and constraints;
 - representative use;

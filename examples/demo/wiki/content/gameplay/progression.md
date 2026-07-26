@@ -11,7 +11,7 @@ status: in-progress
 
 Replay value should come from:
 
-- materially different [[Characters/Overview|playable characters]];
+- materially different [[Characters/Overview|playable characters]] and [[Gameplay/Overdrive|Specializations]];
 - [[Equipment/Memory Imprints|Memory Imprints]] that change both knowledge and capability;
 - alternate routes and persistent shortcuts;
 - discoveries that change later attempts;
@@ -25,9 +25,17 @@ Replay value should come from:
 
 The canonical Imprint page owns unresolved assignment, transfer, compatibility, and persistence rules.
 
+## Character, Specialization, and Overdrive progression
+
+> **Accepted** — Each of four Characters has three Hub-selected Specializations. A Character becomes available with a default Specialization; two additional Specializations unlock through later campaign play. Selecting a Specialization changes normal stats, skills, weapon and armour compatibility, and play style for the entire Mission.
+
+> **Accepted** — Overdrive remains concealed at the start of the campaign. [[Missions/Lift the Governor|Lift the Governor]] later reveals and unlocks it once for the entire crew through four character-specific trials. After that global reveal, every unlocked Specialization has its unique Overdrive, and newly acquired Specializations include theirs without another Overdrive-specific unlock.
+
+The early Character sequence is accepted: ROOK at new game, VECTOR at the first Hub, RAM after [[Missions/Restart the Deep Pumps|Restart the Deep Pumps]], and RELAY after [[Missions/Breach the Lockdown|Breach the Lockdown]]. Acquisition methods for the eight non-default Specializations remain unresolved. See [[Gameplay/Overdrive|Specializations and Overdrive]] for accepted boundaries.
+
 ## Introduction exception
 
-> **Accepted** — The new game begins directly in [[Missions/Restore the Cargo Line|Restore the Cargo Line]] with preselected character and equipment. Failure restarts inside the introduction; the Hub and standard death cycle unlock only after first success.
+> **Accepted** — The new game begins directly in [[Missions/Restore the Cargo Line|Restore the Cargo Line]] with preselected character and equipment. Failure restarts inside the introduction; the Hub and standard death cycle unlock only after first success. The player is not told that Overdrive exists during the introduction.
 
 ## Death cycle
 
@@ -37,7 +45,7 @@ The death cycle returns to decisions made by an active crew at the shared [[Worl
 
 The death cycle may reopen:
 
-- character selection;
+- Character and Specialization selection;
 - loadout or weapon selection;
 - upgrade investment;
 - route choice;
@@ -53,7 +61,7 @@ Fast travel is not assumed. It remains an option only if the final world structu
 
 ## Resources and persistence
 
-> **Accepted** — The [[Equipment/Overview|crew stash]] shares weapons, armour, consumables, currencies, and key items. Item upgrades remain attached to the item; innate abilities and personal mastery remain character-owned.
+> **Accepted** — The [[Equipment/Overview|crew stash]] shares weapons, armour, consumables, currencies, and key items. Item upgrades remain attached to the item; innate abilities and personal mastery remain character-owned. Specializations constrain compatible weapon and armour classes rather than creating separate inventories.
 
 > **Open question** — Which shared resources can be lost or recovered through the death cycle?
 

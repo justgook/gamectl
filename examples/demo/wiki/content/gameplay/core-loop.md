@@ -23,28 +23,28 @@ Authored encounters may shift emphasis between traversal, combat, discovery, and
 
 ## Character transformation
 
-See [[Characters/Overview|Playable Crew]] for roster rules and [[Characters/Rifle Marine|Rifle Marine]] for the baseline.
+See [[Characters/Overview|Playable Crew]] for roster rules, [[Characters/Rook|ROOK]] for the current baseline, and [[Gameplay/Overdrive|Specializations and Overdrive]] for deployment configurations.
 
-The selected character must alter how the player reads, chooses, or executes within this loop. Cosmetic differences and small statistical changes are insufficient.
+The selected Character and Specialization must alter how the player reads, chooses, or executes within this loop. Cosmetic differences and small statistical changes are insufficient. After its campaign reveal, Overdrive temporarily exaggerates or inverts the selected Specialization rather than merely increasing damage.
 
-> **Needs example** — Define a baseline character and contrasting character against the same representative encounter.
+> **Needs example** — Resolve the same representative encounter with materially different Character and Specialization configurations.
 
 ## Opening exception
 
-> **Accepted** — A new game skips the Hub and menus. The [[Characters/Rifle Marine|Rifle Marine]], [[Equipment/Baseline Rifle|Baseline Rifle]], and [[Missions/Restore the Cargo Line|introduction Mission]] are preselected so the player begins in action. First success unlocks a player-controlled Hub arrival. Character, equipment, and destination interfaces become immediately available through physical stations and direct shortcuts; no forced tour interrupts control. The initial Hub roster contains the Rifle Marine and one contrasting playable character.
+> **Accepted** — A new game skips the Hub and menus. [[Characters/Rook|ROOK]], the [[Equipment/Baseline Rifle|Baseline Rifle]], and the [[Missions/Restore the Cargo Line|introduction Mission]] are preselected so the player begins in action. First success unlocks a player-controlled Hub arrival. Character, equipment, and destination interfaces become immediately available through physical stations and direct shortcuts; no forced tour interrupts control. The initial Hub roster contains ROOK and one contrasting playable character.
 
 ## Standard macro loop
 
 > **In progress** — The authored-campaign spine is accepted; exact return and persistence rules remain open.
 
-1. Select one crew member, [[Equipment/Overview|loadout]], and [[Missions/Overview|Mission]] at the [[World/Hub|Hub]].
+1. Select one crew member, one unlocked [[Gameplay/Overdrive|Specialization]], a compatible [[Equipment/Overview|loadout]], and a [[Missions/Overview|Mission]] at the [[World/Hub|Hub]].
 2. Advance through encounters, routes, and set pieces.
 3. Discover persistent knowledge, access, equipment, or shortcuts.
 4. Reach a major objective or die.
 5. Return to the hub with the world changed by selected persistent discoveries.
 6. Freely reconsider character, loadout, route, or investment before the next deployment.
 
-The player cannot swap characters during a deployment. The exact spatial and fictional relationship between the hub and campaign locations remains unresolved.
+The player cannot ordinarily swap Characters or Specializations during a deployment. The scripted character trials in [[Missions/Lift the Governor|Lift the Governor]] are an explicit exception, not a general switching mechanic. The exact spatial and fictional relationship between the hub and campaign locations remains unresolved.
 
 ## Failure and recovery
 

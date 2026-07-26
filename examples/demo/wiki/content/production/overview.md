@@ -7,7 +7,7 @@ status: in-progress
 
 ## Current phase
 
-> **In progress** — The first internal One Pager is established, and the flat freight-terminal baseline is documented well enough to block out. The immediate goal is to validate the Rifle Marine, threats, camera, and encounter sequence through play before designing the contrasting character or Memory Imprint pass.
+> **In progress** — The first internal One Pager is established, and the flat freight-terminal baseline is documented well enough to block out. The immediate goal is to validate ROOK, the threats, camera, and encounter sequence through play before implementing VECTOR's contrasting pass or the Memory Imprint pass.
 
 Production schedules and content budgets are premature until that slice defines the actual work.
 

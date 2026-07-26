@@ -15,13 +15,15 @@ Canonical content pages own character, enemy, weapon, and item specifications. T
 - **Character ability:** invoke the selected character's innate action.
 - **Explore:** notice routes, sealed interactions, and later opportunities.
 
-See [[Characters/Rifle Marine|Rifle Marine]] for the accepted baseline implementation.
+See [[Characters/Rook|ROOK]] for the accepted baseline implementation.
 
 ## Deployment
 
-> **Accepted** — One [[Characters/Overview|crew member]] is controlled per deployment. Character switching occurs only at the [[World/Hub|Hub]] after death or voluntary return.
+> **Accepted** — At the [[World/Hub|Hub]], the player selects one [[Characters/Overview|crew member]], one of that character's unlocked [[Gameplay/Overdrive|Specializations]], and compatible equipment for the deployment. Character and Specialization switching ordinarily occurs only at the Hub after death or voluntary return.
 
-Each character must transform shared verbs through movement, attack geometry, range, risk, defence, resources, or route access. Cosmetic and minor statistical variation are insufficient.
+The scripted activation trials inside [[Missions/Lift the Governor|Lift the Governor]] are the sole accepted exception: control temporarily passes from the Systems Specialist to another crew member inside each trial room. This does not permit general mid-Mission switching.
+
+Each Character and Specialization combination must transform shared verbs through movement, attack geometry, range, risk, defence, resources, or route access. Cosmetic and minor statistical variation are insufficient.
 
 ## Ground movement
 
@@ -33,7 +35,7 @@ Keyboard and gamepad must produce equivalent movement timing. Exact speed and ac
 
 > **Accepted** — The baseline uses one variable-height jump, moderate horizontal air control, faster fall than rise, and short coyote-time and jump-buffer windows.
 
-Double jump, wall jump, ledge grab, and air dash are absent from the baseline. See [[Characters/Rifle Marine|Rifle Marine]] for character-specific limits.
+Double jump, wall jump, ledge grab, and air dash are absent from the baseline. See [[Characters/Rook|ROOK]] for character-specific limits.
 
 ## Aiming and firing
 
@@ -66,6 +68,12 @@ Damage produces immediate visual/audio feedback, a brief hit reaction, and short
 ## Equipment ownership
 
 > **Accepted** — Weapons, armour, consumables, currencies, and key items belong to the shared [[Equipment/Overview|crew stash]]. Item upgrades stay with the item; innate abilities and mastery stay with the character; discoveries and shortcuts stay with the campaign.
+
+Specializations define compatible weapon and armour classes. Equipment may alter a compatible kit but must not erase the Specialization's defining movement, risk, range, or combat commitments.
+
+## Specializations and Overdrive
+
+[[Gameplay/Overdrive|Specializations and Overdrive]] owns the three-layer configuration model, global reveal, transformation rules, activation Mission, and twelve-Specialization compatibility requirement. Meter gain, activation input, duration, and cancellation remain unresolved cross-cutting mechanics.
 
 ## Memory Imprints
 

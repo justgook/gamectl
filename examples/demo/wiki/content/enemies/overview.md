@@ -37,4 +37,4 @@ Every accepted enemy receives one page containing:
 
 ## NPC boundary
 
-No non-player narrative character is accepted yet. Create a dedicated NPC page only when that character has a concrete gameplay or dramatic role.
+Narrative entities that communicate or act without serving as tactical opponents belong in the [[NPCs/Overview|NPC Catalogue]]. OPERATOR is the first accepted NPC; enemy pages remain focused on Encounter decisions.

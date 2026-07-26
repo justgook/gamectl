@@ -251,10 +251,107 @@ async function expandCodeIncludes(markdown, pagePath) {
 }
 
 function setupMermaid() {
+  const styles = getComputedStyle(document.documentElement);
+  const wikiValue = name => {
+    const value = styles.getPropertyValue(name).trim();
+    if (!value) throw new Error(`Wiki theme requires the “${name}” CSS custom property`);
+    return value;
+  };
+  const wikiColor = name => {
+    const value = wikiValue(name);
+    if (!/^#[0-9a-f]{6}$/i.test(value)) {
+      throw new Error(`Wiki theme property “${name}” must be a six-digit hex color`);
+    }
+    return value;
+  };
+
+  const colors = {
+    background: wikiColor('--bg'),
+    surface: wikiColor('--surface'),
+    raised: wikiColor('--surface-raised'),
+    borderStrong: wikiColor('--border-strong'),
+    text: wikiColor('--text'),
+    muted: wikiColor('--muted'),
+    faint: wikiColor('--faint'),
+    accent: wikiColor('--accent'),
+    accentInk: wikiColor('--accent-ink'),
+  };
+  const fontFamily = wikiValue('--font-sans');
+
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
-    theme: 'dark',
+    theme: 'base',
+    fontFamily,
+    themeVariables: {
+      darkMode: true,
+      background: colors.surface,
+      fontFamily,
+      fontSize: '15px',
+      primaryColor: colors.raised,
+      primaryTextColor: colors.text,
+      primaryBorderColor: colors.borderStrong,
+      secondaryColor: colors.accent,
+      secondaryTextColor: colors.accentInk,
+      secondaryBorderColor: colors.accent,
+      tertiaryColor: colors.background,
+      tertiaryTextColor: colors.muted,
+      tertiaryBorderColor: colors.borderStrong,
+      lineColor: colors.muted,
+      textColor: colors.text,
+      mainBkg: colors.raised,
+      nodeBorder: colors.borderStrong,
+      nodeTextColor: colors.text,
+      clusterBkg: colors.background,
+      clusterBorder: colors.borderStrong,
+      edgeLabelBackground: colors.surface,
+      noteBkgColor: colors.raised,
+      noteTextColor: colors.text,
+      noteBorderColor: colors.accent,
+      actorBkg: colors.raised,
+      actorBorder: colors.borderStrong,
+      actorTextColor: colors.text,
+      actorLineColor: colors.faint,
+      signalColor: colors.muted,
+      signalTextColor: colors.text,
+      labelBoxBkgColor: colors.surface,
+      labelBoxBorderColor: colors.borderStrong,
+      labelTextColor: colors.text,
+      loopTextColor: colors.text,
+      activationBkgColor: colors.accent,
+      activationBorderColor: colors.accent,
+      labelColor: colors.text,
+      altBackground: colors.background,
+    },
+    themeCSS: `
+      .node rect, .node circle, .node ellipse, .node polygon, .node path {
+        stroke-width: 1.25px;
+      }
+      .node rect, .cluster rect, .actor, .labelBox {
+        rx: 6px;
+        ry: 6px;
+      }
+      .nodeLabel, .actor text, .stateLabel text {
+        font-weight: 600;
+      }
+      .cluster-label text, .cluster-label span {
+        color: ${colors.muted} !important;
+        fill: ${colors.muted} !important;
+        font-weight: 600;
+      }
+      .edgeLabel, .edgeLabel p {
+        background-color: ${colors.surface} !important;
+        color: ${colors.muted} !important;
+      }
+      .edgeLabel rect {
+        fill: ${colors.surface} !important;
+        opacity: 1 !important;
+      }
+      marker path {
+        fill: ${colors.accent} !important;
+        stroke: ${colors.accent} !important;
+      }
+    `,
   });
 }
 

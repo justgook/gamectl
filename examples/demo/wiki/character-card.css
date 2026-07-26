@@ -1,0 +1,303 @@
+/*
+ * Content-specific presentation for playable-character profile cards.
+ * Wiki shell, navigation, and general Markdown styles remain in style.css.
+ */
+
+.character-card {
+  display: grid;
+  grid-template-columns: minmax(190px, .72fr) minmax(0, 1.5fr);
+  overflow: hidden;
+  margin: 0 0 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 18px 45px #0003;
+}
+
+.character-card-visuals {
+  display: grid;
+  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 !important;
+  background: var(--border);
+}
+
+.prose .character-card-image {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+  object-fit: contain;
+  object-position: center;
+}
+
+.character-card-profile {
+  min-width: 0;
+  padding: 26px;
+}
+
+.character-card-profile > header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.character-card-kicker {
+  margin: 0 0 2px !important;
+  color: var(--accent);
+  font: 700 .65rem var(--font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.character-card-name {
+  display: block;
+  color: var(--text);
+  font: 800 clamp(2rem, 6vw, 3.5rem)/1 var(--font-mono);
+  letter-spacing: .08em;
+}
+
+.character-card-role {
+  margin: 8px 0 0 !important;
+  color: var(--muted);
+  font-size: .86rem;
+}
+
+.character-card-facts,
+.character-card-stats {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.character-card-facts {
+  grid-template-columns: 1fr 1fr;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.character-card-facts div,
+.character-card-stats div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 8px 0;
+}
+
+.character-card-facts dt,
+.character-card-stats dt {
+  color: var(--faint);
+  font: .62rem var(--font-mono);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.character-card-facts dd,
+.character-card-stats dd {
+  margin: 0;
+  color: var(--text);
+  font-size: .8rem;
+  line-height: 1.4;
+}
+
+.character-card-columns {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+}
+
+.character-card-columns section {
+  min-width: 0;
+}
+
+.character-card-section-title,
+.specialization-card-section-title {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font: 700 .67rem var(--font-mono);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.character-card-columns p {
+  margin: 0 !important;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+.character-card-columns p strong {
+  color: var(--text);
+}
+
+.character-card-stats {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.character-card-stats div {
+  padding-top: 0;
+}
+
+.specialization-deck {
+  display: grid;
+  gap: 22px;
+  margin: 22px 0 38px;
+}
+
+.specialization-card {
+  display: grid;
+  grid-template-columns: minmax(160px, .62fr) minmax(0, 1.7fr);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.specialization-card-visuals {
+  display: grid;
+  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--border);
+}
+
+.specialization-card-body {
+  min-width: 0;
+  padding: 22px;
+}
+
+.specialization-card-body > header {
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.specialization-card-kicker {
+  margin: 0 0 3px !important;
+  color: var(--accent);
+  font: 700 .62rem var(--font-mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.specialization-card-name {
+  display: block;
+  color: var(--text);
+  font: 780 1.45rem/1.15 var(--font-mono);
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.specialization-card-fantasy {
+  margin: 7px 0 0 !important;
+  color: var(--muted);
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.specialization-card-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.specialization-card-stats div {
+  display: grid;
+  gap: 2px;
+  padding-right: 8px;
+}
+
+.specialization-card-stats dt {
+  color: var(--faint);
+  font: .59rem var(--font-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.specialization-card-stats dd {
+  margin: 0;
+  color: var(--text);
+  font-size: .76rem;
+}
+
+.specialization-card-sections {
+  display: grid;
+  gap: 15px;
+  padding-top: 15px;
+}
+
+.specialization-card-sections section {
+  min-width: 0;
+}
+
+.specialization-card-sections p,
+.specialization-card-sections ul {
+  margin: 0 !important;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+.specialization-card-sections ul {
+  padding-left: 18px;
+}
+
+.specialization-card-sections li {
+  margin: 3px 0;
+}
+
+.specialization-card-sections strong {
+  color: var(--text);
+}
+
+.specialization-card-overdrive {
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised));
+}
+
+@media (max-width: 760px) {
+  .character-card {
+    grid-template-columns: 1fr;
+  }
+
+  .character-card-visuals {
+    grid-template: 240px / 1fr 1fr;
+  }
+
+  .character-card-profile {
+    padding: 22px 18px;
+  }
+
+  .character-card-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .character-card-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .specialization-card {
+    grid-template-columns: 1fr;
+  }
+
+  .specialization-card-visuals {
+    grid-template: 200px / 1fr 1fr;
+  }
+
+  .specialization-card-body {
+    padding: 20px 18px;
+  }
+
+  .specialization-card-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}

@@ -1,6 +1,6 @@
 ---
 title: Restore the Cargo Line
-summary: The introduction Mission that helps a settlement while reconnecting the controller to an identity archive.
+summary: The introduction Mission that helps a settlement while reconnecting the institution behind OPERATOR to an identity archive.
 eyebrow: Mission 01
 status: in-progress
 ---
@@ -9,25 +9,25 @@ status: in-progress
 
 > **Accepted** — Give the player control almost immediately. Deliver the objective over radio during the safe-arrival section while the player is already moving; do not use an opening menu or long cinematic.
 
-Other crew members introduce themselves through operational radio communication rather than biography. The Rifle Marine treats their voices and orders as familiar routine.
+Other crew members introduce themselves through operational radio communication rather than biography. ROOK treats their voices and orders as familiar routine.
 
 > **In progress** — Restart the freight line and deliver a reactor component required by a nearby settlement. The stated objective is truthful and Mission completion creates a real local benefit.
 
 ## First identity contradiction
 
-> **Accepted** — Activating the rail-control system briefly produces a biometric match for the Rifle Marine under an unknown designation whose official service status is **killed in action**.
+> **Accepted** — Activating the rail-control system briefly produces a biometric match for ROOK under an unknown designation whose official service status is **killed in action**.
 
-The record does not establish whether the Marine is the original person, a clone, a reconstruction, a copied identity, or the subject of falsified data. The controller suppresses the archive connection before the player can investigate.
+The record does not establish whether the Marine is the original person, a clone, a reconstruction, a copied identity, or the subject of falsified data. [[NPCs/Operator|OPERATOR]] suppresses the archive connection before the player can investigate.
 
-The controller responds calmly:
+OPERATOR responds calmly:
 
 > “Legacy registry corruption. This archive was isolated for exactly this reason. Cargo control is restored. Proceed to extraction.”
 
-One crew voice briefly hesitates or begins to question the designation. This crew member becomes the immediately selectable contrasting character at the Hub. Another voice falls back on conditioned routine and dismisses the record as an archive ghost. The exchange shows different levels of doubt without making the controller openly hostile.
+[[Characters/Vector|VECTOR]] briefly hesitates and questions the designation, then becomes the immediately selectable contrasting Character at the Hub. OPERATOR dismisses the record as an archive ghost. The exchange shows doubt without making OPERATOR openly hostile.
 
 ## Concealed purpose
 
-> **Accepted** — Restoring the terminal also reconnects the controller to a sealed identity archive. The controller manipulates context and recovered infrastructure rather than fabricating the local need.
+> **Accepted** — Restoring the terminal also reconnects the institution behind OPERATOR to a sealed identity archive. OPERATOR manipulates context and recovered infrastructure rather than fabricating the local need.
 
 The crew does not yet understand the archive's role in the industrial identity-control system.
 
@@ -37,7 +37,7 @@ The crew does not yet understand the archive's role in the industrial identity-c
 
 - **Origin:** direct new-game deployment
 - **Target Zone:** [[World/Freight Terminal|Freight Terminal]]
-- **Preselected character:** [[Characters/Rifle Marine|Rifle Marine]]
+- **Preselected character:** [[Characters/Rook|ROOK]]
 - **Preselected equipment:** [[Equipment/Baseline Rifle|Baseline Rifle]]
 - **Required Encounter:** [[Gameplay/Representative Encounter|Flat Baseline Encounter]]
 
@@ -57,9 +57,9 @@ Other crew members establish familiarity through radio contact during play befor
 
 > **Accepted** — Success unlocks and enters the Hub for the first time. Arrival remains player-controlled and introduces the physically present crew plus direct selection shortcuts without a forced interface tour. Failure restarts within the introduction because the Hub and standard campaign death cycle are not yet available.
 
-> **Accepted** — The killed-in-action biometric record and controller intervention provide the first evidence that activation served a concealed purpose.
+> **Accepted** — The killed-in-action biometric record and OPERATOR's intervention provide the first evidence that activation served a concealed purpose.
 
-> **Accepted** — The controller calls the record legacy corruption. One crew member shows brief doubt while another normalizes it as an archive ghost.
+> **Accepted** — OPERATOR calls the record legacy corruption and an archive ghost while VECTOR leaves doubt audible.
 
 > **Open question** — What immediate consequence follows withdrawing before activation in the final campaign?
 

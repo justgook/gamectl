@@ -23,7 +23,7 @@ Selecting another character changes how the player reads, approaches, and execut
 - **Requires:** mechanically distinct decisions and capabilities.
 - **Rejects:** cosmetic characters and minor statistical variation presented as different play styles.
 
-> **Needs example** — Resolve one encounter using the baseline character and a contrasting character. Statistical variation alone does not satisfy this pillar.
+> **Needs example** — Resolve one encounter using ROOK and VECTOR. Statistical variation alone does not satisfy this pillar.
 
 ## Discovery changes understanding and action
 

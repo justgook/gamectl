@@ -7,7 +7,7 @@ status: accepted
 
 ## Role
 
-> **Accepted** — The Baseline Rifle is the Rifle Marine's starting control weapon. It tests aiming, positioning, and movement without introducing ammunition or reload management.
+> **Accepted** — The Baseline Rifle is ROOK's starting control weapon. It tests aiming, positioning, and movement without introducing ammunition or reload management.
 
 It is not necessarily the character's permanent or exclusive weapon.
 

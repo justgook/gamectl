@@ -13,7 +13,7 @@ status: accepted
 
 The sentry fires horizontally using two lanes:
 
-- **Low shot:** barrel lowers; the projectile crosses the Rifle Marine's lower body. Jumping avoids it; sliding does not.
+- **Low shot:** barrel lowers; the projectile crosses ROOK's lower body. Jumping avoids it; sliding does not.
 - **High shot:** barrel raises; the projectile crosses standing upper-body height. Combat sliding avoids it; jumping is unsafe or ineffective.
 
 High and low are projectile lanes, not different aim directions.

@@ -13,9 +13,9 @@ The Zone is a persistent authored place, not synonymous with its first Mission. 
 
 ## Fictional function
 
-The terminal controls a cargo line carrying infrastructure components to nearby settlements. It also contains a sealed identity archive connected to the controller's concealed industrial identity system.
+The terminal controls a cargo line carrying infrastructure components to nearby settlements. It also contains a sealed identity archive connected to the institution's concealed industrial identity system.
 
-The introduction Mission's local benefit is genuine: restoring the line delivers a needed reactor component. Its concealed consequence is reconnecting the controller to the archive. Success unlocks the player's first arrival at the Hub.
+The introduction Mission's local benefit is genuine: restoring the line delivers a needed reactor component. Its concealed consequence is reconnecting OPERATOR's command structure to the archive. Success unlocks the player's first arrival at the Hub.
 
 ## Known content
 
@@ -26,7 +26,7 @@ The introduction Mission's local benefit is genuine: restoring the line delivers
 - Cycling overhead cargo crane
 - Rail-control terminal
 - Visible but inaccessible identity archive
-- Biometric record matching the Rifle Marine to an unknown designation marked killed in action
+- Biometric record matching ROOK to an unknown designation marked killed in action
 
 ## Encounter topology
 
