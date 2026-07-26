@@ -24,6 +24,7 @@ The app starts with `examples/demo` as the project workspace by default.
 - `gams.json` — Project Config declaring views, UI services, key bindings, and demo-specific settings.
 - `game/` — standalone demo game build system; builds its own web and native variants.
 - `issues/` — markdown issue cards used by `view-issues`.
+- `wiki/` — no-build Markdown game design document and project knowledge base.
 - `ng/` — node-graph scripts and visual assets.
 - `tilemap/` — tilemap example assets.
 - `vox/` — MagicaVoxel preview asset.
