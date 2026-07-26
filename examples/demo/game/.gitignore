@@ -1,4 +1,8 @@
 build.nosync/
+
+# Licensed source and modified art that cannot be redistributed publicly.
+/assets.private/
+
 .playwright-cli
 tools/
 # sokol/

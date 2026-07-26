@@ -19,6 +19,18 @@ let config;
 let pageLinks = [];
 let currentPage = '';
 
+const PAGE_STATUSES = new Set(['accepted', 'in-progress', 'todo', 'reference']);
+const DOCUMENT_MARKERS = new Map([
+  ['Accepted', 'accepted'],
+  ['In progress', 'in-progress'],
+  ['TODO', 'todo'],
+  ['Open question', 'open-question'],
+  ['Needs evidence', 'needs-evidence'],
+  ['Needs image', 'needs-image'],
+  ['Needs diagram', 'needs-diagram'],
+  ['Needs example', 'needs-example'],
+]);
+
 function requiredElement(selector) {
   const element = document.querySelector(selector);
   if (!element) throw new Error(`Required element is missing: ${selector}`);
@@ -341,6 +353,9 @@ async function renderRoute() {
   if (typeof data.title !== 'string' || !data.title.trim()) {
     throw new Error(`content/${currentPage}.md requires a title in frontmatter`);
   }
+  if (!PAGE_STATUSES.has(data.status)) {
+    throw new Error(`content/${currentPage}.md requires status: accepted, in-progress, todo, or reference`);
+  }
 
   const expandedContent = await expandCodeIncludes(content, `content/${currentPage}.md`);
   elements.article.innerHTML = `
@@ -348,10 +363,11 @@ async function renderRoute() {
       ${data.eyebrow ? `<span class="eyebrow">${escapeHTML(data.eyebrow)}</span>` : ''}
       <h1>${escapeHTML(data.title)}</h1>
       ${data.summary ? `<p class="summary">${escapeHTML(data.summary)}</p>` : ''}
-      ${data.status ? `<span class="status">${escapeHTML(data.status)}</span>` : ''}
+      <span class="status status-${data.status}">${escapeHTML(data.status)}</span>
     </header>
     <div class="prose">${renderMarkdown(expandedContent)}</div>`;
 
+  setupDocumentMarkers();
   await renderDiagrams();
   setupFootnoteNavigation();
   document.title = `${data.title} · ${config.title}`;
@@ -359,6 +375,15 @@ async function renderRoute() {
   buildOutline();
   buildPagination();
   scrollToRouteLocation('auto');
+}
+
+function setupDocumentMarkers() {
+  elements.article.querySelectorAll('.prose blockquote').forEach(quote => {
+    const label = quote.querySelector(':scope > p:first-child > strong:first-child');
+    const marker = DOCUMENT_MARKERS.get(label?.textContent);
+    if (!marker) return;
+    quote.classList.add('document-marker', `marker-${marker}`);
+  });
 }
 
 function setupFootnoteNavigation() {

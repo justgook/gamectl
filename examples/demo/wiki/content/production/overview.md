@@ -1,21 +1,33 @@
 ---
 title: Production Overview
-summary: The boundaries, evidence, milestones, and unresolved questions that guide the game toward release.
+summary: Current design phase, accepted boundaries, and the shortest path to a credible playable target.
 eyebrow: Production
-status: unresolved
+status: in-progress
 ---
 
-## Purpose
+## Current phase
 
-This category turns the game design into a finishable production without mixing a durable design document with a changing task tracker.
+> **In progress** — The first internal One Pager is established, and the flat freight-terminal baseline is documented well enough to block out. The immediate goal is to validate the Rifle Marine, threats, camera, and encounter sequence through play before designing the contrasting character or Memory Imprint pass.
 
-## Structure
+Production schedules and content budgets are premature until that slice defines the actual work.
 
-- [[Production/Scope|Scope and non-goals]] protects the smallest coherent game worth releasing.
-- [[Production/Milestones|Milestones]] defines playable outcomes that reduce risk.
-- [[Production/Open Questions|Open questions]] tracks unresolved design and production questions.
-- [[Production/References|References]] records external sources and the principles worth adapting.
+## Accepted boundaries
 
-## Source of truth
+- The standalone game takes priority over technology demonstration.
+- Existing proof-of-concept systems do not constrain the design.
+- The game uses an authored campaign rather than procedurally generated levels.
+- Character death permits free reselection among unlocked characters.
+- Wiki Guide content remains separate from game documentation.
 
-This wiki owns game design and durable production knowledge. Detailed work status belongs in the issue tracker.
+## Decision queue
+
+See [[Production/Open Questions|Open questions]] for the ordered queue. The current blocker is playable evidence from the flat freight-terminal blockout; detailed death-cycle work remains parked.
+
+## Production knowledge
+
+- [[Production/Scope|Scope and non-goals]] records boundaries and the provisional release shape.
+- [[Production/References|References]] records principles adapted from external works.
+
+> **TODO** — Define milestones only after the representative encounter establishes a credible vertical-slice target.
+
+Detailed tasks and transient work status belong in the issue tracker, not this living design document.

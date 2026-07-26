@@ -2,7 +2,7 @@
 title: Code Include Examples
 summary: Working examples for including complete files, selected source lines, and highlighted lines in Markdown.
 eyebrow: Wiki reference
-status: examples
+status: reference
 ---
 
 Code is stored beside the documentation and fetched when the page is rendered. Paths are relative to this Markdown file and cannot escape the `content/` directory.

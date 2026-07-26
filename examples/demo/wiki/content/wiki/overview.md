@@ -12,7 +12,8 @@ This section documents the wiki engine and its authoring features. It is intenti
 - Markdown pages loaded directly in the browser without a build step.
 - Hash-based navigation, shareable links to page sections, and nested collapsible sidebar categories.
 - `[[Wiki links]]` between pages.
-- YAML frontmatter for page titles and metadata.
+- YAML frontmatter with enforced page statuses: accepted, in-progress, todo, or reference.
+- Visually distinct document markers for accepted decisions, open work, questions, evidence, and missing artifacts.
 - Syntax-highlighted fenced code blocks.
 - Mermaid diagrams authored inside Markdown.
 - Source files included as code blocks, with ranges and highlighted lines.

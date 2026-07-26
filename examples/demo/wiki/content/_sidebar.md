@@ -1,28 +1,26 @@
 ## Start here
 
-- [[Home]]
+- [[Home|Imprint Zero — One pager]]
 - [[Design/Game Vision|Game vision]]
   - [[Design/Design Pillars|Design pillars]]
   - [[Design/Player Experience|Player experience]]
-  - [[Design/Prototype Findings|Prototype findings]]
 
 ## Game design
 
 - [[Gameplay/Overview|Gameplay]]
   - [[Gameplay/Core Loop|Core loop]]
+  - [[Gameplay/Representative Encounter|Representative encounter]]
   - [[Gameplay/Mechanics|Mechanics]]
   - [[Gameplay/Progression|Progression]]
 - [[Design/World and Content|World and content]]
   - [[Design/World|World]]
   - [[Design/Characters|Characters]]
   - [[Design/Art Direction|Art direction]]
-  - [[Design/Audio Direction|Audio direction]]
 
 ## Production
 
 - [[Production/Overview|Production overview]]
   - [[Production/Scope|Scope and non-goals]]
-  - [[Production/Milestones|Milestones]]
   - [[Production/Open Questions|Open questions]]
   - [[Production/References|References]]
 

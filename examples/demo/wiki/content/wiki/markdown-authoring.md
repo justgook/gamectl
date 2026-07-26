@@ -14,7 +14,7 @@ Create a Markdown file anywhere under `content/`. Every rendered page requires Y
 title: Example Page
 summary: A short description shown below the title.
 eyebrow: Game design
-status: unresolved
+status: in-progress
 ---
 
 Page content starts here.
@@ -25,6 +25,37 @@ Quote YAML values containing a colon followed by a space:
 ```yaml
 summary: "Loop structure: observe, decide, act, and respond."
 ```
+
+Every page must use one of four statuses:
+
+- `accepted` — canonical enough to build against;
+- `in-progress` — contains useful direction and unresolved parts;
+- `todo` — required but not designed yet;
+- `reference` — stable authoring or supporting material.
+
+## Document markers
+
+Use a marker blockquote at the beginning of a section or immediately before the statement it classifies:
+
+```md
+> **Accepted** — The campaign uses authored stages.
+
+> **In progress** — The death cycle has direction but incomplete rules.
+
+> **Open question** — Which upgrades transfer between characters?
+
+> **TODO** — Define the first boss after the representative encounter works.
+
+> **Needs evidence** — Validate this claim with a playtest.
+
+> **Needs image** — Add a character silhouette comparison.
+
+> **Needs diagram** — Diagram the death and recovery loop.
+
+> **Needs example** — Show the same encounter played by two characters.
+```
+
+These exact labels receive strong visual treatment. Page status reports the page as a whole; markers distinguish accepted documentation from unresolved work inside it.
 
 ## Wiki links
 

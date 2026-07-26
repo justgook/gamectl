@@ -1,26 +1,47 @@
 ---
 title: Core Loop
-summary: The repeated sequence of player actions, feedback, consequences, and renewed goals.
+summary: The resolved side-scrolling action loop and the unresolved progression structure around it.
 eyebrow: Gameplay
-status: unresolved
+status: in-progress
 ---
 
 ## Moment-to-moment loop
 
-What does the player repeatedly observe, decide, execute, and evaluate?
+> **In progress** — This loop describes the intended foundation but still needs a representative playable example.
 
-## Session loop
+1. **Read:** identify terrain, enemies, projectiles, openings, and possible routes.
+2. **Choose:** decide how to advance, evade, position, and attack with the selected character.
+3. **Execute:** combine movement, platforming, eight-direction firing, optional aim-locking, and weapons under pressure.
+4. **Resolve:** defeat or bypass the threat, absorb feedback, and gain space or access.
+5. **Reframe:** encounter a changed pattern, traversal problem, route, or set-piece phase.
 
-How does one encounter or activity lead to the next?
+Dense projectile sequences increase execution pressure but should preserve readable decisions. They are an intensity peak within the loop, not a replacement for it.
 
-## Long-term loop
+## Encounter rhythm
 
-What changes between sessions, and what motivates another session?
+Authored encounters may shift emphasis between traversal, combat, discovery, and spectacle. A moving train or attacked lift is a container for the same core verbs under unusual spatial pressure.
+
+## Character transformation
+
+The selected character must alter how the player reads, chooses, or executes within this loop. Cosmetic differences and small statistical changes are insufficient.
+
+> **Needs example** — Define a baseline character and contrasting character against the same representative encounter.
+
+## Macro loop
+
+> **In progress** — The authored-campaign spine is accepted; exact return and persistence rules remain open.
+
+1. Select one crew member and loadout at the shared hub, then deploy into the authored campaign.
+2. Advance through encounters, routes, and set pieces.
+3. Discover persistent knowledge, access, equipment, or shortcuts.
+4. Reach a major objective or die.
+5. Return to the hub with the world changed by selected persistent discoveries.
+6. Freely reconsider character, loadout, route, or investment before the next deployment.
+
+The player cannot swap characters during a deployment. The exact spatial and fictional relationship between the hub and campaign locations remains unresolved.
 
 ## Failure and recovery
 
-What does failure cost, what does it teach, and how quickly can the player act again?
+Death should reopen meaningful choices rather than randomize the authored world. It may support experimentation with another character, route, weapon, or upgrade investment.
 
-## Loop diagram
-
-Add a compact diagram once the loop vocabulary is stable.
+> **Open question** — Define return conditions, retained equipment and upgrades, recovery, transfer rules, and the intended emotional cost of repeated traversal. Shared world discoveries and shortcuts persist for the crew.

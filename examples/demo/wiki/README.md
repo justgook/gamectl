@@ -1,6 +1,6 @@
-# Demo Game Wiki
+# Imprint Zero Wiki
 
-No-build Markdown wiki for the game developed in `examples/demo`.
+No-build Markdown GDD and knowledge base for Imprint Zero.
 
 ## Run
 
@@ -17,7 +17,8 @@ A local HTTP server is required because browsers do not allow `fetch()` to read 
 ## Authoring
 
 - Pages are Markdown files under `content/`.
-- Every page requires YAML frontmatter with a `title`.
+- Every page requires YAML frontmatter with a `title` and a status: `accepted`, `in-progress`, `todo`, or `reference`.
+- Status marker blockquotes such as `> **Accepted** — ...`, `> **Open question** — ...`, and `> **Needs image** — ...` distinguish decided content from missing work inside a page.
 - `content/_sidebar.md` defines navigation using Markdown headings and lists.
 - Headings are section separators. A top-level list item with children becomes a collapsible category and must itself be a wiki link to a content page.
 - `content/_config.md` defines the wiki title, description, and home page.

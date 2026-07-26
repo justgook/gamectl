@@ -98,6 +98,10 @@ a:hover { text-decoration: underline; }
 .eyebrow { color: var(--accent); font-family: var(--font-mono); font-size: .73rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
 .summary { max-width: 650px; margin: 0 0 14px; color: var(--muted); font-size: 1.08rem; line-height: 1.6; }
 .status { display: inline-flex; padding: 3px 8px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-family: var(--font-mono); font-size: .7rem; text-transform: uppercase; }
+.status-accepted { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--accent); }
+.status-in-progress { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); color: var(--blue); }
+.status-todo { border-color: color-mix(in srgb, #f5a742 45%, var(--border)); color: #f5a742; }
+.status-reference { color: var(--muted); }
 
 .prose { color: #c9cdd6; font-size: 1rem; line-height: 1.75; }
 .prose h2, .prose h3, .prose h4 { color: var(--text); line-height: 1.25; scroll-margin-top: 80px; }
@@ -110,6 +114,12 @@ a:hover { text-decoration: underline; }
 .prose strong { color: var(--text); }
 .prose blockquote { padding: 12px 18px; border-left: 3px solid var(--accent); background: var(--surface); color: var(--muted); }
 .prose blockquote p:last-child { margin-bottom: 0; }
+.prose .document-marker { border: 1px solid var(--border); border-left-width: 4px; border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--marker-color) 6%, var(--surface)); color: var(--text); }
+.prose .document-marker strong:first-child { color: var(--marker-color); font-family: var(--font-mono); font-size: .78em; letter-spacing: .04em; text-transform: uppercase; }
+.prose .marker-accepted { --marker-color: var(--accent); }
+.prose .marker-in-progress { --marker-color: var(--blue); }
+.prose .marker-todo, .prose .marker-open-question { --marker-color: #f5a742; }
+.prose .marker-needs-evidence, .prose .marker-needs-image, .prose .marker-needs-diagram, .prose .marker-needs-example { --marker-color: #c792ea; }
 .prose code { padding: .12em .35em; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-raised); color: var(--text); font-family: var(--font-mono); font-size: .86em; }
 .prose pre { overflow: auto; padding: 18px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); line-height: 1.55; }
 .prose pre code { padding: 0; border: 0; background: none; }

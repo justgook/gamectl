@@ -1,21 +1,28 @@
 ---
 title: World and Content
-summary: The setting, characters, audiovisual identity, and authored material through which the game is experienced.
+summary: Current fiction, cast, presentation, and authored-content direction.
 eyebrow: Game design
-status: unresolved
+status: in-progress
 ---
 
-## Purpose
+## Current direction
 
-This category defines the authored context and presentation that make the gameplay legible, memorable, and specific to this game.
+> **Accepted** — The campaign uses original characters, fiction, environments, and assets. Nostalgic familiarity comes from readable design language rather than copying a specific game.
 
-## Structure
+> **In progress** — The setting draws from late-20th-century cyberpunk and supports a journey through strongly differentiated authored locations.
 
-- [[Design/World|World]] defines the premise, places, forces, and fictional rules.
-- [[Design/Characters|Characters]] defines the player character, allies, opponents, and their roles.
-- [[Design/Art Direction|Art direction]] defines visual identity, readability, and production principles.
-- [[Design/Audio Direction|Audio direction]] defines music, sound, silence, and functional feedback.
+## Knowledge map
 
-## Content test
+- [[Design/World|World]] — setting direction, world structure, and unresolved premise.
+- [[Design/Characters|Characters]] — playable cast, free reselection after death, and unresolved ownership rules.
+- [[Design/Art Direction|Art direction]] — modern representation of 16-bit visual memory.
 
-Content should serve the player experience or expose meaningful gameplay. Volume alone is not a design goal.
+Audio direction, supporting cast, enemy taxonomy, narrative structure, and detailed location catalogue do not yet have enough decided content to justify separate pages.
+
+## Immediate content needs
+
+> **Needs image** — A small mood board contrasting the intended late-20th-century cyberpunk atmosphere with visual directions to avoid.
+
+> **TODO** — Define the campaign premise before naming factions, writing lore, or producing a large cast.
+
+> **TODO** — Define the baseline encounter and characters before creating an enemy or location catalogue.

@@ -2,7 +2,7 @@
 title: Diagram Examples
 summary: Working Mermaid examples for game-design flows, interactions, and state transitions.
 eyebrow: Wiki reference
-status: validated examples
+status: reference
 ---
 
 Mermaid diagrams are authored directly in Markdown with a fenced `mermaid` code block. These examples also suggest useful diagram types for the GDD.
