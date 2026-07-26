@@ -17,7 +17,13 @@ Other crew members introduce themselves through operational radio communication 
 
 > **Accepted** — Activating the rail-control system briefly produces a biometric match for the Rifle Marine under an unknown designation whose official service status is **killed in action**.
 
-The record does not establish whether the Marine is the original person, a clone, a reconstruction, a copied identity, or the subject of falsified data. The controller interrupts or suppresses the archive connection before the player can investigate.
+The record does not establish whether the Marine is the original person, a clone, a reconstruction, a copied identity, or the subject of falsified data. The controller suppresses the archive connection before the player can investigate.
+
+The controller responds calmly:
+
+> “Legacy registry corruption. This archive was isolated for exactly this reason. Cargo control is restored. Proceed to extraction.”
+
+One crew voice briefly hesitates or begins to question the designation. This crew member becomes the immediately selectable contrasting character at the Hub. Another voice falls back on conditioned routine and dismisses the record as an archive ghost. The exchange shows different levels of doubt without making the controller openly hostile.
 
 ## Concealed purpose
 
@@ -49,11 +55,11 @@ Other crew members establish familiarity through radio contact during play befor
 
 ## Outcomes
 
-> **Accepted** — Success unlocks and enters the Hub for the first time. Failure restarts within the introduction because the Hub and standard campaign death cycle are not yet available.
+> **Accepted** — Success unlocks and enters the Hub for the first time. Arrival remains player-controlled and introduces the physically present crew plus direct selection shortcuts without a forced interface tour. Failure restarts within the introduction because the Hub and standard campaign death cycle are not yet available.
 
 > **Accepted** — The killed-in-action biometric record and controller intervention provide the first evidence that activation served a concealed purpose.
 
-> **Open question** — What explanation does the controller give for suppressing the record, and how do the other crew voices respond?
+> **Accepted** — The controller calls the record legacy corruption. One crew member shows brief doubt while another normalizes it as an archive ghost.
 
 > **Open question** — What immediate consequence follows withdrawing before activation in the final campaign?
 

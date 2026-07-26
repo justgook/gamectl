@@ -50,7 +50,7 @@ flowchart LR
 4. **Shield Enforcer:** provide room to jump over its charge, reverse, and attack the exposed rear.
 5. **Brief reset:** reveal the rail-control objective from safety.
 6. **Crane and sentry:** combine a fixed low–high pattern with the cycling cargo container.
-7. **Rail-control terminal:** complete the Mission; briefly recognize the Rifle Marine under an unknown designation marked killed in action; let the controller suppress the archive connection.
+7. **Rail-control terminal:** complete the Mission; briefly recognize the Rifle Marine under an unknown designation marked killed in action; let the controller suppress it as legacy corruption while crew voices show brief doubt and conditioned dismissal.
 
 Each beat teaches or combines one demand. No optional enemy, collectible, dialogue sequence, or route complexity belongs in the flat pass.
 
@@ -72,6 +72,19 @@ Use the cross-cutting [[Gameplay/Mechanics|camera and integrity rules]]. Reachin
 - No elaborate death-and-recovery implementation
 - No opening menu, long cinematic, or production-scale narrative sequence
 - No CraftPix requirement for the first geometric blockout
+
+## Playable geometric blockout
+
+> **Needs evidence** — A throwaway no-asset browser prototype now implements the seven flat-baseline beats, Rifle Marine controls, integrity, sentries, Shield Enforcer, crane, camera, terminal, and opening radio sequence.
+
+Run it with:
+
+```sh
+cd examples/demo/game
+make prototype
+```
+
+Prototype source and the evidence checklist live in `examples/demo/game/prototype-freight-terminal/`. Values and implementation are not design truth until playtesting validates them.
 
 ## Evidence required
 

@@ -11,13 +11,9 @@ This page contains questions, not design truth. When a question is resolved, upd
 
 > **Accepted** — The first internal One Pager is complete enough to guide deeper design. Remaining uncertainties are explicitly marked and should be resolved through focused design work rather than adding more high-level concepts.
 
-## Current narrative decision
-
-> **Open question** — What explanation does the controller give after suppressing the killed-in-action biometric record, and how much doubt do the other crew members express over radio?
-
 ## Current validation step
 
-> **Needs evidence** — Build the flat freight-terminal blockout and tune movement, jump, camera, projectile timing, enemy spacing, integrity values, and encounter duration through play.
+> **Needs evidence** — Playtest the geometric freight-terminal prototype and tune movement, jump, camera, projectile timing, enemy spacing, integrity values, and encounter duration. Do not define the contrasting character mechanically before this baseline produces evidence.
 
 ## Current production constraint
 
@@ -27,7 +23,7 @@ This page contains questions, not design truth. When a question is resolved, upd
 
 ## Parked detail decisions
 
-These remain important but should not interrupt completion of the One Pager:
+These remain important but should not interrupt the flat-baseline validation pass:
 
 - What immediate consequence follows individual mission failure?
 - Where exactly does the player return after death?
@@ -47,6 +43,9 @@ These remain important but should not interrupt completion of the One Pager:
 
 ## Recently resolved
 
+- **Initial Hub roster:** the Rifle Marine and the crew member who questions the archive record are immediately selectable; the second character remains undefined pending baseline evidence.
+- **First Hub arrival:** remains player-controlled; physically reveals the radio crew; immediately exposes selection interfaces and direct shortcuts without a forced tour.
+- **Immediate response:** the controller calmly calls the record legacy corruption; one crew voice hesitates while another dismisses it as an archive ghost.
 - **First contradiction:** the rail-control system recognizes the Rifle Marine under an unknown designation officially recorded as killed in action; the controller suppresses the connection.
 - **Opening delivery:** control begins immediately; objective and crew familiarity arrive through operational radio dialogue during the safe-arrival beat.
 - **Opening progression:** new game deploys directly into Restore the Cargo Line with preselected Rifle Marine and Baseline Rifle; first success unlocks the Hub.

@@ -33,7 +33,7 @@ flowchart LR
 
 ## Standard post-introduction path
 
-1. Select an unlocked character and loadout at the Hub.
+1. Select the Rifle Marine or the immediately available contrasting character, plus a loadout, at the Hub.
 2. Choose an available Mission and destination.
 3. Deploy into its Zone.
 4. Return to the Hub after success, death, or voluntary withdrawal.

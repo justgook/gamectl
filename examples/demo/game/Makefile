@@ -106,6 +106,7 @@ help:
 	  '  native-run      Build and run native game2 executable' \
 	  '  web             Build standalone freestanding web bundle' \
 	  '  serve           Serve standalone web bundle on :8812' \
+	  '  prototype       Serve throwaway Freight Terminal blockout on :8813' \
 	  '  shaders         Regenerate Odin shader bindings recursively' \
 	  '  clean           Remove local build output'
 
@@ -240,6 +241,10 @@ web: wasm | $(WEB_DIR)
 .PHONY: serve
 serve: web
 	$(Q)$(PYTHON3) -m http.server 8812 --directory "$(WEB_DIR)"
+
+.PHONY: prototype
+prototype:
+	$(Q)$(PYTHON3) -m http.server 8813 --directory prototype-freight-terminal
 
 # fmt.tprintf("-vet-packages:%s", vet_packages),
 # 				-vet-unused-procedures \

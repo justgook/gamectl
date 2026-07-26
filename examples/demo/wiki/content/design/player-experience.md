@@ -41,7 +41,7 @@ The player's first form of rebellion is therefore not defeating the controller�
 
 ## Opening experience
 
-> **Accepted** — A new game gives control almost immediately. Mission objective and other crew voices arrive over radio during safe movement. The player learns action before receiving the first identity contradiction; the Hub becomes the first quiet narrative pause.
+> **Accepted** — A new game gives control almost immediately. Mission objective and other crew voices arrive over radio during safe movement. The player learns action before receiving the first identity contradiction. The controller calmly labels it legacy corruption; one crew voice hesitates while another normalizes it. The Hub becomes the first quiet narrative pause. Arrival remains player-controlled, connects radio voices to physically present crew, and exposes direct selection shortcuts without a forced tour.
 
 ## Representative play
 

@@ -31,7 +31,7 @@ The selected character must alter how the player reads, chooses, or executes wit
 
 ## Opening exception
 
-> **Accepted** — A new game skips the Hub and menus. The [[Characters/Rifle Marine|Rifle Marine]], [[Equipment/Baseline Rifle|Baseline Rifle]], and [[Missions/Restore the Cargo Line|introduction Mission]] are preselected so the player begins in action. First success unlocks the Hub.
+> **Accepted** — A new game skips the Hub and menus. The [[Characters/Rifle Marine|Rifle Marine]], [[Equipment/Baseline Rifle|Baseline Rifle]], and [[Missions/Restore the Cargo Line|introduction Mission]] are preselected so the player begins in action. First success unlocks a player-controlled Hub arrival. Character, equipment, and destination interfaces become immediately available through physical stations and direct shortcuts; no forced tour interrupts control. The initial Hub roster contains the Rifle Marine and one contrasting playable character.
 
 ## Standard macro loop
 

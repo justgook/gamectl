@@ -9,6 +9,10 @@ status: in-progress
 
 > **Accepted** — The Hub unlocks only after the player completes the introduction Mission in the [[World/Freight Terminal|Freight Terminal]]. A new game begins in action with a preselected character, equipment, and Mission rather than a Hub or menu sequence.
 
+The first arrival follows immediately after the controller dismisses the Rifle Marine's killed-in-action record and crew voices reveal different levels of doubt. The Hub therefore serves as the player's first quiet opportunity to connect radio voices with physically present crew members.
+
+> **Accepted** — Keep the player in control during arrival. Use one short exchange to acknowledge Mission success without resolving the archive record. Do not force a station-by-station tour.
+
 After its first arrival, the Hub becomes the campaign's decision and return Zone. The active crew physically coexists here and shares one persistent world state. Later deployments return here after Mission success, death, or voluntary withdrawal.
 
 ## Accepted functions
@@ -27,7 +31,7 @@ Character switching occurs only here. There is no real-time character swap durin
 
 > **Accepted** — The Hub is a compact navigable side-view Zone with direct menu shortcuts. Physical space supports crew presence, dialogue, and environmental storytelling; shortcuts open character selection, equipment, Missions, and Memory Imprints without repetitive walking.
 
-The Hub should not contain traversal friction, combat, or mandatory repeated journeys between functional stations.
+The Hub should not contain traversal friction, combat, or mandatory repeated journeys between functional stations. Character selection, equipment, and destination interfaces become available immediately. The Rifle Marine and the crew member who questioned the archive record are selectable on first arrival. The questioning character's name, identity, and mechanics require clarification. A concise prompt introduces their direct shortcuts; the player may explore, compare options, or proceed when ready. Starting the next Mission requires opening the deployment interface.
 
 ## Campaign connection
 
