@@ -17,7 +17,7 @@ The runtime files in this directory are relative symlinks into that checkout:
 - `style.css`
 - `vendor/`
 
-This project owns `content/`, `custom.css`, and `favicon.svg`. The runtime repository's own `content/` contains its deployed **Wiki guide** demo and is intentionally not imported here.
+This project owns its game content, `content/wiki/content-style-guide.md`, `custom.css`, and `favicon.svg`. The other files under `content/wiki/` are relative symlinks to the runtime repository's default **Wiki guide** content so the authoring reference is also available in this demo.
 
 ## Run
 
