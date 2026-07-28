@@ -1,0 +1,4 @@
+[submodule "repos/wiki"]
+	path = repos/wiki
+	url = git@github.com:justgook/wiki.git
+	branch = release

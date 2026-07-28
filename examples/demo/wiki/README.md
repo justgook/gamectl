@@ -1,6 +1,23 @@
 # Imprint Zero Wiki
 
-No-build Markdown GDD and knowledge base for Imprint Zero.
+Project-owned content and presentation for the Imprint Zero GDD. The reusable no-build wiki runtime comes from the `repos/wiki` Git submodule.
+
+## Checkout
+
+From the GAMS repository root:
+
+```sh
+git submodule update --init repos/wiki
+```
+
+The runtime files in this directory are relative symlinks into that checkout:
+
+- `app.js`
+- `index.html`
+- `style.css`
+- `vendor/`
+
+This project owns `content/`, `custom.css`, and `favicon.svg`. The runtime repository's own `content/` contains its deployed **Wiki guide** demo and is intentionally not imported here.
 
 ## Run
 
@@ -12,56 +29,19 @@ python3 -m http.server 8080
 
 Open <http://localhost:8080>.
 
-A local HTTP server is required because browsers do not allow `fetch()` to read Markdown reliably from `file://` URLs. There is no build, dependency install, or generated content.
+A local HTTP server is required because browsers do not allow `fetch()` to read Markdown reliably from `file://` URLs. There is no build or dependency installation.
 
 ## Authoring
 
 - Pages are Markdown files under `content/`.
 - Every page requires YAML frontmatter with a `title` and a status: `accepted`, `in-progress`, `todo`, or `reference`.
-- Status marker blockquotes such as `> **Accepted** — ...`, `> **Open question** — ...`, and `> **Needs evidence** — ...` distinguish decided content from missing work inside a page.
-- Required images must always be embedded as dedicated image files. If the final asset is unavailable, use a placeholder whose contents describe the required replacement; do not put image replacement instructions in page prose.
-- `content/_sidebar.md` defines navigation using Markdown headings and lists.
-- Headings are section separators. A top-level list item with children becomes a collapsible category and must itself be a wiki link to a content page.
+- `content/_sidebar.md` defines navigation using Markdown headings, lists, and wiki links.
 - `content/_config.md` defines the wiki title, description, and home page.
 - Wiki links use `[[Page Name]]` or `[[target/path|Visible label]]`.
-- A target is converted to a lowercase kebab-case file path. For example, `[[Gameplay/Core Loop]]` opens `content/gameplay/core-loop.md`.
-- Footnotes use GFM syntax: reference with `[^label]` and define with `[^label]: Footnote text`.
-- Formulas use LaTeX-style `$...$` inline or `$$` display delimiters and are rendered with KaTeX.
-- Mermaid diagrams use fenced `mermaid` blocks:
+- Required images must be embedded as image files. Use an explicit placeholder image when the final asset is unavailable.
+- Footnotes use GFM `[^label]` syntax.
+- Formulas use KaTeX `$...$` or `$$...$$` delimiters.
+- Mermaid diagrams use fenced `mermaid` blocks.
+- Code includes use VuePress-compatible `@[code](path)` syntax and must stay inside `content/`.
 
-  ````md
-  ```mermaid
-  flowchart LR
-      Idea --> Prototype --> Decision
-  ```
-  ````
-
-See [[Wiki/Diagrams]] in the running wiki for flowchart, sequence, and state-diagram examples.
-
-### Include source code
-
-Code includes use VuePress-compatible syntax. Paths are relative to the Markdown page and must remain inside `content/`:
-
-```md
-@[code](./examples/encounter-state.js)
-@[code{11-21} javascript](./examples/encounter-state.js)
-@[code{16-29} javascript{2,4-6}](./examples/encounter-state.js)
-```
-
-- `{11-21}` selects original source lines.
-- `javascript` explicitly selects the highlighting language; otherwise it is inferred from the extension.
-- `{2,4-6}` highlights lines relative to the displayed snippet.
-
-See [[Wiki/Code Includes]] in the running wiki for rendered examples. The complete in-wiki authoring reference starts at [[Wiki/Overview]].
-
-## Vendored browser libraries
-
-The `vendor/` directory contains:
-
-- Marked, js-yaml, Highlight.js, and its GitHub Dark theme copied from <https://github.com/justgook/justgook.github.io>.
-- marked-footnote 1.4.0 from jsDelivr, with its MIT license in `vendor/marked-footnote.LICENSE`.
-- KaTeX 0.16.22 and its fonts, with its MIT license in `vendor/katex/LICENSE`.
-- marked-katex-extension 5.1.10, with its MIT license in `vendor/marked-katex.LICENSE`.
-- Mermaid 11.12.0 from cdnjs, with its MIT license in `vendor/mermaid.LICENSE`.
-
-Keeping these files local makes the wiki usable offline.
+See the **Wiki guide** in the `repos/wiki` checkout or its GitHub Pages deployment for the complete authoring reference and rendered examples.

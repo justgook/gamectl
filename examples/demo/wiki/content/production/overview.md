@@ -17,7 +17,6 @@ Production schedules and content budgets are premature until that slice defines 
 - Existing proof-of-concept systems do not constrain the design.
 - The game uses an authored campaign rather than procedurally generated levels.
 - Character death permits free reselection among unlocked characters.
-- Wiki Guide content remains separate from game documentation.
 
 ## Decision queue
 
