@@ -120,7 +120,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-animation-tree data-source=\"catalog/world/level.world.json\" />"
+          "layout": "<view-markov data-source=\"CYBERPUNK/markov/b01.xml\" data-source-input=\"CYBERPUNK/missions/m01.map.json\" />"
         }
       }
     },

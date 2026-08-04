@@ -1,0 +1,72 @@
+[
+  {
+    "x": 0,
+    "y": 0,
+    "tilemap": "CYBERPUNK/missions/m01.map.json",
+    "name": "tilemap",
+    "render": "tilemap",
+    "lock": true
+  },
+  {
+    "x": 184,
+    "y": 693,
+    "brain": 0,
+    "director_entity": {
+      "id": 0
+    },
+    "bullet": {
+      "pattern_id": 0,
+      "side": "Player"
+    },
+    "input": 0,
+    "velocity": [
+      0,
+      0
+    ],
+    "collider": {
+      "radius": 6,
+      "height": 12
+    },
+    "player_hurt": {
+      "radius": 6,
+      "height": 12
+    },
+    "platformer": {
+      "facing": 1
+    },
+    "platformer_anim": {
+      "atlas_base_id": 30
+    },
+    "sprite": {},
+    "name": "player"
+  },
+  {
+    "x": 238,
+    "y": 652,
+    "director_trigger_aabb": {
+      "bounds": [
+        -8,
+        -8,
+        8,
+        8
+      ],
+      "once": true,
+      "used": false
+    },
+    "director_entity": {
+      "id": 7
+    },
+    "name": "trigger",
+    "width": 16,
+    "height": 16,
+    "render": "rectangle",
+    "color": "#FF0000"
+  },
+  {
+    "x": -8,
+    "y": 8,
+    "tilemap": "tmp/m01.layer1.map.json",
+    "name": "renerable",
+    "render": "tilemap"
+  }
+]
