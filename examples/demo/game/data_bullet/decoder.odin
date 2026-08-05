@@ -388,9 +388,9 @@ decode_bullet_patterns :: proc(r: ^Reader, out: ^Bullet_Patterns) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Bullet_Patterns, int(count))
-		for i0 in 0 ..< int(count) {
+		for decode_index_0 in 0 ..< int(count) {
 			{
-				if !decode_bullet_pattern(r, &out^[i0]) {return false}
+				if !decode_bullet_pattern(r, &out^[decode_index_0]) {return false}
 			}
 		}
 	}
@@ -408,9 +408,9 @@ decode_bullet_pattern :: proc(r: ^Reader, out: ^Bullet_Pattern) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.bullets = make([]Bullet, int(count))
-		for i1 in 0 ..< int(count) {
+		for decode_index_1 in 0 ..< int(count) {
 			{
-				if !decode_bullet(r, &out.bullets[i1]) {return false}
+				if !decode_bullet(r, &out.bullets[decode_index_1]) {return false}
 			}
 		}
 	}
@@ -418,14 +418,14 @@ decode_bullet_pattern :: proc(r: ^Reader, out: ^Bullet_Pattern) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.actions = make([]Action, int(count))
-		for i2 in 0 ..< int(count) {
+		for decode_index_2 in 0 ..< int(count) {
 			{
 				count, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.actions[i2] = make(Action, int(count))
-				for i3 in 0 ..< int(count) {
+				out.actions[decode_index_2] = make(Action, int(count))
+				for decode_index_3 in 0 ..< int(count) {
 					{
-						if !decode_command(r, &out.actions[i2][i3]) {return false}
+						if !decode_command(r, &out.actions[decode_index_2][decode_index_3]) {return false}
 					}
 				}
 			}
@@ -435,9 +435,9 @@ decode_bullet_pattern :: proc(r: ^Reader, out: ^Bullet_Pattern) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.fires = make([]Fire, int(count))
-		for i4 in 0 ..< int(count) {
+		for decode_index_4 in 0 ..< int(count) {
 			{
-				if !decode_fire(r, &out.fires[i4]) {return false}
+				if !decode_fire(r, &out.fires[decode_index_4]) {return false}
 			}
 		}
 	}
@@ -569,9 +569,9 @@ decode_ref_with_params :: proc(r: ^Reader, out: ^Ref_With_Params) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.params = make([]Expr, int(count))
-		for i5 in 0 ..< int(count) {
+		for decode_index_5 in 0 ..< int(count) {
 			{
-				if !decode_expr(r, &out.params[i5]) {return false}
+				if !decode_expr(r, &out.params[decode_index_5]) {return false}
 			}
 		}
 	}
@@ -590,9 +590,9 @@ decode_bullet :: proc(r: ^Reader, out: ^Bullet) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.action_refs = make([]Ref, int(count))
-		for i6 in 0 ..< int(count) {
+		for decode_index_6 in 0 ..< int(count) {
 			{
-				if !decode_ref(r, &out.action_refs[i6]) {return false}
+				if !decode_ref(r, &out.action_refs[decode_index_6]) {return false}
 			}
 		}
 	}
@@ -605,9 +605,9 @@ decode_action :: proc(r: ^Reader, out: ^Action) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Action, int(count))
-		for i7 in 0 ..< int(count) {
+		for decode_index_7 in 0 ..< int(count) {
 			{
-				if !decode_command(r, &out^[i7]) {return false}
+				if !decode_command(r, &out^[decode_index_7]) {return false}
 			}
 		}
 	}

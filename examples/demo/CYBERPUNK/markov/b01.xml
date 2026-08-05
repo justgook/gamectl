@@ -1,46 +1,66 @@
 <sequence values="0WT123456789ABCDEFG" symmetry="()">
-  <map
-    values="0WT123456789ABCDEFG"
-    scale="1 1 2"
-    symmetry="()">
+  <all in="T" out="0"/>
+  <prl>
     <union symbol="X" values="0T"/>
-    <rule in="XX/WX" out="**/W* **/*1"/>
-    <rule in="XW/XW" out="*W/*W **/*2"/>
-    <rule in="WX/WW" out="W*/WW **/*3"/>
-    <rule in="XX/WW" out="**/WW **/*4"/>
-    <rule in="WX/XW" out="W*/*W **/*5"/>
-    <rule in="XW/WW" out="*W/WW **/*6"/>
-    <rule in="WW/WW" out="WW/WW **/*7"/>
-    <rule in="WW/WX" out="WW/W* **/*8"/>
-    <rule in="XW/XX" out="*W/** **/*9"/>
-    <rule in="WW/XX" out="WW/** **/*A"/>
-    <rule in="WW/XW" out="WW/*W **/*B"/>
-    <rule in="WX/WX" out="W*/W* **/*C"/>
-    <!-- <rule in="00/00" out="00/00 **/*D"/> -->
-    <rule in="XX/XW" out="**/*W **/*E"/>
-    <rule in="XW/WX" out="*W/W* **/*F"/>
-    <rule in="WX/XX" out="W*/** **/*G"/>
-  </map>
-  <map
-    values="0WT123456789ABCDEFG"
-    scale="1 1 1/2"
-    symmetry="()">
-    <rule in="* 0" out="0"/>
-    <rule in="* 1" out="1"/>
-    <rule in="* 2" out="2"/>
-    <rule in="* 3" out="3"/>
-    <rule in="* 4" out="4"/>
-    <rule in="* 5" out="5"/>
-    <rule in="* 6" out="6"/>
-    <rule in="* 7" out="7"/>
-    <rule in="* 8" out="8"/>
-    <rule in="* 9" out="9"/>
-    <rule in="* A" out="A"/>
-    <rule in="* B" out="B"/>
-    <rule in="* C" out="C"/>
-    <rule in="* D" out="D"/>
-    <rule in="* E" out="E"/>
-    <rule in="* F" out="F"/>
-    <rule in="* G" out="G"/>
-  </map>
+    <rule in="XX/WX" out="**/*1"/>
+    <rule in="XW/XW" out="**/*2"/>
+    <rule in="WX/WW" out="**/*3"/>
+    <rule in="XX/WW" out="**/*4"/>
+    <rule in="WX/XW" out="**/*5"/>
+    <rule in="XW/WW" out="**/*6"/>
+    <rule in="WW/WW" out="**/*7"/>
+    <rule in="WW/WX" out="**/*8"/>
+    <rule in="XW/XX" out="**/*9"/>
+    <rule in="WW/XX" out="**/*A"/>
+    <rule in="WW/XW" out="**/*B"/>
+    <rule in="WX/WX" out="**/*C"/>
+    <!-- <rule in="00/00" out="**/*D"/> -->
+    <rule in="XX/XW" out="**/*E"/>
+    <rule in="XW/WX" out="**/*F"/>
+    <rule in="WX/XX" out="**/*G"/>
+  </prl>
+  <!-- <map -->
+  <!--   values="0WT123456789ABCDEFG" -->
+  <!--   scale="1 1 2" -->
+  <!--   symmetry="()"> -->
+  <!--   <union symbol="X" values="0T"/> -->
+  <!--   <rule in="XX/WX" out="**/W* **/*1"/> -->
+  <!--   <rule in="XW/XW" out="*W/*W **/*2"/> -->
+  <!--   <rule in="WX/WW" out="W*/WW **/*3"/> -->
+  <!--   <rule in="XX/WW" out="**/WW **/*4"/> -->
+  <!--   <rule in="WX/XW" out="W*/*W **/*5"/> -->
+  <!--   <rule in="XW/WW" out="*W/WW **/*6"/> -->
+  <!--   <rule in="WW/WW" out="WW/WW **/*7"/> -->
+  <!--   <rule in="WW/WX" out="WW/W* **/*8"/> -->
+  <!--   <rule in="XW/XX" out="*W/** **/*9"/> -->
+  <!--   <rule in="WW/XX" out="WW/** **/*A"/> -->
+  <!--   <rule in="WW/XW" out="WW/*W **/*B"/> -->
+  <!--   <rule in="WX/WX" out="W*/W* **/*C"/> -->
+  <!-- <rule in="00/00" out="00/00 **/*D"/> -->
+  <!--   <rule in="XX/XW" out="**/*W **/*E"/> -->
+  <!--   <rule in="XW/WX" out="*W/W* **/*F"/> -->
+  <!--   <rule in="WX/XX" out="W*/** **/*G"/> -->
+  <!-- </map> -->
+  <!-- <map -->
+  <!--   values="0WT123456789ABCDEFG" -->
+  <!--   scale="1 1 1/2" -->
+  <!--   symmetry="()"> -->
+  <!--   <rule in="* 0" out="0"/> -->
+  <!--   <rule in="* 1" out="1"/> -->
+  <!--   <rule in="* 2" out="2"/> -->
+  <!--   <rule in="* 3" out="3"/> -->
+  <!--   <rule in="* 4" out="4"/> -->
+  <!--   <rule in="* 5" out="5"/> -->
+  <!--   <rule in="* 6" out="6"/> -->
+  <!--   <rule in="* 7" out="7"/> -->
+  <!--   <rule in="* 8" out="8"/> -->
+  <!--   <rule in="* 9" out="9"/> -->
+  <!--   <rule in="* A" out="A"/> -->
+  <!--   <rule in="* B" out="B"/> -->
+  <!--   <rule in="* C" out="C"/> -->
+  <!--   <rule in="* D" out="D"/> -->
+  <!--   <rule in="* E" out="E"/> -->
+  <!--   <rule in="* F" out="F"/> -->
+  <!--   <rule in="* G" out="G"/> -->
+  <!-- </map> -->
 </sequence>

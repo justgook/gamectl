@@ -724,7 +724,7 @@ decode_director_entity_def :: proc(r: ^Reader, out: ^director.Entity_Def) -> boo
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.tags = make([]director.Word_Id, int(count))
-		for i0 in 0 ..< int(count) {
+		for decode_index_0 in 0 ..< int(count) {
 			{
 				value: u32
 				{
@@ -732,7 +732,7 @@ decode_director_entity_def :: proc(r: ^Reader, out: ^director.Entity_Def) -> boo
 					if !ok {return false}
 					value = v
 				}
-				out.tags[i0] = director.Word_Id(value)
+				out.tags[decode_index_0] = director.Word_Id(value)
 			}
 		}
 	}
@@ -740,9 +740,9 @@ decode_director_entity_def :: proc(r: ^Reader, out: ^director.Entity_Def) -> boo
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.stats = make([]director.Stat, int(count))
-		for i1 in 0 ..< int(count) {
+		for decode_index_1 in 0 ..< int(count) {
 			{
-				if !decode_director_stat(r, &out.stats[i1]) {return false}
+				if !decode_director_stat(r, &out.stats[decode_index_1]) {return false}
 			}
 		}
 	}
@@ -750,9 +750,9 @@ decode_director_entity_def :: proc(r: ^Reader, out: ^director.Entity_Def) -> boo
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.links = make([]director.Link, int(count))
-		for i2 in 0 ..< int(count) {
+		for decode_index_2 in 0 ..< int(count) {
 			{
-				if !decode_director_link(r, &out.links[i2]) {return false}
+				if !decode_director_link(r, &out.links[decode_index_2]) {return false}
 			}
 		}
 	}
@@ -770,9 +770,9 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entities = make([]director.Entity_Def, int(count))
-		for i3 in 0 ..< int(count) {
+		for decode_index_3 in 0 ..< int(count) {
 			{
-				if !decode_director_entity_def(r, &out.entities[i3]) {return false}
+				if !decode_director_entity_def(r, &out.entities[decode_index_3]) {return false}
 			}
 		}
 	}
@@ -780,9 +780,9 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.rules = make([]director.Rule, int(count))
-		for i4 in 0 ..< int(count) {
+		for decode_index_4 in 0 ..< int(count) {
 			{
-				if !decode_director_rule(r, &out.rules[i4]) {return false}
+				if !decode_director_rule(r, &out.rules[decode_index_4]) {return false}
 			}
 		}
 	}
@@ -790,9 +790,9 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.matchers = make([]director.Matcher, int(count))
-		for i5 in 0 ..< int(count) {
+		for decode_index_5 in 0 ..< int(count) {
 			{
-				if !decode_director_matcher(r, &out.matchers[i5]) {return false}
+				if !decode_director_matcher(r, &out.matchers[decode_index_5]) {return false}
 			}
 		}
 	}
@@ -800,9 +800,9 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.queries = make([]director.Query, int(count))
-		for i6 in 0 ..< int(count) {
+		for decode_index_6 in 0 ..< int(count) {
 			{
-				if !decode_director_query(r, &out.queries[i6]) {return false}
+				if !decode_director_query(r, &out.queries[decode_index_6]) {return false}
 			}
 		}
 	}
@@ -810,9 +810,9 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.changes = make([]director.Change, int(count))
-		for i7 in 0 ..< int(count) {
+		for decode_index_7 in 0 ..< int(count) {
 			{
-				if !decode_director_change(r, &out.changes[i7]) {return false}
+				if !decode_director_change(r, &out.changes[decode_index_7]) {return false}
 			}
 		}
 	}
@@ -849,9 +849,9 @@ decode_segment_trigger_defs :: proc(r: ^Reader, out: ^Segment_Trigger_Defs) -> b
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Segment_Trigger_Defs, int(count))
-		for i8 in 0 ..< int(count) {
+		for decode_index_8 in 0 ..< int(count) {
 			{
-				if !decode_segment_trigger_def(r, &out^[i8]) {return false}
+				if !decode_segment_trigger_def(r, &out^[decode_index_8]) {return false}
 			}
 		}
 	}
@@ -1041,7 +1041,7 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 		out.text_id = director.Word_Id(value)
 	}
 	{
-		for i9 in 0 ..< 4 {
+		for decode_index_9 in 0 ..< 4 {
 			{
 				value: u32
 				{
@@ -1049,7 +1049,7 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 					if !ok {return false}
 					value = v
 				}
-				out.answer_links[i9] = director.Word_Id(value)
+				out.answer_links[decode_index_9] = director.Word_Id(value)
 			}
 		}
 	}

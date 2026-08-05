@@ -102,6 +102,7 @@ Contents:
 - `rule*`
 - `field*`
 - `observe*`
+- `union*`
 
 Description:
 
@@ -118,6 +119,7 @@ Contents:
 - `rule*`
 - `field*`
 - `observe*`
+- `union*`
 
 Description:
 

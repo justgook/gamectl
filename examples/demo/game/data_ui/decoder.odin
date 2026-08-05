@@ -269,9 +269,9 @@ decode_atlas :: proc(r: ^Reader, out: ^Atlas) -> bool {
 @(private = "file")
 decode_nines :: proc(r: ^Reader, out: ^Nines) -> bool {
 	{
-		for i0 in 0 ..< 12 {
+		for decode_index_0 in 0 ..< 12 {
 			{
-				if !decode_world_nine_patch(r, &out^[i0]) {return false}
+				if !decode_world_nine_patch(r, &out^[decode_index_0]) {return false}
 			}
 		}
 	}
@@ -281,29 +281,29 @@ decode_nines :: proc(r: ^Reader, out: ^Nines) -> bool {
 @(private = "file")
 decode_world_nine_patch :: proc(r: ^Reader, out: ^world.Nine_Patch) -> bool {
 	{
-		for i1 in 0 ..< 4 {
+		for decode_index_1 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.slices[i1] = transmute(f32)v
+				out.slices[decode_index_1] = transmute(f32)v
 			}
 		}
 	}
 	{
-		for i2 in 0 ..< 2 {
+		for decode_index_2 in 0 ..< 2 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.size[i2] = transmute(f32)v
+				out.size[decode_index_2] = transmute(f32)v
 			}
 		}
 	}
 	{
-		for i3 in 0 ..< 4 {
+		for decode_index_3 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.uv[i3] = transmute(f32)v
+				out.uv[decode_index_3] = transmute(f32)v
 			}
 		}
 	}
@@ -313,9 +313,9 @@ decode_world_nine_patch :: proc(r: ^Reader, out: ^world.Nine_Patch) -> bool {
 @(private = "file")
 decode_fonts :: proc(r: ^Reader, out: ^Fonts) -> bool {
 	{
-		for i4 in 0 ..< 6 {
+		for decode_index_4 in 0 ..< 6 {
 			{
-				if !decode_world_text_font(r, &out^[i4]) {return false}
+				if !decode_world_text_font(r, &out^[decode_index_4]) {return false}
 			}
 		}
 	}
@@ -325,20 +325,20 @@ decode_fonts :: proc(r: ^Reader, out: ^Fonts) -> bool {
 @(private = "file")
 decode_world_text_font :: proc(r: ^Reader, out: ^world.Text_Font) -> bool {
 	{
-		for i5 in 0 ..< 4 {
+		for decode_index_5 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.uv[i5] = transmute(f32)v
+				out.uv[decode_index_5] = transmute(f32)v
 			}
 		}
 	}
 	{
-		for i6 in 0 ..< 2 {
+		for decode_index_6 in 0 ..< 2 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.glyph_size[i6] = transmute(f32)v
+				out.glyph_size[decode_index_6] = transmute(f32)v
 			}
 		}
 	}

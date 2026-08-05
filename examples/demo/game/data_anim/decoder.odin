@@ -269,11 +269,11 @@ decode_atlas :: proc(r: ^Reader, out: ^Atlas) -> bool {
 @(private = "file")
 decode_uv :: proc(r: ^Reader, out: ^Uv) -> bool {
 	{
-		for i0 in 0 ..< 4 {
+		for decode_index_0 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[i0] = transmute(f32)v
+				out^[decode_index_0] = transmute(f32)v
 			}
 		}
 	}
@@ -286,13 +286,13 @@ decode_u_vs :: proc(r: ^Reader, out: ^U_Vs) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(U_Vs, int(count))
-		for i1 in 0 ..< int(count) {
+		for decode_index_1 in 0 ..< int(count) {
 			{
-				for i2 in 0 ..< 4 {
+				for decode_index_2 in 0 ..< 4 {
 					{
 						v, ok := read_u32_reader(r)
 						if !ok {return false}
-						out^[i1][i2] = transmute(f32)v
+						out^[decode_index_1][decode_index_2] = transmute(f32)v
 					}
 				}
 			}
@@ -304,20 +304,20 @@ decode_u_vs :: proc(r: ^Reader, out: ^U_Vs) -> bool {
 @(private = "file")
 decode_world_anim_frame :: proc(r: ^Reader, out: ^world.AnimFrame) -> bool {
 	{
-		for i3 in 0 ..< 4 {
+		for decode_index_3 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.uv[i3] = transmute(f32)v
+				out.uv[decode_index_3] = transmute(f32)v
 			}
 		}
 	}
 	{
-		for i4 in 0 ..< 2 {
+		for decode_index_4 in 0 ..< 2 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.offset[i4] = transmute(i32)v
+				out.offset[decode_index_4] = transmute(i32)v
 			}
 		}
 	}
@@ -360,9 +360,9 @@ decode_world_animation_atlas :: proc(r: ^Reader, out: ^world.Animation_Atlas) ->
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.defs = make([]world.AnimDef, int(count))
-		for i5 in 0 ..< int(count) {
+		for decode_index_5 in 0 ..< int(count) {
 			{
-				if !decode_world_anim_def(r, &out.defs[i5]) {return false}
+				if !decode_world_anim_def(r, &out.defs[decode_index_5]) {return false}
 			}
 		}
 	}
@@ -370,9 +370,9 @@ decode_world_animation_atlas :: proc(r: ^Reader, out: ^world.Animation_Atlas) ->
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.frames = make([]world.AnimFrame, int(count))
-		for i6 in 0 ..< int(count) {
+		for decode_index_6 in 0 ..< int(count) {
 			{
-				if !decode_world_anim_frame(r, &out.frames[i6]) {return false}
+				if !decode_world_anim_frame(r, &out.frames[decode_index_6]) {return false}
 			}
 		}
 	}
