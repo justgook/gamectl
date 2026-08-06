@@ -8,8 +8,8 @@
     "lock": true
   },
   {
-    "x": 184,
-    "y": 693,
+    "x": 196,
+    "y": 703,
     "brain": 0,
     "director_entity": {
       "id": 0
@@ -41,8 +41,8 @@
     "name": "player"
   },
   {
-    "x": 238,
-    "y": 652,
+    "x": 271,
+    "y": 680,
     "director_trigger_aabb": {
       "bounds": [
         -8,
@@ -67,6 +67,7 @@
     "y": 8,
     "tilemap": "tmp/m01.layer1.map.json",
     "name": "renerable",
-    "render": "tilemap"
+    "render": "tilemap",
+    "lock": true
   }
 ]
