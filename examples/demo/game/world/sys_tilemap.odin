@@ -13,7 +13,6 @@ BASE_VERTICES := [?][2]f32{{-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5}}
 BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
 Tilemap :: struct {
-	pos:        [2]f32,
 	tile_size:  [2]f32,
 	tileset_uv: [4]f32,
 	lut_uv:     [4]f32,
@@ -51,14 +50,14 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 	instance_count := 0
 	for _, pos, t in logic.each(&view) {
 		base_pos := to_pixelf(pos^)
-		t.pos = base_pos
-		instances[instance_count] = Tilemap_Instance{
-			pos = base_pos,
-			tile_size = t.tile_size,
+		// t.pos = base_pos
+		instances[instance_count] = Tilemap_Instance {
+			pos        = base_pos,
+			tile_size  = t.tile_size,
 			tileset_uv = t.tileset_uv,
-			lut_uv = t.lut_uv,
-			parallax = t.parallax,
-			repeat = t.repeat,
+			lut_uv     = t.lut_uv,
+			parallax   = t.parallax,
+			repeat     = t.repeat,
 		}
 		instance_count += 1
 	}
@@ -74,10 +73,7 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 
 	sg.update_buffer(
 		pipe.bind.vertex_buffers[1],
-		{
-			ptr = &instances[0],
-			size = c.size_t(instance_count * size_of(Tilemap_Instance)),
-		},
+		{ptr = &instances[0], size = c.size_t(instance_count * size_of(Tilemap_Instance))},
 	)
 	sg.apply_pipeline(pipe.pip)
 	sg.apply_bindings(pipe.bind)
@@ -89,20 +85,10 @@ tilemap_init :: proc(atlas_tex, lut_tex: sg.Image) -> ^Tilemap_Pipe {
 	pipe := new(Tilemap_Pipe)
 
 	pipe.bind.samplers[SMP_tilemap_tileset_smp] = sg.make_sampler(
-		{
-			min_filter = .NEAREST,
-			mag_filter = .NEAREST,
-			wrap_u = .CLAMP_TO_EDGE,
-			wrap_v = .CLAMP_TO_EDGE,
-		},
+		{min_filter = .NEAREST, mag_filter = .NEAREST, wrap_u = .CLAMP_TO_EDGE, wrap_v = .CLAMP_TO_EDGE},
 	)
 	pipe.bind.samplers[SMP_tilemap_lut_smp] = sg.make_sampler(
-		{
-			min_filter = .NEAREST,
-			mag_filter = .NEAREST,
-			wrap_u = .CLAMP_TO_EDGE,
-			wrap_v = .CLAMP_TO_EDGE,
-		},
+		{min_filter = .NEAREST, mag_filter = .NEAREST, wrap_u = .CLAMP_TO_EDGE, wrap_v = .CLAMP_TO_EDGE},
 	)
 
 	pipe.bind.views[VIEW_tilemap_tileset_tex] = sg.make_view({texture = {image = atlas_tex}})
@@ -120,16 +106,10 @@ tilemap_init :: proc(atlas_tex, lut_tex: sg.Image) -> ^Tilemap_Pipe {
 		},
 	)
 	pipe.bind.index_buffer = sg.make_buffer(
-		{
-			usage = {index_buffer = true, immutable = true},
-			data = {ptr = &BASE_INDICES, size = size_of(BASE_INDICES)},
-		},
+		{usage = {index_buffer = true, immutable = true}, data = {ptr = &BASE_INDICES, size = size_of(BASE_INDICES)}},
 	)
 	pipe.bind.vertex_buffers[1] = sg.make_buffer(
-		{
-			usage = {vertex_buffer = true, stream_update = true},
-			size = MAX_TILEMAPS * size_of(Tilemap_Instance),
-		},
+		{usage = {vertex_buffer = true, stream_update = true}, size = MAX_TILEMAPS * size_of(Tilemap_Instance)},
 	)
 
 	pipeline_desc := sg.Pipeline_Desc {
