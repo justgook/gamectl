@@ -205,8 +205,9 @@ init :: proc(w: ^World) {
 	// )
 	// TODO: delete MOCK DATA
 
-	w.tilemap.components[0].parallax = {0.5, 0.5}
-	w.tilemap.components[0].repeat.xy = 1
+	// w.tilemap.components[0].parallax = {0.5, 0.5}
+	// w.tilemap.components[0].repeat.xy = 1
+	// entity_delete(w, w.tilemap.entity_ids[1])
 
 
 	// player := create_entity(w)

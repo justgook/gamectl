@@ -1,11 +1,25 @@
 [
   {
-    "x": 0,
-    "y": 0,
-    "tilemap": "CYBERPUNK/missions/m01.map.json",
-    "name": "tilemap",
-    "render": "tilemap",
-    "lock": true
+    "x": 271,
+    "y": 680,
+    "director_trigger_aabb": {
+      "bounds": [
+        -8,
+        -8,
+        8,
+        8
+      ],
+      "once": true,
+      "used": false
+    },
+    "director_entity": {
+      "id": 7
+    },
+    "name": "trigger",
+    "width": 16,
+    "height": 16,
+    "render": "rectangle",
+    "color": "#FF0000"
   },
   {
     "x": 196,
@@ -41,32 +55,18 @@
     "name": "player"
   },
   {
-    "x": 271,
-    "y": 680,
-    "director_trigger_aabb": {
-      "bounds": [
-        -8,
-        -8,
-        8,
-        8
-      ],
-      "once": true,
-      "used": false
-    },
-    "director_entity": {
-      "id": 7
-    },
-    "name": "trigger",
-    "width": 16,
-    "height": 16,
-    "render": "rectangle",
-    "color": "#FF0000"
-  },
-  {
     "x": -8,
     "y": 8,
     "tilemap": "tmp/m01.layer1.map.json",
     "name": "m01",
+    "render": "tilemap",
+    "lock": true
+  },
+  {
+    "x": 0,
+    "y": 0,
+    "tilemap": "CYBERPUNK/missions/m01.map.json",
+    "name": "tilemap",
     "render": "tilemap",
     "lock": true
   }

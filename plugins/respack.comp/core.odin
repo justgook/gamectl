@@ -1,7 +1,7 @@
 package respack
 
-import mem "core:mem"
 import runtime "base:runtime"
+import mem "core:mem"
 import jsmn "jsmn"
 
 SCHEMA_BUFFER_CAPACITY :: 256 * 1024
@@ -28,7 +28,12 @@ core_output_buffer: [PAYLOAD_CAPACITY]u8
 core_output_len: int
 
 @(export)
-respack_core_build :: proc "c" (schema_ptr: rawptr, schema_count: uintptr, slots_ptr: rawptr, slots_count: uintptr) -> u32 {
+respack_core_build :: proc "c" (
+	schema_ptr: rawptr,
+	schema_count: uintptr,
+	slots_ptr: rawptr,
+	slots_count: uintptr,
+) -> u32 {
 	context = runtime.default_context()
 	schema := core_input_slice(schema_ptr, schema_count)
 	slots_json := core_input_slice(slots_ptr, slots_count)
@@ -144,7 +149,8 @@ handle_init :: proc(input: []u8) -> (bool, string) {
 		return false, file_err
 	}
 	if has_file {
-		return false, "schema _file marker is not supported by respack component init; pass schema bytes or use a host-side file read"
+		return false,
+			"schema _file marker is not supported by respack component init; pass schema bytes or use a host-side file read"
 	}
 	if len(schema_input) > SCHEMA_BUFFER_CAPACITY {
 		return false, "schema too large"

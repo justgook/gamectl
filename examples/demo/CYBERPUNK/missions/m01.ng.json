@@ -2364,13 +2364,13 @@
         "id": 1,
         "name": "item1",
         "srcNodeId": 124,
-        "srcOutputId": 2
+        "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "item2",
         "srcNodeId": 124,
-        "srcOutputId": 2
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -2559,7 +2559,7 @@
     "outputs": [
       {
         "id": 1,
-        "name": "collision",
+        "name": "HARDCODE",
         "value": null
       },
       {

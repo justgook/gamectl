@@ -119,7 +119,7 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 		}
 	}
 
-	host.info("load_data_director", "director", director_data, "segment triggers", len(segment_trigger_defs))
+	// host.info("load_data_director", "director", director_data, "segment triggers", len(segment_trigger_defs))
 
 	return true
 }
@@ -259,7 +259,7 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	logic.load_storage(&w.tilemap, tilemaps.components, tilemaps.entity_ids)
 
 
-	// host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
+	host.info("load_assets_data", "success", true, "w.tilemap", (tilemaps.components))
 
 	return true
 }
