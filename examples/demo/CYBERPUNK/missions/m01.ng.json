@@ -1030,6 +1030,12 @@
         "name": "Bullet Refs",
         "srcNodeId": 91,
         "srcOutputId": 1
+      },
+      {
+        "id": 17,
+        "name": "Tilemaps",
+        "srcNodeId": 117,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1979,8 +1985,8 @@
   {
     "id": 96,
     "kind": 4,
-    "x": 686,
-    "y": 239,
+    "x": 619,
+    "y": 169,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1990,7 +1996,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/DEBUG_tilemap_comp.json\""
+        "value": "\"tmp/DEBUG_tilemap_comp_prepare.json\""
       }
     ]
   },
@@ -2162,8 +2168,8 @@
   {
     "id": 110,
     "kind": 2,
-    "x": 1724,
-    "y": 890,
+    "x": 1577,
+    "y": 910,
     "name": "fromArray",
     "codePath": "ng/presets/from-array.lua",
     "graphId": 0,
@@ -2322,8 +2328,8 @@
   {
     "id": 115,
     "kind": 2,
-    "x": 1972,
-    "y": 935,
+    "x": 1763,
+    "y": 952,
     "name": "fromObject",
     "codePath": "ng/presets/from-object.lua",
     "graphId": 0,
@@ -2357,13 +2363,13 @@
       {
         "id": 1,
         "name": "item1",
-        "srcNodeId": 115,
+        "srcNodeId": 124,
         "srcOutputId": 2
       },
       {
         "id": 2,
         "name": "item2",
-        "srcNodeId": 115,
+        "srcNodeId": 124,
         "srcOutputId": 2
       }
     ],
@@ -2409,8 +2415,8 @@
   {
     "id": 118,
     "kind": 4,
-    "x": 2140,
-    "y": 1078,
+    "x": 2175,
+    "y": 1046,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2420,52 +2426,12 @@
       {
         "id": 1,
         "name": "",
-        "value": "[1,1]"
+        "value": "[[1,1],[1,1]]"
       },
       {
         "id": 2,
         "name": "",
-        "value": "[0,0]"
-      }
-    ]
-  },
-  {
-    "id": 119,
-    "kind": 2,
-    "x": 384,
-    "y": 46,
-    "name": "Compress Tilemap",
-    "codePath": "ng/presets/tilemap-compresor.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "tilemap",
-        "srcNodeId": 93,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "layers",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "tileSizes",
-        "value": null
-      },
-      {
-        "id": 3,
-        "name": "usedTileIDsPerLayer",
-        "value": null
-      },
-      {
-        "id": 4,
-        "name": "usedTileIDsBySize",
-        "value": null
+        "value": "[[0,0], [0,0]]"
       }
     ]
   },
@@ -2482,26 +2448,14 @@
       {
         "id": 1,
         "name": "layers",
-        "srcNodeId": 119,
+        "srcNodeId": 123,
         "srcOutputId": 1
       },
       {
         "id": 2,
-        "name": "tileSizes",
-        "srcNodeId": 119,
+        "name": "tiles",
+        "srcNodeId": 123,
         "srcOutputId": 2
-      },
-      {
-        "id": 3,
-        "name": "usedTileIdsPerLayer",
-        "srcNodeId": 119,
-        "srcOutputId": 3
-      },
-      {
-        "id": 4,
-        "name": "usedTileIDsBySize",
-        "srcNodeId": 119,
-        "srcOutputId": 4
       }
     ],
     "outputs": [
@@ -2554,5 +2508,65 @@
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 123,
+    "kind": 2,
+    "x": 384,
+    "y": 30,
+    "name": "Unique Tiles",
+    "codePath": "ng/presets/tilemap-unique.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 93,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "layers",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "tiles",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 124,
+    "kind": 2,
+    "x": 1968,
+    "y": 939,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 115,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "collision",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "first tilemap",
+        "value": null
+      }
+    ]
   }
 ]

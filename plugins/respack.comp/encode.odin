@@ -148,7 +148,11 @@ encode_json_value :: proc(
 			return false, fmt.aprintf("expected array: %s", type_name_string(type_idx))
 		}
 		if count_array_elements(input) != type_def.fixed_len {
-			return false, "array length mismatch"
+			return false, fmt.aprintf(
+				"array length mismatch %d/%d",
+				count_array_elements(input),
+				type_def.fixed_len,
+			)
 		}
 		cursor := 1
 		for {

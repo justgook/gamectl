@@ -24,7 +24,8 @@
     "Platformers",
     "Sprites",
     "Platformer_Anim_Refs",
-    "Bullet_Refs"
+    "Bullet_Refs",
+    "Tilemaps"
   ],
   "types": {
     "Next_Entity_Id": "u32",
@@ -59,6 +60,11 @@
     "Vec2f": {
       "type": "array",
       "len": 2,
+      "value": "f32"
+    },
+    "Vec4f": {
+      "type": "array",
+      "len": 4,
       "value": "f32"
     },
     "world.Sprite": {
@@ -258,6 +264,28 @@
     "Platformer_Zones": {
       "type": "vector",
       "value": "world.Platformer_Zone"
+    },
+
+    "world.Tilemap": {
+      "type": "struct",
+      "fields": {
+        "tile_size": "Vec2f",
+        "tileset_uv": "Vec4f",
+        "lut_uv": "Vec4f",
+        "parallax": "Vec2f",
+        "repeat": "Vec2f"
+      }
+    },
+
+    "Tilemaps": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Tilemap"
+        }
+      }
     },
     "Segments": {
       "type": "vector",

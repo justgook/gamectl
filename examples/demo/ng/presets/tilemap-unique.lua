@@ -102,8 +102,6 @@ end
 local tileMaps = normalizeTileMaps(inputs[1])
 
 local allLayers = {}
-local layerTileSizes = {}
-local usedTileIDsPerLayer = {}
 
 -- Useful for constructing one compact tileset per tile size.
 --
@@ -143,8 +141,6 @@ for mapIndex, tileMap in ipairs(tileMaps) do
 		local outputIndex = #allLayers + 1
 
 		allLayers[outputIndex] = layer
-		layerTileSizes[outputIndex] = tileSize
-		usedTileIDsPerLayer[outputIndex] = usedTileIDs
 
 		for _, tileID in ipairs(usedTileIDs) do
 			sizeSet[tileID] = true
@@ -166,8 +162,6 @@ for tileSizeKey, idSet in pairs(usedTileIDsBySizeSets) do
 end
 
 outputs[1] = allLayers
-outputs[2] = layerTileSizes
-outputs[3] = usedTileIDsPerLayer
 
 -- Optional but recommended for the next pipeline stage.
-outputs[4] = usedTileIDsBySize
+outputs[2] = usedTileIDsBySize

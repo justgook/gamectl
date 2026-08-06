@@ -1516,20 +1516,15 @@
             },
 
             {
-              "name": "Compress Tilemap",
+              "name": "Unique Tiles",
               "kind": "code",
-              "codePath": "ng/presets/tilemap-compresor.lua",
+              "codePath": "ng/presets/tilemap-unique.lua",
               "inputs": [
                 {
                   "name": "tilemap"
                 }
               ],
-              "outputs": [
-                { "name": "layers" },
-                { "name": "tileSizes" },
-                { "name": "usedTileIDsPerLayer" },
-                { "name": "usedTileIDsBySize" }
-              ],
+              "outputs": [{ "name": "layers" }, { "name": "tiles" }],
               "group": "Tilemap"
             },
 

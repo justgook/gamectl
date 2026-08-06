@@ -102,12 +102,7 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 	for director_entity, index in w.director_entity.components {
 		assert(u64(director_entity.id) < u64(len(director_data.entities)))
 		world_entity := w.director_entity.entity_ids[index]
-		director.entity_set_stat(
-			&w.director,
-			director_entity.id,
-			w.director_config.world_entity,
-			i32(world_entity),
-		)
+		director.entity_set_stat(&w.director, director_entity.id, w.director_config.world_entity, i32(world_entity))
 	}
 
 	segment_trigger_defs := data_director.read_slot_1_segment_trigger_defs(game_data) or_return
@@ -238,11 +233,7 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 			entity_id,
 			world.platformer_anim_create_char_from_atlas(&w.animation_atlas, base_id),
 		)
-		logic.add_component(
-			&w.animation,
-			entity_id,
-			world.animation_create(&w.animation_atlas.defs[base_id]),
-		)
+		logic.add_component(&w.animation, entity_id, world.animation_create(&w.animation_atlas.defs[base_id]))
 	}
 
 	bullet_refs := data_level.read_slot_15_bullet_refs(game_data) or_return
@@ -261,6 +252,12 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 			world.bullet_component(&w.bullet_patterns[pattern_id], director_entity.id, ref.side),
 		)
 	}
+
+	// tilemaps := data_level.read_slot_16_tilemaps(game_data) or_return
+	tilemaps := data_level.read_slot_16_tilemaps(game_data) or_return
+	assert(len(tilemaps.components) == len(tilemaps.entity_ids))
+	logic.load_storage(&w.tilemap, tilemaps.components, tilemaps.entity_ids)
+
 
 	// host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 
