@@ -1,5 +1,6 @@
 package respack
 
+import "core:fmt"
 import jsmn "jsmn"
 
 RSPK_MAGIC_0 :: u8('R')
@@ -144,7 +145,7 @@ encode_json_value :: proc(
 		return true, ""
 	case .Array:
 		if len(input) == 0 || input[0] != '[' {
-			return false, "expected array"
+			return false, fmt.aprintf("expected array: %s", type_name_string(type_idx))
 		}
 		if count_array_elements(input) != type_def.fixed_len {
 			return false, "array length mismatch"
@@ -205,8 +206,15 @@ encode_schema_default :: proc(w: ^BinaryWriter, field_idx: int) -> (bool, string
 	if !field.has_default {
 		return false, "missing required field"
 	}
-	if field.default_start >= 0 && field.default_end > field.default_start && field.default_end <= schema_len {
-		return encode_json_value(w, schema_buffer[field.default_start:field.default_end], field.type_index, field)
+	if field.default_start >= 0 &&
+	   field.default_end > field.default_start &&
+	   field.default_end <= schema_len {
+		return encode_json_value(
+			w,
+			schema_buffer[field.default_start:field.default_end],
+			field.type_index,
+			field,
+		)
 	}
 	if field.default_token < 0 {
 		return false, "missing required field"
@@ -631,7 +639,9 @@ encode_oneof_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (boo
 	last_err := ""
 	for variant_idx in 0 ..< types[type_idx].option_count {
 		variant_type := oneof_options[types[type_idx].option_start + variant_idx]
-		trial := BinaryWriter{len = w.len}
+		trial := BinaryWriter {
+			len = w.len,
+		}
 		ok, err := encode_json_value(
 			&trial,
 			trimmed,
@@ -644,7 +654,11 @@ encode_oneof_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (boo
 		last_err = err
 	}
 
-	return false, join3("unknown oneof variant: ", type_name_string(type_idx), join2("; last error: ", last_err))
+	return false, join3(
+		"unknown oneof variant: ",
+		type_name_string(type_idx),
+		join2("; last error: ", last_err),
+	)
 }
 
 encode_oneof_variant_value :: proc(
@@ -652,7 +666,10 @@ encode_oneof_variant_value :: proc(
 	input: []u8,
 	variant_idx: int,
 	variant_type: int,
-) -> (bool, string) {
+) -> (
+	bool,
+	string,
+) {
 	if !writer_u16(w, u16(variant_idx + 1)) {
 		return false, "payload too large"
 	}
