@@ -17,6 +17,8 @@ Director_Entity_Id :: director.Entity_Id
 
 
 World :: struct {
+	window_width:           i32,
+	window_height:          i32,
 	frame_count:            u64,
 	next_entity_id:         logic.Entity,
 	free_entity_ids:        [dynamic]logic.Entity,
@@ -135,7 +137,7 @@ frame :: proc(w: ^World, dt: f64) {
 	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sys_text(w, &virtual_screen_ortho)
-	sys_light(w, &virtual_screen_ortho)
+	sys_light(w, &w.cam.ortho)
 	sg.end_pass()
 
 	// RENDER THE CANVAS ON SCREEN
@@ -192,6 +194,7 @@ init :: proc(w: ^World) {
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
 	w.text_pipe = text_init(w.ui_atlas)
+	w.light_pipe = light_init()
 
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.ui_atlas)
@@ -225,6 +228,11 @@ init :: proc(w: ^World) {
 	player_input, has_player_input := logic.get_component(&w.input, player)
 	assert(has_player_input)
 	w.player1 = player_input
+
+	mouseLight := create_entity(w)
+	logic.add_component(&w.light, mouseLight, Light{size = {100, 100}, color = {1, 1, 0, 1}})
+	logic.add_component(&w.position, mouseLight, Position{})
+
 }
 
 create_entity :: proc(w: ^World) -> logic.Entity {
@@ -285,6 +293,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 }
 
 cleanup :: proc(w: ^World) {
+	light_cleanup(w.light_pipe)
 	// sg.destroy_image(w.offscreen_image)
 	// w.offscreen_image = {}
 	display_cleanup(w.display_pipe)

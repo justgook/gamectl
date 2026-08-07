@@ -69,6 +69,12 @@ app_event :: proc(event: host.Event) {
 			f32(event.framebuffer_width),
 			f32(event.framebuffer_height),
 		)
+
+		// Used by window_to_game
+		world.window_width = f32(event.framebuffer_width)
+		world.window_height = f32(event.framebuffer_height)
+
+
 	case .Action_Down:
 		assert(event.action_code >= 1 && event.action_code <= 8)
 		world.input_action_down(&state.world, world.InputSet(event.action_code - 1))

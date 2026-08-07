@@ -348,7 +348,23 @@ camera_get_matrix :: proc(cam: ^Camera, viewport_size: [2]f32) -> linalg.Matrix4
 //=============================================================================
 // UTILITIES
 //=============================================================================
+window_width: f32 = 0
+window_height: f32 = 0
 
+window_to_screen :: proc(window_pos: [2]f32) -> [2]f32 {
+	scale := max(1, math.floor(min(window_width / GAME_RESOLUTION_WIDTH, window_height / GAME_RESOLUTION_HEIGHT)))
+
+	display_size := [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT} * scale
+
+	window_size := [2]f32{window_width, window_height}
+
+	display_origin := (window_size - display_size) * 0.5
+
+	game_pos := (window_pos - display_origin) / scale
+	game_pos.y = GAME_RESOLUTION_HEIGHT - game_pos.y
+
+	return game_pos
+}
 // Convert screen coordinates to world coordinates
 screen_to_world :: proc(cam: ^Camera, screen_pos: [2]f32, viewport_size: [2]f32) -> [2]f32 {
 	pos := camera_get_render_position(cam)

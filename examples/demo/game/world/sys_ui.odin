@@ -32,8 +32,10 @@ sys_ui :: proc(w: ^World) {
 	w.nine_patch.count = 0
 	w.text_glyph.count = 0
 	w.ui_sprite.count = 0
-	// screen_to_world(&w.cam, )
-	cursor := ui.move(text3("CURSOR"), w.mouse.x, GAME_RESOLUTION_HEIGHT - w.mouse.y)
+
+	// mouse_on_world := window_to_game({w.mouse.x, w.mouse.y})
+	// cursor := ui.move(text3("CURSOR"), mouse_on_world.x, mouse_on_world.y)
+
 	if w.input_mode == .Dialog {
 		text_id := director.entity_stat(&w.director, w.active_dialog, w.director_config.text_id)
 		dialog_panel := group(
@@ -47,9 +49,9 @@ sys_ui :: proc(w: ^World) {
 			},
 		)
 		dialog_panel = ui.move(dialog_panel, 12, 6)
-		ui.flatten(group({statusbar, hud_text, hp2, cursor, dialog_panel}), w, render_shapes)
+		ui.flatten(group({statusbar, hud_text, hp2, dialog_panel}), w, render_shapes)
 	} else {
-		ui.flatten(group({statusbar, hud_text, cursor, hp2}), w, render_shapes)
+		ui.flatten(group({statusbar, hud_text, hp2}), w, render_shapes)
 	}
 }
 
