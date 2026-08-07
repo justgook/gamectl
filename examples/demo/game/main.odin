@@ -75,6 +75,9 @@ app_event :: proc(event: host.Event) {
 	case .Action_Up:
 		assert(event.action_code >= 1 && event.action_code <= 8)
 		world.input_action_up(&state.world, world.InputSet(event.action_code - 1))
+	case .Mouse_Move:
+		state.world.mouse.x = event.mouse_x
+		state.world.mouse.y = event.mouse_y
 	case:
 	}
 }

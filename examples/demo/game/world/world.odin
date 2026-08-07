@@ -30,6 +30,8 @@ World :: struct {
 	cam:                    Camera,
 	player1_id:             logic.Entity,
 	player1:                ^Input,
+	light_pipe:             ^Light_Pipe,
+	light:                  logic.Component_Storage_Fixed(Light, LIGHT_RENDER_MAX),
 	sprite_pipe:            ^Sprite_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
 	nine_patch_pipe:        ^Nine_Patch_Pipe,
@@ -85,6 +87,7 @@ World :: struct {
 		using pipe: ^Sprite_Pipe,
 		using comp: logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
 	},
+	mouse:                  [2]f32,
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -132,6 +135,7 @@ frame :: proc(w: ^World, dt: f64) {
 	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sys_text(w, &virtual_screen_ortho)
+	sys_light(w, &virtual_screen_ortho)
 	sg.end_pass()
 
 	// RENDER THE CANVAS ON SCREEN
@@ -208,7 +212,7 @@ init :: proc(w: ^World) {
 	// w.tilemap.components[0].parallax = {0.5, 0.5}
 	// w.tilemap.components[0].repeat.xy = 1
 	// entity_delete(w, w.tilemap.entity_ids[1])
-
+	// host.info("TILEMAP", "data", w.tilemap.components[0])
 
 	// player := create_entity(w)
 	player := logic.Entity(1)

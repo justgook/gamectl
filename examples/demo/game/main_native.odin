@@ -68,7 +68,7 @@ map_action :: proc(key: sapp.Keycode) -> (u32, bool) {
 translate_event :: proc(e: ^sapp.Event) -> (host.Event, bool) {
 	#partial switch e.type {
 	case .MOUSE_MOVE, .MOUSE_DOWN, .MOUSE_UP:
-		return host.Event{kind = .Mouse_Move, mouse_y = e.mouse_y}, true
+		return host.Event{kind = .Mouse_Move, mouse_y = e.mouse_y, mouse_x = e.mouse_x}, true
 	case .RESIZED:
 		return host.Event {
 				kind = .Resized,

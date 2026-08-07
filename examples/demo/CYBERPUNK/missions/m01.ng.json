@@ -25,8 +25,8 @@
   {
     "id": 15,
     "kind": 4,
-    "x": 2444,
-    "y": -39,
+    "x": 3359,
+    "y": 1325,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -43,8 +43,8 @@
   {
     "id": 16,
     "kind": 2,
-    "x": 2692,
-    "y": -71,
+    "x": 3607,
+    "y": 1293,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "graphId": 0,
@@ -232,8 +232,8 @@
   {
     "id": 24,
     "kind": 2,
-    "x": 1653,
-    "y": -95,
+    "x": 1559,
+    "y": -93,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
     "graphId": 0,
@@ -296,15 +296,15 @@
     "graphName": "",
     "inputs": [
       {
-        "id": 2,
-        "name": "array2",
-        "srcNodeId": 25,
+        "id": 1,
+        "name": "luts",
+        "srcNodeId": 33,
         "srcOutputId": 1
       },
       {
-        "id": 3,
-        "name": "luts",
-        "srcNodeId": 33,
+        "id": 2,
+        "name": "tilesets",
+        "srcNodeId": 25,
         "srcOutputId": 1
       }
     ],
@@ -477,7 +477,7 @@
     "id": 33,
     "kind": 2,
     "x": 502,
-    "y": -122,
+    "y": -120,
     "name": "LUT Generator",
     "codePath": "ng/presets/lut-generator.lua",
     "graphId": 0,
@@ -507,8 +507,8 @@
   {
     "id": 36,
     "kind": 2,
-    "x": 747,
-    "y": -62,
+    "x": 814,
+    "y": -67,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "graphId": 0,
@@ -2154,7 +2154,7 @@
         "id": 1,
         "name": "object",
         "srcNodeId": 103,
-        "srcOutputId": 2
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -2168,8 +2168,8 @@
   {
     "id": 110,
     "kind": 2,
-    "x": 1577,
-    "y": 910,
+    "x": 1579,
+    "y": 909,
     "name": "fromArray",
     "codePath": "ng/presets/from-array.lua",
     "graphId": 0,
@@ -2328,8 +2328,8 @@
   {
     "id": 115,
     "kind": 2,
-    "x": 1763,
-    "y": 952,
+    "x": 1781,
+    "y": 943,
     "name": "fromObject",
     "codePath": "ng/presets/from-object.lua",
     "graphId": 0,
@@ -2426,7 +2426,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "[[1,1],[1,1]]"
+        "value": "[[0,0],[0,0]]"
       },
       {
         "id": 2,
@@ -2542,8 +2542,8 @@
   {
     "id": 124,
     "kind": 2,
-    "x": 1968,
-    "y": 939,
+    "x": 1969,
+    "y": 944,
     "name": "fromArray",
     "codePath": "ng/presets/from-array.lua",
     "graphId": 0,
@@ -2568,5 +2568,48 @@
         "value": null
       }
     ]
+  },
+  {
+    "id": 125,
+    "kind": 4,
+    "x": 450,
+    "y": 1129,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_LUT_LUT_LUT.json\""
+      }
+    ]
+  },
+  {
+    "id": 126,
+    "kind": 2,
+    "x": 788,
+    "y": 1124,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 125,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 103,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
   }
 ]

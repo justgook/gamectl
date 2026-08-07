@@ -17,6 +17,7 @@ Event_Kind :: enum u32 {
 Event :: struct {
 	kind:               Event_Kind,
 	mouse_y:            f32,
+	mouse_x:            f32,
 	action_code:        u32,
 	window_height:      i32,
 	framebuffer_width:  i32,

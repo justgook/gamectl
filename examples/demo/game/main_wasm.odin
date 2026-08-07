@@ -37,6 +37,7 @@ host_event_from_buffer :: proc(event_ptr: u32) -> host.Event {
 	input := cast(^Host_Event)uintptr(event_ptr)
 	event := host.Event {
 		mouse_y            = input.mouse_y,
+		mouse_x            = input.mouse_x,
 		action_code        = input.action_code,
 		window_height      = input.window_height,
 		framebuffer_width  = input.framebuffer_width,

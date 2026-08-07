@@ -56,7 +56,7 @@
   },
   {
     "x": -8,
-    "y": 8,
+    "y": -8,
     "tilemap": "tmp/m01.layer1.map.json",
     "name": "m01",
     "render": "tilemap",
