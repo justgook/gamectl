@@ -17,8 +17,6 @@ Director_Entity_Id :: director.Entity_Id
 
 
 World :: struct {
-	window_width:           i32,
-	window_height:          i32,
 	frame_count:            u64,
 	next_entity_id:         logic.Entity,
 	free_entity_ids:        [dynamic]logic.Entity,
@@ -230,7 +228,7 @@ init :: proc(w: ^World) {
 	w.player1 = player_input
 
 	mouseLight := create_entity(w)
-	logic.add_component(&w.light, mouseLight, Light{size = {100, 100}, color = {1, 1, 0, 1}})
+	logic.add_component(&w.light, mouseLight, Light{color = {1, 1, 0, 1}})
 	logic.add_component(&w.position, mouseLight, Position{})
 
 }

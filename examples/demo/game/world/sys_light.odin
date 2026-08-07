@@ -1,6 +1,6 @@
 package world
 
-import "../host"
+// import "../host"
 import sg "../sokol/gfx"
 import "core:c"
 import "core:math/linalg"
@@ -27,11 +27,12 @@ light_draw :: proc(pipe: ^Light_Pipe, count: int, lights: ^[LIGHT_RENDER_MAX]Lig
 		return
 	}
 
-	host.info("LIGHT", "FIRST", lights[0])
+	// host.info("LIGHT", "FIRST", lights[0])
 
 
 	vs_params := Light_Vs_Params {
-		ortho = ortho^,
+		ortho         = ortho^,
+		viewport_size = {GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
 	}
 
 	// update instance data
@@ -54,7 +55,7 @@ BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
 Light :: struct {
 	pos:   [2]f32,
-	size:  [2]f32,
+	// size: [2]f32,
 	color: [4]f32,
 }
 
@@ -105,7 +106,7 @@ light_init :: proc() -> ^Light_Pipe {
 			attrs = {
 				ATTR_light_light_pos = {format = .FLOAT2, buffer_index = 0},
 				ATTR_light_light_inst_pos = {format = .FLOAT2, buffer_index = 1},
-				ATTR_light_light_inst_size = {format = .FLOAT2, buffer_index = 1},
+				// ATTR_light_light_inst_size = {format = .FLOAT2, buffer_index = 1},
 				ATTR_light_light_inst_color = {format = .FLOAT4, buffer_index = 1},
 			},
 		},
