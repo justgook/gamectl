@@ -1147,6 +1147,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.activeTilesetName = ""
     this.tilesets = [TilemapTileset.createDefault()]
     this.tilesetSourceKey = ""
+    this.suppressDataSourceReload = false
     this.tilesetViewports = new Map()
     this.tilesetDrag = null
     this.tilesetResizeObserver = new ResizeObserver((entries) => {
@@ -1487,7 +1488,11 @@ export class ViewTilemap extends ViewCanvasBase {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
-    if (name === "data-source" && this.dataset.ready) {
+    if (
+      name === "data-source" &&
+      this.dataset.ready &&
+      !this.suppressDataSourceReload
+    ) {
       const dataSource = String(newValue || "").trim()
       if (dataSource) void this.loadDataSource(dataSource)
     }
@@ -1564,6 +1569,14 @@ export class ViewTilemap extends ViewCanvasBase {
     this.clipboard = null
     this.pastePreviewCell = null
     await this.refreshSnapshot(`Opened ${tilemap.path}`, { autoFit })
+    if (this.getAttribute("data-source") !== path) {
+      this.suppressDataSourceReload = true
+      try {
+        this.setAttribute("data-source", path)
+      } finally {
+        this.suppressDataSourceReload = false
+      }
+    }
   }
 
   async handleLayerAction(button) {

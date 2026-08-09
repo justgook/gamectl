@@ -1,5 +1,6 @@
 import { require } from "/util/require.js"
 import { runtime } from "/core/runtime.js"
+import { restoreViewSourceState } from "/util/view-source-state.js"
 
 let currentThemeStylesheetObjectUrl = ""
 
@@ -107,9 +108,12 @@ function createConfiguredViewRegistry(config) {
                         // el.runtime = runtime
                         el.viewConfig = viewConfig
                         if (viewConfig.config !== undefined) el.config = viewConfig.config
+                        const explicitAttributes = options.attrs || {}
+                        restoreViewSourceState(el, explicitAttributes)
                         if (
                             viewConfig.defaultSource !== undefined &&
-                            !Object.hasOwn(options.attrs || {}, "data-source")
+                            !Object.hasOwn(explicitAttributes, "data-source") &&
+                            !el.hasAttribute("data-source")
                         )
                             el.setAttribute("data-source", viewConfig.defaultSource)
                         return el

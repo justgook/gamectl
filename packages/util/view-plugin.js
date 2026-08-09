@@ -1,4 +1,11 @@
 import { runtime } from "/core/runtime.js"
+import {
+    observeViewSourceState,
+    persistViewSourceState,
+    restoreViewSourceState,
+} from "./view-source-state.js"
+
+const sourceStateObservers = new WeakMap()
 
 function toResult(value) {
     if (value && typeof value === "object" && Object.hasOwn(value, "ok")) return value
@@ -16,15 +23,32 @@ async function noop() {
     return { ok: true }
 }
 
-function viewMethod(view, methodName) {
+function viewMethod(view, methodName, after = null) {
     const method = view[methodName]
     if (typeof method !== "function") return noop
-    return async (input) => toResult(await method.call(view, input))
+    return async (input) => {
+        const result = toResult(await method.call(view, input))
+        if (after) after(view)
+        return result
+    }
+}
+
+function customOpenMethod(view, methods) {
+    if (!Object.hasOwn(methods, "open")) return viewMethod(view, "open", persistViewSourceState)
+    if (typeof methods.open !== "function") throw new Error("view plugin custom open method must be a function")
+    return async (input) => {
+        const result = await methods.open(input)
+        persistViewSourceState(view)
+        return result
+    }
 }
 
 export function registerViewPlugin(view, methods = {}) {
     if (!(view instanceof HTMLElement)) throw new Error("registerViewPlugin requires an HTMLElement")
     if (typeof view.pluginId === "string" && view.pluginId.length > 0) return view.pluginId
+
+    restoreViewSourceState(view)
+    sourceStateObservers.set(view, observeViewSourceState(view))
 
     const pluginId = `view.${viewTypeForElement(view)}.${crypto.randomUUID()}`
     view.pluginId = pluginId
@@ -35,7 +59,6 @@ export function registerViewPlugin(view, methods = {}) {
             save: viewMethod(view, "save"),
             saveAs: viewMethod(view, "saveAs"),
             new: viewMethod(view, "new"),
-            open: viewMethod(view, "open"),
             run: viewMethod(view, "run"),
             reload: viewMethod(view, "reload"),
             add: viewMethod(view, "add"),
@@ -56,6 +79,7 @@ export function registerViewPlugin(view, methods = {}) {
             tool_5: noop,
             tool_6: noop,
             ...methods,
+            open: customOpenMethod(view, methods),
         },
     })
     void runtime.call("ui.context.activateView", pluginId)
@@ -67,6 +91,11 @@ export async function unregisterViewPlugin(view) {
     if (!(view instanceof HTMLElement)) throw new Error("unregisterViewPlugin requires an HTMLElement")
     const pluginId = view.pluginId
     if (typeof pluginId !== "string" || pluginId.length === 0) return
+    persistViewSourceState(view)
+    const observer = sourceStateObservers.get(view)
+    if (!observer) throw new Error("registered view plugin is missing its source state observer")
+    observer.disconnect()
+    sourceStateObservers.delete(view)
     view.pluginId = ""
     await runtime.unregister(pluginId)
 }
