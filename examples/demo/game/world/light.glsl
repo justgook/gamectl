@@ -10,12 +10,13 @@
 layout(binding=0) uniform vs_params {
     mat4 ortho;
     vec2 viewport_size;
+    vec2 light_pos;
+    vec4 light_color;
+    float depth;
 };
 
 
 in vec2 pos;
-in vec2 inst_pos;
-in vec4 inst_color;
 
 out vec2 frag_screen_pos;
 out vec2 light_screen_pos;
@@ -26,19 +27,19 @@ void main() {
     // Convert to fullscreen NDC: -1 .. +1.
     vec2 ndc = pos * 2.0;
 
-    gl_Position = vec4(ndc, 0.0, 1.0);
+    gl_Position = vec4(ndc, depth, 1.0);
 
     // Convert fullscreen vertex position from NDC to pixels.
     frag_screen_pos = (ndc * 0.5 + 0.5) * viewport_size;
 
     // Transform world-space light position through camera.
-    vec4 light_clip = ortho * vec4(inst_pos, 0.0, 1.0);
+    vec4 light_clip = ortho * vec4(light_pos, 0.0, 1.0);
     vec2 light_ndc = light_clip.xy / light_clip.w;
 
     // Convert light position to pixels too.
     light_screen_pos = (light_ndc * 0.5 + 0.5) * viewport_size;
 
-    color = inst_color;
+    color = light_color;
 }
 @end
 
@@ -49,26 +50,14 @@ in vec2 light_screen_pos;
 in vec4 color;
 
 out vec4 frag_color;
-const float zz = 32.;
 
 void main() {
-    float radius = 128.0; // pixels
+    float radius = 128.0;
     float dist = distance(frag_screen_pos, light_screen_pos);
     float strength = 1.0 - smoothstep(0.0, radius, dist);
-
-    // nicer falloff
     strength *= strength;
 
-    frag_color = vec4(color.rgb * strength, strength);
-
-/// TUTORIAL REMAP
-  vec2 pos = frag_screen_pos;
-  vec2 u_pos = light_screen_pos;
-
-/// TUTORIAL PART
-  vec2 dis = pos - u_pos;
-  float str = 1./(sqrt(dis.x*dis.x + dis.y*dis.y + zz*zz) - zz);
-  frag_color = vec4(vec3(str),1.);
+    frag_color = vec4(color.rgb * strength, 0.0);
 }
 
 @end

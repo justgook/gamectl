@@ -140,9 +140,26 @@ frame :: proc(w: ^World, dt: f64) {
 	sg.begin_pass(w.offscreen_pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
+	sg.end_pass()
 
-	// NEW shadow system
+	// Keep world color, but give the light/shadow depth ladder an isolated,
+	// freshly-cleared depth buffer.
+	lighting_pass := w.offscreen_pass
+	lighting_pass.action.colors[0] = {
+		load_action = .LOAD,
+	}
+	lighting_pass.action.depth = {
+		load_action = .CLEAR,
+		clear_value = 1.0,
+	}
+	sg.begin_pass(lighting_pass)
 	sys_light(w, &w.cam.ortho)
+	sg.end_pass()
+
+	// Clear the lighting depths before rendering screen-space overlays.
+	overlay_pass := lighting_pass
+	sg.begin_pass(overlay_pass)
+
 	// UI
 	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)

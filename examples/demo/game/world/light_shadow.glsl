@@ -10,7 +10,8 @@
 layout(binding=0) uniform vs_params {
     mat4 ortho;
     vec2 viewport_size;
-    vec2 u_pos;
+    vec2 light_pos;
+    float depth;
 };
 
 
@@ -26,12 +27,13 @@ void main() {
     // quad's winding after the orthographic Y flip, so back-face culling
     // removes the entire shadow quad.
     if (pos.y > 0.0) {
-      vec2 dis = pos_in_px - u_pos;
-        // pos_in_px.y += 16.0;
-      pos_in_px += dis/sqrt(dis.x*dis.x+dis.y*dis.y) * 100000;
+        vec2 dis = pos_in_px - light_pos;
+        float distance_squared = max(dot(dis, dis), 0.0001);
+        pos_in_px += dis * inversesqrt(distance_squared) * 100000.0;
     }
 
-    gl_Position = ortho * vec4(pos_in_px, 0.5, 1.0);
+    gl_Position = ortho * vec4(pos_in_px, 0.0, 1.0);
+    gl_Position.z = depth * gl_Position.w;
 }
 @end
 
