@@ -42,16 +42,20 @@ mock_light :: proc(w: ^World) {
 
 }
 
+delme_u_pos: [2]f32
+
 sys_light :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	view: logic.View2(Position, Light) = logic.view(&w.position, &w.light)
 	for id, pos, s in logic.each(&view) {
 		s.pos = to_pixelf(pos^)
 		// DEBUG DATA START
 		s.pos = screen_to_world(&w.cam, window_to_screen({w.mouse.x, w.mouse.y}), w.cam.viewport)
+		delme_u_pos = s.pos
 		// DEBUG DATA END
 	}
 
 	light_draw(w.light_pipe, w.light.count, &w.light.components, ortho)
+
 	shadow_draw(w.light_pipe.shadow, w.light_shadow.count, &w.light_shadow.components, ortho)
 
 	view2 := logic.view(&w.light_shadow)
@@ -72,7 +76,10 @@ BASE_VERTICES := [?][2]f32{{-.5, -.5}, {-.5, .5}, {.5, -.5}, {.5, .5}}
 BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
 light_init :: proc() -> ^Light_Pipe {
-	return light_pipe_init()
+	pipe := light_pipe_init()
+	pipe.shadow = shadow_pipe_init()
+
+	return pipe
 }
 
 light_cleanup :: proc(pipe: ^Light_Pipe) {
@@ -116,7 +123,8 @@ shadow_pipe_init :: proc() -> ^Shadow_Pipe {
 
 	pipeline_desc: sg.Pipeline_Desc = {
 		shader = sg.make_shader(light_shadow_shader_desc(sg.query_backend())),
-		cull_mode = .BACK,
+		// cull_mode = .BACK,
+		cull_mode = .NONE, // shadow can cast to all sides
 		depth = {compare = .LESS_EQUAL, write_enabled = true},
 		index_type = .UINT16,
 		layout = {
@@ -221,6 +229,7 @@ shadow_draw :: proc(
 	vs_params := Light_Shadow_Vs_Params {
 		ortho         = ortho^,
 		viewport_size = {GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
+		u_pos         = delme_u_pos,
 	}
 
 	// update instance data
