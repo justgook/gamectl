@@ -1,6 +1,6 @@
 package world
 
-// import "../host"
+import "../host"
 import sg "../sokol/gfx"
 import "core:c"
 import "core:math/linalg"
@@ -45,18 +45,30 @@ mock_light :: proc(w: ^World) {
 delme_u_pos: [2]f32
 
 sys_light :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
+	if w.mouse_btn.just_down {
+		mouseLight := create_entity(w)
+		ll := Light {
+			color = {1, 1, 0, 1},
+			pos   = screen_to_world(&w.cam, window_to_screen({w.mouse.x, w.mouse.y}), w.cam.viewport),
+		}
+
+		logic.add_component(&w.light, mouseLight, ll)
+		host.info("CREATE LIGHT", "p", ll.pos)
+	}
+
 	view: logic.View2(Position, Light) = logic.view(&w.position, &w.light)
 	for id, pos, s in logic.each(&view) {
-		s.pos = to_pixelf(pos^)
+		// s.pos = to_pixelf(pos^)
 		// DEBUG DATA START
 		s.pos = screen_to_world(&w.cam, window_to_screen({w.mouse.x, w.mouse.y}), w.cam.viewport)
 		delme_u_pos = s.pos
+		break
 		// DEBUG DATA END
 	}
 
+	shadow_draw(w.light_pipe.shadow, w.light_shadow.count, &w.light_shadow.components, ortho)
 	light_draw(w.light_pipe, w.light.count, &w.light.components, ortho)
 
-	shadow_draw(w.light_pipe.shadow, w.light_shadow.count, &w.light_shadow.components, ortho)
 
 	view2 := logic.view(&w.light_shadow)
 	for id, shadow in logic.each(&view2) {
@@ -191,25 +203,21 @@ light_pipe_init :: proc() -> ^Light_Pipe {
 			attrs = {
 				ATTR_light_light_pos = {format = .FLOAT2, buffer_index = 0},
 				ATTR_light_light_inst_pos = {format = .FLOAT2, buffer_index = 1},
-				// ATTR_light_light_inst_size = {format = .FLOAT2, buffer_index = 1},
 				ATTR_light_light_inst_color = {format = .FLOAT4, buffer_index = 1},
 			},
 		},
 	}
 
-	blend_state: sg.Blend_State = {
+	pipeline_desc.colors[0].blend = {
 		enabled          = true,
 		src_factor_rgb   = .SRC_ALPHA,
-		dst_factor_rgb   = .ONE_MINUS_SRC_ALPHA,
+		dst_factor_rgb   = .ONE,
 		op_rgb           = .ADD,
-		src_factor_alpha = .ONE,
-		dst_factor_alpha = .ONE_MINUS_SRC_ALPHA,
+		src_factor_alpha = .SRC_ALPHA,
+		dst_factor_alpha = .ONE,
 		op_alpha         = .ADD,
 	}
 
-	pipeline_desc.colors[0] = {
-		blend = blend_state,
-	}
 
 	pipe.pip = sg.make_pipeline(pipeline_desc)
 

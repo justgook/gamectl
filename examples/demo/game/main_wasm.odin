@@ -44,7 +44,11 @@ host_event_from_buffer :: proc(event_ptr: u32) -> host.Event {
 		framebuffer_height = input.framebuffer_height,
 	}
 	switch input.kind {
-	case 4, 5, 7:
+	case 4:
+		event.kind = .Mouse_Down
+	case 5:
+		event.kind = .Mouse_Up
+	case 7:
 		event.kind = .Mouse_Move
 	case 14:
 		event.kind = .Resized

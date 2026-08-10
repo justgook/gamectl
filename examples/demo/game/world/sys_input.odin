@@ -7,6 +7,32 @@ Input_Mode :: enum {
 	Dialog,
 }
 
+mouse_button_down :: proc(w: ^World) {
+	assert(w.mouse_btn.down != w.mouse_btn.up)
+	if w.mouse_btn.down {
+		return
+	}
+	w.mouse_btn.down = true
+	w.mouse_btn.up = false
+	w.mouse_btn.just_down = true
+}
+
+mouse_button_up :: proc(w: ^World) {
+	assert(w.mouse_btn.down != w.mouse_btn.up)
+	if w.mouse_btn.up {
+		return
+	}
+	w.mouse_btn.down = false
+	w.mouse_btn.up = true
+	w.mouse_btn.just_up = true
+}
+
+mouse_button_finish_frame :: proc(w: ^World) {
+	assert(w.mouse_btn.down != w.mouse_btn.up)
+	w.mouse_btn.just_down = false
+	w.mouse_btn.just_up = false
+}
+
 // physical_input tracks held controls independently from the active input mode.
 // Mode transitions clear routed input while preserving this latch, so a control
 // held while a dialog opens cannot select an answer until released and pressed again.

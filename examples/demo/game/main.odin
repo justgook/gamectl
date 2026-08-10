@@ -54,6 +54,7 @@ app_init :: proc() {
 
 app_frame :: proc() {
 	world.frame(&state.world, host.frame_duration())
+	world.mouse_button_finish_frame(&state.world)
 }
 
 
@@ -84,6 +85,14 @@ app_event :: proc(event: host.Event) {
 	case .Mouse_Move:
 		state.world.mouse.x = event.mouse_x
 		state.world.mouse.y = event.mouse_y
+	case .Mouse_Down:
+		state.world.mouse.x = event.mouse_x
+		state.world.mouse.y = event.mouse_y
+		world.mouse_button_down(&state.world)
+	case .Mouse_Up:
+		state.world.mouse.x = event.mouse_x
+		state.world.mouse.y = event.mouse_y
+		world.mouse_button_up(&state.world)
 	case:
 	}
 }

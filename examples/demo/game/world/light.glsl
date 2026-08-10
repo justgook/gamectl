@@ -6,6 +6,7 @@
 
 
 @vs vs_light_base
+@msl_options fixup_clipspace
 layout(binding=0) uniform vs_params {
     mat4 ortho;
     vec2 viewport_size;
@@ -21,12 +22,6 @@ out vec2 light_screen_pos;
 out vec4 color;
 
 void main() {
-    // float inst_z = 0.0;
-    // vec2 pos_in_px = pos * inst_size + inst_pos;
-    // gl_Position = ortho * vec4(pos_in_px, inst_z, 1.0);
-    // color = inst_color;
-
-  // new stuff
     // Your vertices are -0.5 .. +0.5.
     // Convert to fullscreen NDC: -1 .. +1.
     vec2 ndc = pos * 2.0;
@@ -74,7 +69,6 @@ void main() {
   vec2 dis = pos - u_pos;
   float str = 1./(sqrt(dis.x*dis.x + dis.y*dis.y + zz*zz) - zz);
   frag_color = vec4(vec3(str),1.);
-
 }
 
 @end

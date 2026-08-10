@@ -9,6 +9,8 @@ default_context :: proc() -> runtime.Context {
 Event_Kind :: enum u32 {
 	None,
 	Mouse_Move,
+	Mouse_Down,
+	Mouse_Up,
 	Resized,
 	Action_Down,
 	Action_Up,

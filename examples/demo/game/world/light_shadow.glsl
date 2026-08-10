@@ -6,6 +6,7 @@
 
 
 @vs vs_light_base
+@msl_options fixup_clipspace
 layout(binding=0) uniform vs_params {
     mat4 ortho;
     vec2 viewport_size;
@@ -30,7 +31,7 @@ void main() {
       pos_in_px += dis/sqrt(dis.x*dis.x+dis.y*dis.y) * 100000;
     }
 
-    gl_Position = ortho * vec4(pos_in_px, 0.0, 1.0);
+    gl_Position = ortho * vec4(pos_in_px, 0.5, 1.0);
 }
 @end
 
@@ -39,7 +40,7 @@ void main() {
 out vec4 frag_color;
 
 void main() {
-    frag_color = vec4(1,0,1,1);
+    frag_color = vec4(0,0,0,0);
 }
 @end
 

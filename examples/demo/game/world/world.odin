@@ -15,6 +15,12 @@ GAME_RESOLUTION_HEIGHT :: 360
 OFFSCREEN_SAMPLE_COUNT :: 1
 Director_Entity_Id :: director.Entity_Id
 
+Mouse_Button_State :: struct {
+	down:      bool,
+	up:        bool,
+	just_down: bool,
+	just_up:   bool,
+}
 
 World :: struct {
 	frame_count:            u64,
@@ -91,6 +97,7 @@ World :: struct {
 		using comp: logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
 	},
 	mouse:                  [2]f32,
+	mouse_btn:              Mouse_Button_State,
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -133,11 +140,13 @@ frame :: proc(w: ^World, dt: f64) {
 	sg.begin_pass(w.offscreen_pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
+
+	// NEW shadow system
+	sys_light(w, &w.cam.ortho)
 	// UI
 	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sys_text(w, &virtual_screen_ortho)
-	sys_light(w, &w.cam.ortho)
 	sys_debug_collision(w, &w.cam.ortho)
 	sg.end_pass()
 
@@ -174,7 +183,7 @@ init :: proc(w: ^World) {
 	)
 
 	w.offscreen_pass = {
-		action = {colors = {0 = {load_action = .CLEAR, clear_value = {0.25, 0.25, 0.25, 1.0}}}},
+		action = {colors = {0 = {load_action = .CLEAR, clear_value = {0, 0, 0, 1.0}}}},
 		attachments = {
 			colors = {0 = sg.make_view({color_attachment = {image = color_img}})},
 			depth_stencil = sg.make_view({depth_stencil_attachment = {image = depth_img}}),
@@ -190,6 +199,7 @@ init :: proc(w: ^World) {
 
 	w.free_entity_ids_lookup = make(map[logic.Entity]bool)
 	w.sim_frame_length = 1.0 / 60.0
+	w.mouse_btn.up = true
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
