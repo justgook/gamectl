@@ -1,7 +1,6 @@
 package world
 
 import "../director"
-import "../host"
 import sg "../sokol/gfx"
 import "core:c"
 import "core:math"
@@ -34,7 +33,7 @@ debug_collision_state: Debug_Collision_State
 
 sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	debug_collision_init_once()
-	debug_collision_clear()
+	defer debug_collision_clear()
 
 	// Platformer environmental zones.
 	for &zone in w.platformer_zones {
@@ -237,6 +236,11 @@ debug_collision_flush :: proc(ortho: ^linalg.Matrix4f32) {
 	sg.apply_bindings(debug_collision_state.line_bind)
 	sg.apply_uniforms(UB_debug_collision_vs_params, {ptr = &params, size = size_of(params)})
 	sg.draw(0, i32(count), 1)
+}
+
+debug_collision_add_line2 :: proc(a: [4]f32, color: [4]f32) {
+	append(&debug_collision_state.vertices, Debug_Collision_Vertex{pos = a.xy, color = color})
+	append(&debug_collision_state.vertices, Debug_Collision_Vertex{pos = a.zw, color = color})
 }
 
 @(private = "file")

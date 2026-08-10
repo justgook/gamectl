@@ -30,8 +30,11 @@ World :: struct {
 	cam:                    Camera,
 	player1_id:             logic.Entity,
 	player1:                ^Input,
+	// TODO MAKE SIMPLER: combine to single field (maybe) after all is done so all become just simple render
 	light_pipe:             ^Light_Pipe,
 	light:                  logic.Component_Storage_Fixed(Light, LIGHT_RENDER_MAX),
+	light_shadow:           logic.Component_Storage_Fixed(Light_Shadow_Caster, LIGHT_SHADOW_RENDER_MAX),
+	// MAKE SIMPLER end
 	sprite_pipe:            ^Sprite_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
 	nine_patch_pipe:        ^Nine_Patch_Pipe,
@@ -130,12 +133,12 @@ frame :: proc(w: ^World, dt: f64) {
 	sg.begin_pass(w.offscreen_pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
-	sys_debug_collision(w, &w.cam.ortho)
 	// UI
 	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sys_text(w, &virtual_screen_ortho)
 	sys_light(w, &w.cam.ortho)
+	sys_debug_collision(w, &w.cam.ortho)
 	sg.end_pass()
 
 	// RENDER THE CANVAS ON SCREEN
@@ -228,9 +231,6 @@ init :: proc(w: ^World) {
 	w.player1 = player_input
 
 	mock_light(w)
-	mouseLight := create_entity(w)
-	logic.add_component(&w.light, mouseLight, Light{color = {1, 1, 0, 1}})
-	logic.add_component(&w.position, mouseLight, Position{})
 
 }
 
