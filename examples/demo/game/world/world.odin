@@ -227,6 +227,7 @@ init :: proc(w: ^World) {
 	assert(has_player_input)
 	w.player1 = player_input
 
+	mock_light(w)
 	mouseLight := create_entity(w)
 	logic.add_component(&w.light, mouseLight, Light{color = {1, 1, 0, 1}})
 	logic.add_component(&w.position, mouseLight, Position{})
