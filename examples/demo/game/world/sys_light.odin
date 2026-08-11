@@ -17,15 +17,13 @@ Light :: struct {
 	direction_radians: f32,
 	inner_fov_radians: f32,
 	outer_fov_radians: f32,
+	shadow_softness:   f32,
 }
 
-light_point :: proc(pos: [2]f32, color: [4]f32, radius: f32) -> Light {
+light_point :: proc(pos: [2]f32, color: [4]f32, radius: f32, shadow_softness: f32 = 0) -> Light {
 	assert(radius > 0)
-	return {
-		pos = pos,
-		color = color,
-		radius = radius,
-	}
+	assert(shadow_softness >= 0 && shadow_softness <= 1)
+	return {pos = pos, color = color, radius = radius, shadow_softness = shadow_softness}
 }
 
 light_spot :: proc(
@@ -35,8 +33,10 @@ light_spot :: proc(
 	direction_radians: f32,
 	inner_fov_radians: f32,
 	outer_fov_radians: f32,
+	shadow_softness: f32 = 0,
 ) -> Light {
 	assert(radius > 0)
+	assert(shadow_softness >= 0 && shadow_softness <= 1)
 	assert(inner_fov_radians > 0)
 	assert(inner_fov_radians < outer_fov_radians)
 	assert(outer_fov_radians < math.TAU)
@@ -47,6 +47,7 @@ light_spot :: proc(
 		direction_radians = direction_radians,
 		inner_fov_radians = inner_fov_radians,
 		outer_fov_radians = outer_fov_radians,
+		shadow_softness = shadow_softness,
 	}
 }
 
@@ -76,11 +77,7 @@ Shadow_Pipe :: struct {
 
 mock_light :: proc(w: ^World) {
 	mouseLight := create_entity(w)
-	logic.add_component(
-		&w.light,
-		mouseLight,
-		light_spot({}, {1, 1, 1, 1}, 128, 0, math.PI / 3, math.PI / 2),
-	)
+	logic.add_component(&w.light, mouseLight, light_spot({}, {1, 1, 1, 1}, 128, 0, math.PI / 3, math.PI / 2, 0.2))
 	logic.add_component(&w.position, mouseLight, Position{})
 
 	// Shadow casters
@@ -202,7 +199,12 @@ shadow_pipe_init :: proc() -> ^Shadow_Pipe {
 					ATTR_light_shadow_light_shadow_inst_pos = {format = .FLOAT4, buffer_index = 1},
 				},
 			},
-			colors = {0 = {write_mask = .A}},
+			colors = {
+				0 = {
+					write_mask = .A,
+					blend = {enabled = true, src_factor_alpha = .ONE, dst_factor_alpha = .ONE, op_alpha = .MAX},
+				},
+			},
 		},
 	)
 	return pipe
@@ -288,6 +290,7 @@ lighting_draw :: proc(
 	for light_index in 0 ..< light_count {
 		light := lights[light_index]
 		assert(light.radius > 0)
+		assert(light.shadow_softness >= 0 && light.shadow_softness <= 1)
 		point_light := light.inner_fov_radians == 0 && light.outer_fov_radians == 0
 		spot_light :=
 			light.inner_fov_radians > 0 &&
@@ -310,8 +313,9 @@ lighting_draw :: proc(
 
 		if shadow_count > 0 {
 			shadow_params := Light_Shadow_Vs_Params {
-				ortho     = ortho^,
-				light_pos = light.pos,
+				ortho           = ortho^,
+				light_pos       = light.pos,
+				shadow_softness = light.shadow_softness,
 			}
 			sg.apply_pipeline(pipe.shadow.pip)
 			sg.apply_bindings(pipe.shadow.bind)
@@ -320,9 +324,9 @@ lighting_draw :: proc(
 		}
 
 		light_params := Light_Vs_Params {
-			ortho         = ortho^,
-			viewport_size = {GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
-			light_pos     = light.pos,
+			ortho             = ortho^,
+			viewport_size     = {GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
+			light_pos         = light.pos,
 			light_color       = light.color,
 			light_radius      = light.radius,
 			direction_radians = light.direction_radians,
