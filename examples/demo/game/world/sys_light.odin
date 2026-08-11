@@ -11,9 +11,45 @@ Light_Component_Storage :: logic.Component_Storage_Fixed(Light, LIGHT_RENDER_MAX
 Light_Shadow_Component_Storage :: logic.Component_Storage_Fixed(Light_Shadow_Caster, LIGHT_SHADOW_RENDER_MAX)
 
 Light :: struct {
-	pos:    [2]f32,
-	color:  [4]f32,
+	pos:               [2]f32,
+	color:             [4]f32,
+	radius:            f32,
+	direction_radians: f32,
+	inner_fov_radians: f32,
+	outer_fov_radians: f32,
+}
+
+light_point :: proc(pos: [2]f32, color: [4]f32, radius: f32) -> Light {
+	assert(radius > 0)
+	return {
+		pos = pos,
+		color = color,
+		radius = radius,
+		inner_fov_radians = math.TAU,
+		outer_fov_radians = math.TAU,
+	}
+}
+
+light_spot :: proc(
+	pos: [2]f32,
+	color: [4]f32,
 	radius: f32,
+	direction_radians: f32,
+	inner_fov_radians: f32,
+	outer_fov_radians: f32,
+) -> Light {
+	assert(radius > 0)
+	assert(inner_fov_radians > 0)
+	assert(inner_fov_radians < outer_fov_radians)
+	assert(outer_fov_radians < math.TAU)
+	return {
+		pos = pos,
+		color = color,
+		radius = radius,
+		direction_radians = direction_radians,
+		inner_fov_radians = inner_fov_radians,
+		outer_fov_radians = outer_fov_radians,
+	}
 }
 
 Light_Shadow_Caster :: struct {
@@ -42,7 +78,11 @@ Shadow_Pipe :: struct {
 
 mock_light :: proc(w: ^World) {
 	mouseLight := create_entity(w)
-	logic.add_component(&w.light, mouseLight, Light{color = {1, 1, 1, 1}, radius = 128})
+	logic.add_component(
+		&w.light,
+		mouseLight,
+		light_spot({}, {1, 1, 1, 1}, 128, 0, math.PI / 3, math.PI / 2),
+	)
 	logic.add_component(&w.position, mouseLight, Position{})
 
 	// Shadow casters
@@ -57,11 +97,11 @@ mock_light :: proc(w: ^World) {
 sys_light :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	if w.mouse_btn.just_down {
 		mouseLight := create_entity(w)
-		light := Light {
-			color  = {1, 1, 1, 1},
-			radius = 128,
-			pos    = screen_to_world(&w.cam, window_to_screen({w.mouse.x, w.mouse.y}), w.cam.viewport),
-		}
+		light := light_point(
+			screen_to_world(&w.cam, window_to_screen({w.mouse.x, w.mouse.y}), w.cam.viewport),
+			{1, 1, 1, 1},
+			128,
+		)
 
 		logic.add_component(&w.light, mouseLight, light)
 		host.info("CREATE LIGHT", "p", light.pos)
@@ -250,6 +290,13 @@ lighting_draw :: proc(
 	for light_index in 0 ..< light_count {
 		light := lights[light_index]
 		assert(light.radius > 0)
+		assert(light.inner_fov_radians > 0)
+		assert(light.inner_fov_radians <= light.outer_fov_radians)
+		assert(light.outer_fov_radians <= math.TAU)
+		assert(
+			light.outer_fov_radians == math.TAU ||
+			light.inner_fov_radians < light.outer_fov_radians,
+		)
 
 		light_screen_pos := world_to_screen(cam, light.pos)
 		left := int(math.floor(max(0, light_screen_pos.x - light.radius)))
@@ -279,8 +326,11 @@ lighting_draw :: proc(
 			ortho         = ortho^,
 			viewport_size = {GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
 			light_pos     = light.pos,
-			light_color   = light.color,
-			light_radius  = light.radius,
+			light_color       = light.color,
+			light_radius      = light.radius,
+			direction_radians = light.direction_radians,
+			inner_fov_radians = light.inner_fov_radians,
+			outer_fov_radians = light.outer_fov_radians,
 		}
 		sg.apply_pipeline(pipe.light.pip)
 		sg.apply_bindings(pipe.light.bind)
