@@ -3,6 +3,7 @@ package world
 import "../host"
 import sg "../sokol/gfx"
 import "core:c"
+import "core:math"
 import "core:math/linalg"
 import "logic"
 
@@ -79,6 +80,7 @@ sys_light :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		w.light_shadow.count,
 		&w.light_shadow.components,
 		ortho,
+		&w.cam,
 	)
 
 	view2 := logic.view(&w.light_shadow)
@@ -230,6 +232,7 @@ lighting_draw :: proc(
 	shadow_count: int,
 	shadows: ^[LIGHT_SHADOW_RENDER_MAX]Light_Shadow_Caster,
 	ortho: ^linalg.Matrix4f32,
+	cam: ^Camera,
 ) {
 	assert(light_count <= LIGHT_RENDER_MAX)
 	assert(shadow_count <= LIGHT_SHADOW_RENDER_MAX)
@@ -247,6 +250,19 @@ lighting_draw :: proc(
 	for light_index in 0 ..< light_count {
 		light := lights[light_index]
 		assert(light.radius > 0)
+
+		light_screen_pos := world_to_screen(cam, light.pos)
+		left := int(math.floor(max(0, light_screen_pos.x - light.radius)))
+		right := int(math.ceil(min(f32(GAME_RESOLUTION_WIDTH), light_screen_pos.x + light.radius)))
+		bottom := int(math.floor(max(0, light_screen_pos.y - light.radius)))
+		top := int(math.ceil(min(f32(GAME_RESOLUTION_HEIGHT), light_screen_pos.y + light.radius)))
+		if right <= left || top <= bottom {
+			continue
+		}
+
+		// Shadow extrusion is otherwise effectively infinite. Restrict both the
+		// shadow mask and light draw to the same screen-space bounding box.
+		sg.apply_scissor_rect(left, bottom, right - left, top - bottom, false)
 
 		if shadow_count > 0 {
 			shadow_params := Light_Shadow_Vs_Params {

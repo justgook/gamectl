@@ -22,14 +22,17 @@ out vec4 color;
 out float radius;
 
 void main() {
-    vec2 ndc = pos * 2.0;
-    gl_Position = vec4(ndc, 0.0, 1.0);
-
-    frag_screen_pos = (ndc * 0.5 + 0.5) * viewport_size;
-
     vec4 light_clip = ortho * vec4(light_pos, 0.0, 1.0);
     vec2 light_ndc = light_clip.xy / light_clip.w;
     light_screen_pos = (light_ndc * 0.5 + 0.5) * viewport_size;
+
+    // Expand the base quad to a conservative screen-space bounding box.
+    // The extra pixel guarantees that every scissored shadow-mask pixel is
+    // covered and reset even when the light position is fractional.
+    float bounds_radius = light_radius + 1.0;
+    frag_screen_pos = light_screen_pos + pos * (bounds_radius * 2.0);
+    vec2 vertex_ndc = frag_screen_pos / viewport_size * 2.0 - 1.0;
+    gl_Position = vec4(vertex_ndc, 0.0, 1.0);
 
     color = light_color;
     radius = light_radius;
