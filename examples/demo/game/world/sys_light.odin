@@ -25,8 +25,6 @@ light_point :: proc(pos: [2]f32, color: [4]f32, radius: f32) -> Light {
 		pos = pos,
 		color = color,
 		radius = radius,
-		inner_fov_radians = math.TAU,
-		outer_fov_radians = math.TAU,
 	}
 }
 
@@ -290,13 +288,12 @@ lighting_draw :: proc(
 	for light_index in 0 ..< light_count {
 		light := lights[light_index]
 		assert(light.radius > 0)
-		assert(light.inner_fov_radians > 0)
-		assert(light.inner_fov_radians <= light.outer_fov_radians)
-		assert(light.outer_fov_radians <= math.TAU)
-		assert(
-			light.outer_fov_radians == math.TAU ||
-			light.inner_fov_radians < light.outer_fov_radians,
-		)
+		point_light := light.inner_fov_radians == 0 && light.outer_fov_radians == 0
+		spot_light :=
+			light.inner_fov_radians > 0 &&
+			light.inner_fov_radians < light.outer_fov_radians &&
+			light.outer_fov_radians < math.TAU
+		assert(point_light || spot_light)
 
 		light_screen_pos := world_to_screen(cam, light.pos)
 		left := int(math.floor(max(0, light_screen_pos.x - light.radius)))

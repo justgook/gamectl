@@ -68,8 +68,7 @@ void main() {
     radial_strength *= radial_strength;
 
     float angular_strength = 1.0;
-    const float TAU = 6.283185307179586;
-    if (outer_fov < TAU) {
+    if (outer_fov > 0.0) {
         vec2 light_direction = vec2(cos(direction), sin(direction));
         vec2 fragment_direction = distance_squared > 0.0
             ? light_to_fragment * inversesqrt(distance_squared)
