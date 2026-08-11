@@ -6,8 +6,9 @@ package main
 
 import "host"
 import sapp "sokol/app"
-WINDOW_SIZE :: [2]i32{960, 640}
+WINDOW_SIZE :: [2]i32{1280, 720}
 WINDOW_TITLE :: "Game"
+
 
 native_init :: proc "c" () {
 	context = host.default_context()

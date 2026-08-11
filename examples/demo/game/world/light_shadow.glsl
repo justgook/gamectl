@@ -4,16 +4,12 @@
 
 @ctype mat4 matrix[4,4]f32
 
-
 @vs vs_light_base
 @msl_options fixup_clipspace
 layout(binding=0) uniform vs_params {
     mat4 ortho;
-    vec2 viewport_size;
     vec2 light_pos;
-    float depth;
 };
-
 
 in vec2 pos;
 in vec4 inst_pos;
@@ -23,9 +19,6 @@ void main() {
     // select the matching endpoint for each side of the quad.
     vec2 pos_in_px = pos.x < 0.0 ? inst_pos.xy : inst_pos.zw;
 
-    // Offset the +Y row downward. Using the -Y row here reverses the base
-    // quad's winding after the orthographic Y flip, so back-face culling
-    // removes the entire shadow quad.
     if (pos.y > 0.0) {
         vec2 dis = pos_in_px - light_pos;
         float distance_squared = max(dot(dis, dis), 0.0001);
@@ -33,7 +26,6 @@ void main() {
     }
 
     gl_Position = ortho * vec4(pos_in_px, 0.0, 1.0);
-    gl_Position.z = depth * gl_Position.w;
 }
 @end
 
@@ -42,9 +34,10 @@ void main() {
 out vec4 frag_color;
 
 void main() {
-    frag_color = vec4(0,0,0,0);
+    // The shadow pipeline writes only alpha. RGB in the light canvas is
+    // preserved while alpha marks pixels blocked from the current light.
+    frag_color = vec4(0.0, 0.0, 0.0, 1.0);
 }
 @end
 
 @program light_shadow vs_light_base fs_light_base
-

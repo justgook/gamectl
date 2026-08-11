@@ -1,25 +1,15 @@
 [
   {
-    "x": 271,
-    "y": 680,
-    "director_trigger_aabb": {
-      "bounds": [
-        -8,
-        -8,
-        8,
-        8
-      ],
-      "once": true,
-      "used": false
-    },
-    "director_entity": {
-      "id": 7
-    },
-    "name": "trigger",
-    "width": 16,
-    "height": 16,
-    "render": "rectangle",
-    "color": "#FF0000"
+    "x": 0,
+    "y": 0,
+    "tilemap": "CYBERPUNK/missions/m01.tilemaps_01.ng.json",
+    "name": "background",
+    "render": "tilemap",
+    "lock": true,
+    "repeat": [
+      1,
+      1
+    ]
   },
   {
     "x": 46,
@@ -53,6 +43,28 @@
     },
     "sprite": {},
     "name": "player"
+  },
+  {
+    "x": 271,
+    "y": 680,
+    "director_trigger_aabb": {
+      "bounds": [
+        -8,
+        -8,
+        8,
+        8
+      ],
+      "once": true,
+      "used": false
+    },
+    "director_entity": {
+      "id": 7
+    },
+    "name": "trigger",
+    "width": 16,
+    "height": 16,
+    "render": "rectangle",
+    "color": "#FF0000"
   },
   {
     "x": -8,

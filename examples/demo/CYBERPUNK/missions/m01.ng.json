@@ -2239,8 +2239,8 @@
       {
         "id": 2,
         "name": "tile_size",
-        "srcNodeId": 113,
-        "srcOutputId": 1
+        "srcNodeId": 132,
+        "srcOutputId": 3
       },
       {
         "id": 3,
@@ -2251,13 +2251,13 @@
       {
         "id": 4,
         "name": "parallax",
-        "srcNodeId": 118,
+        "srcNodeId": 132,
         "srcOutputId": 1
       },
       {
         "id": 5,
         "name": "repeat",
-        "srcNodeId": 118,
+        "srcNodeId": 132,
         "srcOutputId": 2
       }
     ],
@@ -2265,37 +2265,6 @@
       {
         "id": 1,
         "name": "objects",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 113,
-    "kind": 2,
-    "x": 2147,
-    "y": 842,
-    "name": "toArray",
-    "codePath": "ng/presets/to-array.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 114,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "item2",
-        "srcNodeId": 114,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
         "value": null
       }
     ]
@@ -2371,6 +2340,12 @@
         "name": "item2",
         "srcNodeId": 124,
         "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "item3",
+        "srcNodeId": 124,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -2409,29 +2384,6 @@
         "id": 1,
         "name": "object",
         "value": null
-      }
-    ]
-  },
-  {
-    "id": 118,
-    "kind": 4,
-    "x": 2175,
-    "y": 1046,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "[[0,0],[0,0]]"
-      },
-      {
-        "id": 2,
-        "name": "",
-        "value": "[[0,0], [0,0]]"
       }
     ]
   },
@@ -2611,5 +2563,33 @@
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 132,
+    "kind": 4,
+    "x": 2095,
+    "y": 846,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[[0,0],[0,0], [0,0]]"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "[[1,1], [0,0], [0,0]]"
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "[[16,16],[16,16],[16,16]]"
+      }
+    ]
   }
 ]

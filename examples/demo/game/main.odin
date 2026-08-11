@@ -63,10 +63,14 @@ app_event :: proc(event: host.Event) {
 	// case .Mouse_Move:
 	// 	core_handle_mouse_move(event.mouse_y)
 	case .Resized:
-		// state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
-		// state.world.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
-		world.display_resize(
-			&state.world.display_pipe.params,
+		// Original scaled display is disabled while the render canvases are inspected.
+		// world.display_resize(
+		// 	&state.world.display_pipe.params,
+		// 	f32(event.framebuffer_width),
+		// 	f32(event.framebuffer_height),
+		// )
+		world.display_debug_resize(
+			state.world.display_debug_pipe,
 			f32(event.framebuffer_width),
 			f32(event.framebuffer_height),
 		)

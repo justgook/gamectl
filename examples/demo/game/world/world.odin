@@ -38,8 +38,8 @@ World :: struct {
 	player1:                ^Input,
 	// TODO MAKE SIMPLER: combine to single field (maybe) after all is done so all become just simple render
 	light_pipe:             ^Light_Pipe,
-	light:                  logic.Component_Storage_Fixed(Light, LIGHT_RENDER_MAX),
-	light_shadow:           logic.Component_Storage_Fixed(Light_Shadow_Caster, LIGHT_SHADOW_RENDER_MAX),
+	light:                  Light_Component_Storage,
+	light_shadow:           Light_Shadow_Component_Storage,
 	// MAKE SIMPLER end
 	sprite_pipe:            ^Sprite_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
@@ -61,10 +61,13 @@ World :: struct {
 	animation_atlas:        Animation_Atlas,
 	animation:              logic.Component_Storage(Animation),
 	platformer_anim:        logic.Component_Storage(Platformer_Anim),
-	// NEW rendering
-	offscreen_pass:         sg.Pass,
+	// Rendering
+	light_canvas:           Render_Canvas,
+	color_canvas:           Render_Canvas,
+	final_canvas:           Render_Canvas,
 	display_pass_action:    sg.Pass_Action,
-	display_pipe:           ^Display_Pipe,
+	display_pipe:           ^Display_Pipe, // Original display system; temporarily unused.
+	display_debug_pipe:     ^Display_Debug_Pipe,
 	// Platformer Physics
 	platformer:             logic.Component_Storage(Platformer),
 	grid:                   grid.Grid,
@@ -137,40 +140,33 @@ frame :: proc(w: ^World, dt: f64) {
 	virtual_screen_ortho :=
 		linalg.matrix_ortho3d_f32(-virtual_half_w, virtual_half_w, -virtual_half_h, virtual_half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-virtual_half_w, -virtual_half_h, 0})
-	sg.begin_pass(w.offscreen_pass)
+
+	// The light canvas stores additive light in RGB and the current light's
+	// temporary shadow mask in alpha.
+	sg.begin_pass(w.light_canvas.pass)
+	sys_light(w, &w.cam.ortho)
+	sg.end_pass()
+
+	// The color canvas contains the unlit world render.
+	sg.begin_pass(w.color_canvas.pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
 	sg.end_pass()
 
-	// Keep world color, but give the light/shadow depth ladder an isolated,
-	// freshly-cleared depth buffer.
-	lighting_pass := w.offscreen_pass
-	lighting_pass.action.colors[0] = {
-		load_action = .LOAD,
-	}
-	lighting_pass.action.depth = {
-		load_action = .CLEAR,
-		clear_value = 1.0,
-	}
-	sg.begin_pass(lighting_pass)
-	sys_light(w, &w.cam.ortho)
-	sg.end_pass()
-
-	// Clear the lighting depths before rendering screen-space overlays.
-	overlay_pass := lighting_pass
-	sg.begin_pass(overlay_pass)
-
-	// UI
+	// The final canvas combines color and light, then adds unlit UI and debug overlays.
+	sg.begin_pass(w.final_canvas.pass)
+	lighting_composite(w.light_pipe)
 	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sys_text(w, &virtual_screen_ortho)
 	sys_debug_collision(w, &w.cam.ortho)
 	sg.end_pass()
 
-	// RENDER THE CANVAS ON SCREEN
+	// Original scaled display system is intentionally disabled while canvases
+	// are inspected in fixed semantic slots.
+	// sys_display(w)
 	sg.begin_pass({action = w.display_pass_action, swapchain = host.swapchain()})
-	sys_display(w)
-	// sys_nine_patch(w, &screen_ortho)
+	sys_display_debug(w)
 	sg.end_pass()
 
 	sg.commit()
@@ -178,42 +174,23 @@ frame :: proc(w: ^World, dt: f64) {
 
 
 init :: proc(w: ^World) {
-	// TODO: move outside to display init
-	color_img := sg.make_image(
-	{
-		usage = {color_attachment = true},
-		width = GAME_RESOLUTION_WIDTH,
-		height = GAME_RESOLUTION_HEIGHT,
-		// pixel_format = .RGBA8,
-		sample_count = OFFSCREEN_SAMPLE_COUNT,
-	},
-	)
+	// Keep the original display implementation compiled but disconnected from execution.
+	_ = sys_display
+	_ = display_resize
+	_ = display_cleanup
+	_ = display_init
 
-	depth_img := sg.make_image(
-		{
-			usage = {depth_stencil_attachment = true},
-			width = GAME_RESOLUTION_WIDTH,
-			height = GAME_RESOLUTION_HEIGHT,
-			sample_count = 1,
-			pixel_format = .DEPTH_STENCIL,
-		},
-	)
-
-	w.offscreen_pass = {
-		action = {colors = {0 = {load_action = .CLEAR, clear_value = {0, 0, 0, 1.0}}}},
-		attachments = {
-			colors = {0 = sg.make_view({color_attachment = {image = color_img}})},
-			depth_stencil = sg.make_view({depth_stencil_attachment = {image = depth_img}}),
-		},
-	}
+	w.light_canvas = render_canvas_init({0, 0, 0, 0}, false)
+	w.color_canvas = render_canvas_init({0, 0, 0, 1}, true)
+	w.final_canvas = render_canvas_init({0, 0, 0, 1}, true)
 	w.display_pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
 
-	w.display_pipe = display_init(color_img)
-
-
+	// Original display system is intentionally not initialized during canvas debugging.
+	// w.display_pipe = display_init(w.final_canvas.image)
+	w.display_debug_pipe = display_debug_init(w.light_canvas.texture, w.color_canvas.texture, w.final_canvas.texture)
 	w.free_entity_ids_lookup = make(map[logic.Entity]bool)
 	w.sim_frame_length = 1.0 / 60.0
 	w.mouse_btn.up = true
@@ -222,7 +199,7 @@ init :: proc(w: ^World) {
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
 	w.text_pipe = text_init(w.ui_atlas)
-	w.light_pipe = light_init()
+	w.light_pipe = light_init(w.color_canvas.texture, w.light_canvas.texture)
 
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.ui_atlas)
@@ -320,9 +297,12 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 
 cleanup :: proc(w: ^World) {
 	light_cleanup(w.light_pipe)
-	// sg.destroy_image(w.offscreen_image)
-	// w.offscreen_image = {}
-	display_cleanup(w.display_pipe)
+	display_debug_cleanup(w.display_debug_pipe)
+	// Original display system is not initialized while canvas debugging is active.
+	// display_cleanup(w.display_pipe)
+	render_canvas_cleanup(&w.light_canvas)
+	render_canvas_cleanup(&w.color_canvas)
+	render_canvas_cleanup(&w.final_canvas)
 
 	delete(w.free_entity_ids)
 	delete(w.free_entity_ids_lookup)
