@@ -272,8 +272,8 @@
         "tile_size": "Vec2f",
         "tileset_uv": "Vec4f",
         "lut_uv": "Vec4f",
-        "parallax": "Vec2f",
-        "repeat": "Vec2f"
+        "parallax": { "type": "Vec2f", "default": [0, 0] },
+        "repeat": { "type": "Vec2f", "default": [0, 0] }
       }
     },
 

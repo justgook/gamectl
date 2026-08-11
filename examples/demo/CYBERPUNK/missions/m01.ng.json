@@ -25,8 +25,8 @@
   {
     "id": 15,
     "kind": 4,
-    "x": 3359,
-    "y": 1325,
+    "x": 2186,
+    "y": 1530,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -43,8 +43,8 @@
   {
     "id": 16,
     "kind": 2,
-    "x": 3607,
-    "y": 1293,
+    "x": 2434,
+    "y": 1498,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "graphId": 0,
@@ -319,8 +319,8 @@
   {
     "id": 27,
     "kind": 2,
-    "x": 2103,
-    "y": -243,
+    "x": 2097,
+    "y": -241,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
     "graphId": 0,
@@ -344,7 +344,7 @@
   {
     "id": 29,
     "kind": 2,
-    "x": 2362,
+    "x": 2340,
     "y": -221,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
@@ -677,8 +677,8 @@
   {
     "id": 44,
     "kind": 2,
-    "x": -251,
-    "y": -1652,
+    "x": -349,
+    "y": -1643,
     "name": "tilemap FlipY",
     "codePath": "ng/presets/tilemap-flipy.lua",
     "graphId": 0,
@@ -2591,5 +2591,91 @@
         "value": "[[16,16],[16,16],[16,16]]"
       }
     ]
+  },
+  {
+    "id": 133,
+    "kind": 4,
+    "x": 1747,
+    "y": 1232,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_atlas_RECTS.json\""
+      }
+    ]
+  },
+  {
+    "id": 134,
+    "kind": 2,
+    "x": 2085,
+    "y": 1226,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 133,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 30,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 135,
+    "kind": 4,
+    "x": -243,
+    "y": 269,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_DELME.json\""
+      }
+    ]
+  },
+  {
+    "id": 136,
+    "kind": 2,
+    "x": 95,
+    "y": 264,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 135,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 94,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
   }
 ]

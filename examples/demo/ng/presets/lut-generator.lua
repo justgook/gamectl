@@ -29,26 +29,7 @@ local function itemAt(value, index)
 	return value
 end
 
-local function generateLut(tilemap, layerInput, label)
-	if tilemap == nil or tilemap == "" then
-		error(label .. " map is required")
-	end
-	if type(tilemap) ~= "table" then
-		error(label .. " map must be a table")
-	end
-
-	local layerSelector = tonumber(layerInput) or 1
-	if layerSelector < 1 then
-		error(label .. " layer index must be 1 or greater")
-	end
-
-	layerSelector = math.floor(layerSelector)
-
-	local layers = tilemap.layers
-	if type(layers) ~= "table" or #layers == 0 then
-		error(label .. " tilemap has no layers")
-	end
-
+local function generateLayerLut(layers, layerSelector, label)
 	local layer = layers[layerSelector]
 	if type(layer) ~= "table" then
 		error(label .. " layer not found at index " .. tostring(layerSelector))
@@ -88,6 +69,39 @@ local function generateLut(tilemap, layerInput, label)
 	end
 
 	return image
+end
+
+local function generateLut(tilemap, layerInput, label)
+	if tilemap == nil or tilemap == "" then
+		error(label .. " map is required")
+	end
+	if type(tilemap) ~= "table" then
+		error(label .. " map must be a table")
+	end
+
+	local layers = tilemap.layers
+	if type(layers) ~= "table" or #layers == 0 then
+		error(label .. " tilemap has no layers")
+	end
+
+	if layerInput == nil or layerInput == "" then
+		local images = {}
+		for layerIndex = 1, #layers do
+			images[layerIndex] = generateLayerLut(layers, layerIndex, label)
+		end
+		return images
+	end
+
+	local layerSelector = tonumber(layerInput)
+	if layerSelector == nil then
+		error(label .. " layer index must be numeric")
+	end
+	if layerSelector < 1 then
+		error(label .. " layer index must be 1 or greater")
+	end
+
+	layerSelector = math.floor(layerSelector)
+	return generateLayerLut(layers, layerSelector, label)
 end
 
 local tilemap = inputs[1]

@@ -1,0 +1,383 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": -1247,
+    "y": -1430,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/missions/m01.map.json\""
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "\"CYBERPUNK/missions/m01.world.json\""
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "kind": 2,
+    "x": -940,
+    "y": -1399,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 1,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "kind": 2,
+    "x": -717,
+    "y": -1315,
+    "name": "Objects to Component Storage",
+    "codePath": "ng/presets/objects-to-component-storage.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "objects",
+        "srcNodeId": 7,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 32,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "storage",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "kind": 4,
+    "x": -939,
+    "y": -1318,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tilemap\""
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "kind": 2,
+    "x": -357,
+    "y": -1312,
+    "name": "fromObject",
+    "codePath": "ng/presets/from-object.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "srcNodeId": 31,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "components",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "entity_ids",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "kind": 4,
+    "x": 632,
+    "y": -1076,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_DELME.json\""
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "kind": 2,
+    "x": 970,
+    "y": -1081,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 34,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 40,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 36,
+    "kind": 2,
+    "x": -106,
+    "y": -1361,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 33,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "kind": 2,
+    "x": 199,
+    "y": -1409,
+    "name": "LUT Generator",
+    "codePath": "ng/presets/lut-generator.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "map",
+        "srcNodeId": 36,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layerIndex",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "kind": 2,
+    "x": 629,
+    "y": -1405,
+    "name": "Info",
+    "codePath": "ng/presets/image-info.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "images",
+        "srcNodeId": 39,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "kind": 2,
+    "x": 423,
+    "y": -1410,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "arrays",
+        "srcNodeId": 37,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "kind": 2,
+    "x": 833,
+    "y": -1406,
+    "name": "Pack Rects",
+    "codePath": "ng/presets/pack-rects.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "width",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 3,
+        "name": "height",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 4,
+        "name": "padding",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 5,
+        "name": "autoSize",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "UV",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "value": null
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "kind": 2,
+    "x": 123,
+    "y": -1237,
+    "name": "Pick",
+    "codePath": "ng/presets/pick.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "items",
+        "srcNodeId": 36,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "items",
+        "value": null
+      }
+    ]
+  }
+]
