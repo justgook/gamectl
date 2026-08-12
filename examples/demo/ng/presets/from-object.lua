@@ -6,7 +6,8 @@
 --
 -- Each active output reads the property path with the same name as the output port.
 -- Dot-separated names traverse nested objects (for example, "words.spawn_x").
--- If the input is an array, each output receives an array of that path from every object.
+-- Arrays encountered while traversing are mapped recursively, preserving their shape.
+-- For example, "layers.data" maps data over every item in each layers array.
 
 local value = inputs[1]
 if not inputs.active[1] then
@@ -46,18 +47,40 @@ local function validate_property_path(propertyPath)
 	end
 end
 
-local function extract_object_path(object, propertyPath)
-	local current = object
+local function property_path_parts(propertyPath)
+	local parts = {}
 	for propertyName in propertyPath:gmatch("[^.]+") do
-		if type(current) ~= "table" then
-			error("property path '" .. propertyPath .. "' cannot traverse '" .. propertyName .. "'")
-		end
-		current = current[propertyName]
-		if current == nil then
-			return nil
-		end
+		parts[#parts + 1] = propertyName
 	end
-	return current
+	return parts
+end
+
+local function extract_path(value, parts, partIndex, propertyPath)
+	if partIndex > #parts then
+		return value
+	end
+	if type(value) ~= "table" then
+		error("property path '" .. propertyPath .. "' cannot traverse '" .. parts[partIndex] .. "'")
+	end
+
+	local count = array_length(value)
+	if count ~= nil then
+		local result = {}
+		for index = 1, count do
+			local itemValue = extract_path(value[index], parts, partIndex, propertyPath)
+			if itemValue == nil then
+				error("array item '" .. tostring(index) .. "' property path '" .. propertyPath .. "' is nil")
+			end
+			result[index] = itemValue
+		end
+		return result
+	end
+
+	local propertyValue = value[parts[partIndex]]
+	if propertyValue == nil then
+		return nil
+	end
+	return extract_path(propertyValue, parts, partIndex + 1, propertyPath)
 end
 
 local outputIds = {}
@@ -68,31 +91,19 @@ for key, isActive in pairs(outputs.active) do
 end
 table.sort(outputIds)
 
-local count = array_length(value)
 for _, outputId in ipairs(outputIds) do
 	local propertyName = outputs.names[outputId]
 	if type(propertyName) ~= "string" or propertyName == "" then
 		error("output '" .. tostring(outputId) .. "' must have a non-empty name")
 	end
 	validate_property_path(propertyName)
+	local parts = property_path_parts(propertyName)
+	local itemValue = extract_path(value, parts, 1, propertyName)
 
-	if count ~= nil then
-		local result = {}
-		for index = 1, count do
-			local itemValue = extract_object_path(value[index], propertyName)
-			if itemValue == nil then
-				error("array item '" .. tostring(index) .. "' property path '" .. propertyName .. "' is nil")
-			end
-			result[index] = itemValue
-		end
-		outputs[outputId] = result
+	if itemValue == nil then
+		outputs.active[outputId] = false
+		outputs.active[propertyName] = false
 	else
-		local itemValue = extract_object_path(value, propertyName)
-		if itemValue == nil then
-			outputs.active[outputId] = false
-			outputs.active[propertyName] = false
-		else
-			outputs[outputId] = itemValue
-		end
+		outputs[outputId] = itemValue
 	end
 end
