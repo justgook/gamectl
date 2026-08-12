@@ -1,42 +1,63 @@
-local function isArray(value)
+-- Image Info
+-- Returns image metadata while preserving any nested array structure.
+
+local function fail(message)
+	error("image-info: " .. message)
+end
+
+local function arrayLength(value, label)
 	if type(value) ~= "table" then
-		return false
+		return nil
 	end
 
 	local length = 0
+	local hasNumericKey = false
+	local hasOtherKey = false
 	for key, _ in pairs(value) do
-		if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-			return false
+		if type(key) == "number" then
+			hasNumericKey = true
+			if key < 1 or key ~= math.floor(key) then
+				fail(label .. " must be a dense array")
+			end
+			length = math.max(length, key)
+		else
+			hasOtherKey = true
 		end
-		if key > length then
-			length = key
+	end
+
+	if hasOtherKey then
+		if hasNumericKey then
+			fail(label .. " must not mix array and object keys")
 		end
+		return nil
 	end
 
 	for index = 1, length do
 		if value[index] == nil then
-			return false
+			fail(label .. " must be a dense array")
 		end
 	end
-
-	return true
+	return length
 end
 
 local function imageInfo(image, label)
 	if image == nil or image == "" or image == 0 then
-		error(label .. " is required")
+		fail(label .. " is required")
 	end
-
 	return host.call("image/image::info", image)
 end
 
-local image = inputs[1]
-if type(image) == "table" and isArray(image) then
-	local infos = {}
-	for index, item in ipairs(image) do
-		infos[index] = imageInfo(item, "image[" .. tostring(index) .. "]")
+local function collectInfo(value, label)
+	local length = arrayLength(value, label)
+	if length == nil then
+		return imageInfo(value, label)
 	end
-	outputs[1] = infos
-else
-	outputs[1] = imageInfo(image, "image input")
+
+	local infos = {}
+	for index = 1, length do
+		infos[index] = collectInfo(value[index], label .. "[" .. tostring(index) .. "]")
+	end
+	return infos
 end
+
+outputs[1] = collectInfo(inputs[1], "image")

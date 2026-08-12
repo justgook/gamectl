@@ -1,6 +1,7 @@
 -- LUT Generator
--- Converts arrays of integers into one-pixel-high RGBA LUT images.
--- Nested arrays are preserved; each leaf array of integers becomes an image.
+-- Converts arrays of integers into RGBA LUT images.
+-- Nested arrays are preserved; widths must have the same nested structure,
+-- with one positive integer width for each leaf array of values.
 
 local function fail(message)
 	error("lut-generator: " .. message)
@@ -32,7 +33,14 @@ local function arrayLength(value, label)
 	return length
 end
 
-local function generateLut(values, label)
+local function generateLut(values, width, label)
+	if type(width) ~= "number" or width < 1 or width ~= math.floor(width) then
+		fail(label .. " width must be a positive integer")
+	end
+	if #values % width ~= 0 then
+		fail(label .. " value count must be divisible by width")
+	end
+
 	local bytes = {}
 	for index, value in ipairs(values) do
 		if type(value) ~= "number" or value ~= math.floor(value) then
@@ -47,33 +55,48 @@ local function generateLut(values, label)
 		bytes[offset + 4] = 255
 	end
 
-	local image, writeErr = host.call("image/image::from-pixels", #values, 1, "rgba8", bytes)
+	local image, writeErr = host.call("image/image::from-pixels", width, #values / width, "rgba8", bytes)
 	if image == nil then
 		fail(writeErr or (label .. " failed to create image from pixel data"))
 	end
 	return image
 end
 
-local function convert(value, label)
-	local length = arrayLength(value, label)
-	local itemType = type(value[1])
+local function convert(values, widths, label)
+	local length = arrayLength(values, label)
+	local itemType = type(values[1])
 
 	if itemType == "number" then
 		for index = 2, length do
-			if type(value[index]) ~= "number" then
+			if type(values[index]) ~= "number" then
 				fail(label .. " must contain only integers or only nested arrays")
 			end
 		end
-		return generateLut(value, label)
+		return generateLut(values, widths, label)
 	end
 
 	if itemType == "table" then
-		local result = {}
-		for index = 1, length do
-			if type(value[index]) ~= "table" then
+		for index = 2, length do
+			if type(values[index]) ~= "table" then
 				fail(label .. " must contain only integers or only nested arrays")
 			end
-			result[index] = convert(value[index], label .. "[" .. tostring(index) .. "]")
+		end
+
+		if type(widths) ~= "table" then
+			fail(label .. " widths must be an array")
+		end
+		local widthLength = arrayLength(widths, label .. " widths")
+		if widthLength ~= length then
+			fail(label .. " values and widths must have matching lengths")
+		end
+
+		local result = {}
+		for index = 1, length do
+			result[index] = convert(
+				values[index],
+				widths[index],
+				label .. "[" .. tostring(index) .. "]"
+			)
 		end
 		return result
 	end
@@ -81,4 +104,4 @@ local function convert(value, label)
 	fail(label .. "[1] must be an integer or a nested array")
 end
 
-outputs[1] = convert(inputs[1], "input")
+outputs[1] = convert(inputs[1], inputs[2], "input")

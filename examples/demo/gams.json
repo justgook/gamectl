@@ -1627,6 +1627,9 @@
               "inputs": [
                 {
                   "name": "values"
+                },
+                {
+                  "name": "width"
                 }
               ],
               "outputs": [
