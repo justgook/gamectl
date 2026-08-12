@@ -3,7 +3,7 @@
     "x": 0,
     "y": 0,
     "tilemap": "CYBERPUNK/missions/m01.tilemaps_01.ng.json",
-    "name": "background",
+    "name": "t_bg",
     "render": "tilemap",
     "lock": true,
     "repeat": [
@@ -70,7 +70,7 @@
     "x": -8,
     "y": -8,
     "tilemap": "tmp/m01.layer1.map.json",
-    "name": "m01",
+    "name": "t_walls",
     "render": "tilemap",
     "lock": true
   },
@@ -78,7 +78,7 @@
     "x": 0,
     "y": 0,
     "tilemap": "CYBERPUNK/missions/m01.map.json",
-    "name": "tilemap",
+    "name": "t_collision",
     "render": "tilemap",
     "lock": true
   }

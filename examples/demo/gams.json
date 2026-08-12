@@ -990,6 +990,44 @@
               "group": "Data"
             },
             {
+              "name": "Filter",
+              "kind": "code",
+              "codePath": "ng/presets/filter.lua",
+              "inputs": [
+                {
+                  "name": "items"
+                },
+                {
+                  "name": "filter"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "items"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "Find",
+              "kind": "code",
+              "codePath": "ng/presets/find.lua",
+              "inputs": [
+                {
+                  "name": "items"
+                },
+                {
+                  "name": "filter"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "item"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "toObject",
               "kind": "code",
               "codePath": "ng/presets/to-object.lua",
@@ -1088,6 +1126,23 @@
               "outputs": [
                 {
                   "name": "array"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "Unique Values",
+              "kind": "code",
+              "codePath": "ng/presets/unique-values.lua",
+              "inputs": [
+                {
+                  "name": "values",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "values"
                 }
               ],
               "group": "Data"
@@ -1293,6 +1348,30 @@
                 { "name": "images" },
                 { "name": "width" },
                 { "name": "height" }
+              ],
+              "outputs": [
+                {
+                  "name": "image"
+                }
+              ],
+              "group": "Image"
+            },
+            {
+              "name": "Extract Tileset Tiles",
+              "kind": "code",
+              "codePath": "ng/presets/tileset-extract-tiles.lua",
+              "inputs": [
+                {
+                  "name": "tilesets"
+                },
+                {
+                  "name": "tileSize",
+                  "defaultValue": "16"
+                },
+                {
+                  "name": "tileIDs",
+                  "defaultValue": "[]"
+                }
               ],
               "outputs": [
                 {
