@@ -4,49 +4,38 @@ host = {
 	end,
 }
 
-local function tilemap(...)
-	local layers = {}
-	for index, data in ipairs({ ... }) do
-		layers[index] = { width = #data, data = data }
-	end
-	return { layers = layers }
-end
-
-local function run(inputValues)
-	inputs = inputValues
+local function run(value)
+	inputs = { value }
 	outputs = {}
 	assert(loadfile("examples/demo/ng/presets/lut-generator.lua"))()
 	return outputs[1]
 end
 
-local allLayers = run({ tilemap({ 1 }, { 2, 3 }) })
-assert(#allLayers == 2)
-assert(allLayers[1].first == 1)
-assert(allLayers[2].first == 2)
+local lut = run({ 1, 2, 3 })
+assert(lut.width == 3)
+assert(lut.height == 1)
+assert(lut.first == 1)
 
-local selectedLayer = run({ tilemap({ 1 }, { 2, 3 }), 2 })
-assert(selectedLayer.first == 2)
-
-local allMapsAndLayers = run({
+local nested = run({
+	{ 1 },
 	{
-		tilemap({ 1 }, { 2 }),
-		tilemap({ 3 }, { 4 }),
+		{ 2, 3 },
+		{ 4 },
 	},
 })
-assert(#allMapsAndLayers == 2)
-assert(#allMapsAndLayers[1] == 2)
-assert(#allMapsAndLayers[2] == 2)
-assert(allMapsAndLayers[1][1].first == 1)
-assert(allMapsAndLayers[1][2].first == 2)
-assert(allMapsAndLayers[2][1].first == 3)
-assert(allMapsAndLayers[2][2].first == 4)
+assert(nested[1].first == 1)
+assert(nested[2][1].width == 2)
+assert(nested[2][1].first == 2)
+assert(nested[2][2].first == 4)
 
-local selectedLayersByMap = run({
-	{
-		tilemap({ 1 }, { 2 }),
-		tilemap({ 3 }, { 4 }),
-	},
-	{ 2, 1 },
-})
-assert(selectedLayersByMap[1].first == 2)
-assert(selectedLayersByMap[2].first == 3)
+local function assertFails(value, expected)
+	local ok, message = pcall(run, value)
+	assert(not ok)
+	assert(tostring(message):find(expected, 1, true), tostring(message))
+end
+
+assertFails({}, "must not be empty")
+assertFails({ 1, { 2 } }, "must contain only integers or only nested arrays")
+assertFails({ 1, "2" }, "must contain only integers or only nested arrays")
+assertFails({ 1, 2.5 }, "must be an integer")
+assertFails({ [1] = 1, [3] = 3 }, "must be a dense array")

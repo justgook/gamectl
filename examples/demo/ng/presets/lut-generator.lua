@@ -1,117 +1,84 @@
-local function isArray(value)
+-- LUT Generator
+-- Converts arrays of integers into one-pixel-high RGBA LUT images.
+-- Nested arrays are preserved; each leaf array of integers becomes an image.
+
+local function fail(message)
+	error("lut-generator: " .. message)
+end
+
+local function arrayLength(value, label)
 	if type(value) ~= "table" then
-		return false
+		fail(label .. " must be an array")
 	end
 
 	local length = 0
 	for key, _ in pairs(value) do
 		if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-			return false
+			fail(label .. " must be a dense array")
 		end
-		if key > length then
-			length = key
-		end
+		length = math.max(length, key)
+	end
+
+	if length == 0 then
+		fail(label .. " must not be empty")
 	end
 
 	for index = 1, length do
 		if value[index] == nil then
-			return false
+			fail(label .. " must be a dense array")
 		end
 	end
 
-	return true
+	return length
 end
 
-local function itemAt(value, index)
-	if type(value) == "table" and isArray(value) then
-		return value[index]
-	end
-	return value
-end
-
-local function generateLayerLut(layers, layerSelector, label)
-	local layer = layers[layerSelector]
-	if type(layer) ~= "table" then
-		error(label .. " layer not found at index " .. tostring(layerSelector))
-	end
-
-	local width = math.floor(tonumber(layer.width) or 0)
-	local data = layer.data
-	if type(data) ~= "table" then
-		error(label .. " layer data is missing")
-	end
-
-	if width <= 0 or (#data % width) ~= 0 then
-		error(label .. " invalid layer dimensions")
-	end
-
-	local height = #data / width
-	if height <= 0 then
-		error(label .. " invalid layer dimensions")
-	end
-
+local function generateLut(values, label)
 	local bytes = {}
-	for i = 1, #data do
-		local tileId = math.floor(tonumber(data[i]) or 0)
-		if tileId < 0 then
-			tileId = 0
+	for index, value in ipairs(values) do
+		if type(value) ~= "number" or value ~= math.floor(value) then
+			fail(label .. "[" .. tostring(index) .. "] must be an integer")
 		end
-		local offset = (i - 1) * 4
+
+		local tileId = math.max(0, value)
+		local offset = (index - 1) * 4
 		bytes[offset + 1] = tileId % 256
 		bytes[offset + 2] = math.floor(tileId / 256) % 256
 		bytes[offset + 3] = math.floor(tileId / 65536) % 256
 		bytes[offset + 4] = 255
 	end
 
-	local image, writeErr = host.call("image/image::from-pixels", width, height, "rgba8", bytes)
+	local image, writeErr = host.call("image/image::from-pixels", #values, 1, "rgba8", bytes)
 	if image == nil then
-		error(writeErr or (label .. " failed to create image from pixel data"))
+		fail(writeErr or (label .. " failed to create image from pixel data"))
 	end
-
 	return image
 end
 
-local function generateLut(tilemap, layerInput, label)
-	if tilemap == nil or tilemap == "" then
-		error(label .. " map is required")
-	end
-	if type(tilemap) ~= "table" then
-		error(label .. " map must be a table")
-	end
+local function convert(value, label)
+	local length = arrayLength(value, label)
+	local itemType = type(value[1])
 
-	local layers = tilemap.layers
-	if type(layers) ~= "table" or #layers == 0 then
-		error(label .. " tilemap has no layers")
-	end
-
-	if layerInput == nil or layerInput == "" then
-		local images = {}
-		for layerIndex = 1, #layers do
-			images[layerIndex] = generateLayerLut(layers, layerIndex, label)
+	if itemType == "number" then
+		for index = 2, length do
+			if type(value[index]) ~= "number" then
+				fail(label .. " must contain only integers or only nested arrays")
+			end
 		end
-		return images
+		return generateLut(value, label)
 	end
 
-	local layerSelector = tonumber(layerInput)
-	if layerSelector == nil then
-		error(label .. " layer index must be numeric")
-	end
-	if layerSelector < 1 then
-		error(label .. " layer index must be 1 or greater")
+	if itemType == "table" then
+		local result = {}
+		for index = 1, length do
+			if type(value[index]) ~= "table" then
+				fail(label .. " must contain only integers or only nested arrays")
+			end
+			result[index] = convert(value[index], label .. "[" .. tostring(index) .. "]")
+		end
+		return result
 	end
 
-	layerSelector = math.floor(layerSelector)
-	return generateLayerLut(layers, layerSelector, label)
+	fail(label .. "[1] must be an integer or a nested array")
 end
 
-local tilemap = inputs[1]
-local layerInput = inputs[2]
-if type(tilemap) == "table" and isArray(tilemap) then
-	local images = {}
-	for index, item in ipairs(tilemap) do
-		images[index] = generateLut(item, itemAt(layerInput, index), "map[" .. tostring(index) .. "]")
-	end
-	outputs[1] = images
-else
-	outputs[1] = generateLut(tilemap, layerInput, "map input")
-end
+outputs[1] = convert(inputs[1], "input")

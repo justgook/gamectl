@@ -990,6 +990,30 @@
               "group": "Data"
             },
             {
+              "name": "Int Array",
+              "kind": "code",
+              "codePath": "ng/presets/int-array.lua",
+              "inputs": [
+                {
+                  "name": "length"
+                },
+                {
+                  "name": "increment",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "start",
+                  "defaultValue": "1"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "array"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "Filter",
               "kind": "code",
               "codePath": "ng/presets/filter.lua",
@@ -1143,6 +1167,30 @@
               "outputs": [
                 {
                   "name": "values"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "Remap Values",
+              "kind": "code",
+              "codePath": "ng/presets/remap-values.lua",
+              "inputs": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "originalIDs",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "newIDs",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
                 }
               ],
               "group": "Data"
@@ -1578,12 +1626,7 @@
               "codePath": "ng/presets/lut-generator.lua",
               "inputs": [
                 {
-                  "name": "map",
-                  "defaultValue": "minimap.map.json"
-                },
-                {
-                  "name": "layerIndex",
-                  "defaultValue": ""
+                  "name": "values"
                 }
               ],
               "outputs": [
