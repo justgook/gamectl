@@ -298,7 +298,7 @@
       {
         "id": 1,
         "name": "luts",
-        "srcNodeId": 33,
+        "srcNodeId": 137,
         "srcOutputId": 1
       },
       {
@@ -507,7 +507,7 @@
   {
     "id": 36,
     "kind": 2,
-    "x": 814,
+    "x": 1009,
     "y": -67,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
@@ -517,7 +517,7 @@
       {
         "id": 1,
         "name": "images",
-        "srcNodeId": 33,
+        "srcNodeId": 137,
         "srcOutputId": 1
       }
     ],
@@ -2270,31 +2270,6 @@
     ]
   },
   {
-    "id": 114,
-    "kind": 2,
-    "x": 641,
-    "y": 843,
-    "name": "JSON.Decode",
-    "codePath": "ng/presets/json_decode.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "text",
-        "srcNodeId": 104,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
-        "value": null
-      }
-    ]
-  },
-  {
     "id": 115,
     "kind": 2,
     "x": 1781,
@@ -2346,6 +2321,18 @@
         "name": "item3",
         "srcNodeId": 124,
         "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "item4",
+        "srcNodeId": 124,
+        "srcOutputId": 1
+      },
+      {
+        "id": 5,
+        "name": "item5",
+        "srcNodeId": 124,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -2359,8 +2346,8 @@
   {
     "id": 117,
     "kind": 2,
-    "x": 2584,
-    "y": 1063,
+    "x": 2987,
+    "y": 1127,
     "name": "toObject",
     "codePath": "ng/presets/to-object.lua",
     "graphId": 0,
@@ -2369,7 +2356,7 @@
       {
         "id": 1,
         "name": "components",
-        "srcNodeId": 112,
+        "srcNodeId": 139,
         "srcOutputId": 1
       },
       {
@@ -2421,7 +2408,7 @@
   {
     "id": 121,
     "kind": 4,
-    "x": 2735,
+    "x": 2870,
     "y": 1298,
     "name": "",
     "codePath": "",
@@ -2439,8 +2426,8 @@
   {
     "id": 122,
     "kind": 2,
-    "x": 3073,
-    "y": 1292,
+    "x": 3191,
+    "y": 1295,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -2578,17 +2565,17 @@
       {
         "id": 1,
         "name": "",
-        "value": "[[0,0],[0,0], [0,0]]"
+        "value": "[[0,0],[0,0], [0,0], [0,0],[0,0]]"
       },
       {
         "id": 2,
         "name": "",
-        "value": "[[1,1], [0,0], [0,0]]"
+        "value": "[[1,1], [0,0], [0,0], [0,0],[0,0]]"
       },
       {
         "id": 3,
         "name": "",
-        "value": "[[16,16],[16,16],[16,16]]"
+        "value": "[[16,16],[16,16],[16,16],[16,16],[16,16]]"
       }
     ]
   },
@@ -2677,5 +2664,102 @@
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 137,
+    "kind": 2,
+    "x": 723,
+    "y": -115,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "arrays",
+        "srcNodeId": 33,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 138,
+    "kind": 2,
+    "x": 2598,
+    "y": 900,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "item3",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 139,
+    "kind": 2,
+    "x": 2932,
+    "y": 897,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "srcNodeId": 138,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "srcNodeId": 138,
+        "srcOutputId": 2
+      },
+      {
+        "id": 3,
+        "name": "item3",
+        "srcNodeId": 138,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
   }
 ]
