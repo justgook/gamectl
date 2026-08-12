@@ -1,5 +1,5 @@
 -- Extract Tileset Tiles
--- Builds a square tileset from selected global, 1-based tile IDs.
+-- Builds a compact, near-square tileset from selected global, 1-based tile IDs.
 -- Source tilesets occupy consecutive global ID ranges in input order.
 -- Requested tiles retain their input order in the output tileset.
 
@@ -97,9 +97,9 @@ for index = 1, tilesetCount do
 	totalTileCount = totalTileCount + tileCount
 end
 
-local sideInTiles = math.ceil(math.sqrt(requestedCount))
-local outputSize = sideInTiles * tileSize
-local output = host.call("image/image::create", outputSize, outputSize, json.null)
+local columns = math.ceil(math.sqrt(requestedCount))
+local rows = math.ceil(requestedCount / columns)
+local output = host.call("image/image::create", columns * tileSize, rows * tileSize, json.null)
 
 for outputIndex = 1, requestedCount do
 	local globalID = positive_integer(tileIDs[outputIndex], "tileIDs[" .. tostring(outputIndex) .. "]")
@@ -134,8 +134,8 @@ for outputIndex = 1, requestedCount do
 
 	local outputZeroBasedIndex = outputIndex - 1
 	output = host.call("image/image::blit", output, tile, {
-		x = (outputZeroBasedIndex % sideInTiles) * tileSize,
-		y = math.floor(outputZeroBasedIndex / sideInTiles) * tileSize,
+		x = (outputZeroBasedIndex % columns) * tileSize,
+		y = math.floor(outputZeroBasedIndex / columns) * tileSize,
 	})
 end
 

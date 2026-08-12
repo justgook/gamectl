@@ -72,6 +72,12 @@ assert(atlas.slots[1].x == 0 and atlas.slots[1].y == 0)
 assert(atlas.slots[2].x == 16 and atlas.slots[2].y == 0)
 assert(atlas.slots[3].x == 0 and atlas.slots[3].y == 16)
 
+-- Keep the atlas near-square, but omit a completely empty trailing row.
+local compactAtlas = run({ source("A", 64, 64) }, 16, { 1, 2, 3, 4, 5 })
+assert(compactAtlas.width == 48)
+assert(compactAtlas.height == 32)
+assert(compactAtlas.slots[5].x == 16 and compactAtlas.slots[5].y == 16)
+
 local ok, message = pcall(run, { source("invalid", 65, 64) }, 16, { 1 })
 assert(not ok)
 assert(tostring(message):find("must both be divisible by tileSize 16", 1, true))
