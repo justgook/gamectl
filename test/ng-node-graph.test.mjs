@@ -6,9 +6,14 @@ import {
   cloneNgGraph,
   cloneNgNodesWithNewIds,
   createNgNodeGraph,
+  findNgGroupPath,
   flattenNgGraph,
+  flattenNgGraphWithLocations,
+  nextNgNodeId,
   ngInputPortId,
   ngOutputPortId,
+  parseNgGroupGraphDocument,
+  serializeNgGroupGraphDocument,
   serializeNgNodeGraph,
   syncNgGroupBoundary,
 } from "../packages/util/ng-node-graph.js"
@@ -132,4 +137,125 @@ test("copying Group Nodes remaps every nested identity and boundary port", () =>
   assert.equal(cloned.outputs[0].id, 103)
   assert.equal(cloned.childGraph[1].inputs[0].srcNodeId, 101)
   assert.equal(cloned.childGraph[2].inputs[0].srcNodeId, 102)
+})
+
+function linkedGroup(id, path, srcNodeId = 0) {
+  return {
+    id, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Linked", codePath: "", graphId: 0, graphName: "",
+    storage: { mode: "linked", path },
+    inputs: [{ id: 100, name: "source", srcNodeId, srcOutputId: srcNodeId ? 1 : 0 }],
+    outputs: [{ id: 102, name: "result", value: null }],
+  }
+}
+
+function linkedDocument() {
+  return serializeNgGroupGraphDocument([
+    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+    { id: 101, kind: NG_NODE_KINDS.CODE, x: 100, y: 0, name: "Linked code", codePath: "linked.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "source", srcNodeId: 100, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
+    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 200, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 101, srcOutputId: 1 }], outputs: [] },
+  ])
+}
+
+test("linked Group schema normalizes paths and never persists childGraph", () => {
+  const group = linkedGroup(10, "graphs\\nested/../transform.json")
+  group.childGraph = []
+  assert.throws(() => cloneNgGraph([group]), /must not persist childGraph/)
+  delete group.childGraph
+  const cloned = cloneNgGraph([group])[0]
+  assert.deepEqual(cloned.storage, { mode: "linked", path: "graphs/transform.json" })
+  assert.equal(Object.hasOwn(cloned, "childGraph"), false)
+
+  const legacyInline = groupedGraph()[0]
+  legacyInline.inputs[0].srcNodeId = 0
+  legacyInline.inputs[0].srcOutputId = 0
+  const normalized = cloneNgGraph([legacyInline])[0]
+  assert.deepEqual(normalized.storage, { mode: "inline" })
+})
+
+test("linked Group documents use the versioned gams-group-graph envelope", () => {
+  const envelope = linkedDocument()
+  assert.equal(envelope.format, "gams-group-graph")
+  assert.equal(envelope.version, 1)
+  assert.deepEqual(parseNgGroupGraphDocument(JSON.stringify(envelope)), envelope.nodes)
+  assert.throws(() => parseNgGroupGraphDocument({ ...envelope, version: 2 }), /version must be 1/)
+})
+
+test("linked documents are separate ID authorities and are skipped without a resolver", () => {
+  const group = linkedGroup(10, "graphs/transform.json")
+  assert.equal(nextNgNodeId([group]), 11)
+  assert.throws(() => findNgGroupPath([group], [10]), /requires resolveLinked/)
+  const found = findNgGroupPath([group], [10], { resolveLinked: () => linkedDocument() })
+  assert.deepEqual(found.graph.map((node) => node.id), [100, 101, 102])
+})
+
+test("linked path lookup returns the resolver's live working graph", () => {
+  const working = parseNgGroupGraphDocument(linkedDocument())
+  const found = findNgGroupPath([linkedGroup(10, "graphs/transform.json")], [10], { resolveLinked: () => working })
+  found.graph[1].name = "Edited live"
+  assert.equal(working[1].name, "Edited live")
+})
+
+test("flattening synchronizes stale linked Group boundary snapshots", () => {
+  const group = linkedGroup(10, "graphs/transform.json", 1)
+  group.inputs = [{ id: 100, name: "stale", srcNodeId: 1, srcOutputId: 1 }]
+  group.outputs = []
+  const graph = [rawGraph()[0], group]
+  const flat = flattenNgGraph(graph, { resolveLinked: () => linkedDocument() })
+  assert.equal(flat.find((node) => node.codePath === "linked.lua").inputs[0].srcNodeId, 1)
+})
+
+test("flattening synchronizes nested linked Group boundary snapshots", () => {
+  const b = serializeNgGroupGraphDocument([
+    { id: 200, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+    { id: 201, kind: NG_NODE_KINDS.CODE, x: 100, y: 0, name: "Nested", codePath: "nested.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "source", srcNodeId: 200, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
+    { id: 202, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 200, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 201, srcOutputId: 1 }], outputs: [] },
+  ])
+  const nested = linkedGroup(110, "b.ng")
+  nested.inputs = [{ id: 200, name: "stale", srcNodeId: 100, srcOutputId: 1 }]
+  nested.outputs = []
+  const a = serializeNgGroupGraphDocument([
+    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+    nested,
+    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 300, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 110, srcOutputId: 202 }], outputs: [] },
+  ])
+  const documents = new Map([["a.ng", a], ["b.ng", b]])
+  const rootGroup = linkedGroup(10, "a.ng", 1)
+  const flat = flattenNgGraph([rawGraph()[0], rootGroup], { resolveLinked: (path) => documents.get(path) })
+  assert.equal(flat.find((node) => node.codePath === "nested.lua").inputs[0].srcNodeId, 1)
+})
+
+test("repeated linked sources flatten as independent execution occurrences", () => {
+  const graph = rawGraph().slice(0, 1)
+  graph.push(linkedGroup(10, "graphs/transform.json", 1))
+  graph.push(linkedGroup(11, "graphs/transform.json", 1))
+  graph.push({ id: 12, kind: NG_NODE_KINDS.CODE, x: 300, y: 0, name: "First", codePath: "first.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "value", srcNodeId: 10, srcOutputId: 102 }], outputs: [{ id: 1, name: "result", value: null }] })
+  graph.push({ id: 13, kind: NG_NODE_KINDS.CODE, x: 300, y: 100, name: "Second", codePath: "second.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "value", srcNodeId: 11, srcOutputId: 102 }], outputs: [{ id: 1, name: "result", value: null }] })
+
+  const { nodes, locations } = flattenNgGraphWithLocations(graph, { resolveLinked: () => linkedDocument() })
+  const occurrences = nodes.filter((node) => node.codePath === "linked.lua")
+  assert.equal(occurrences.length, 2)
+  assert.notEqual(occurrences[0].id, occurrences[1].id)
+  assert.equal(occurrences[0].inputs[0].srcNodeId, 1)
+  assert.equal(occurrences[1].inputs[0].srcNodeId, 1)
+  assert.equal(nodes.find((node) => node.id === 12).inputs[0].srcNodeId, occurrences[0].id)
+  assert.equal(nodes.find((node) => node.id === 13).inputs[0].srcNodeId, occurrences[1].id)
+  assert.deepEqual(locations.get(occurrences[0].id), { executionNodeId: occurrences[0].id, sourceNodeId: 101, documentPath: "graphs/transform.json", groupPath: [10] })
+  assert.deepEqual(locations.get(occurrences[1].id).groupPath, [11])
+})
+
+test("linked document alias cycles are detected across nested documents", () => {
+  const a = serializeNgGroupGraphDocument([linkedGroup(1, "b.ng")])
+  const b = serializeNgGroupGraphDocument([linkedGroup(1, "a.ng")])
+  const documents = new Map([["a.ng", a], ["b.ng", b]])
+  assert.throws(
+    () => flattenNgGraph([linkedGroup(1, "a.ng")], { resolveLinked: (path) => documents.get(path) }),
+    /linked Group alias cycle: a\.ng -> b\.ng -> a\.ng/,
+  )
+})
+
+test("copying a linked Group remaps only the local Group identity", () => {
+  const copy = cloneNgNodesWithNewIds([linkedGroup(10, "graphs/../graphs/transform.json")], 200)
+  assert.equal(copy.nextId, 201)
+  assert.deepEqual(copy.nodes[0], { ...linkedGroup(200, "graphs/transform.json") })
+  assert.equal(Object.hasOwn(copy.nodes[0], "childGraph"), false)
 })

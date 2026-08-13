@@ -61,8 +61,8 @@ A Group Node storage mode in which the child Node Graph is embedded in its paren
 _Avoid_: imported graph when no separate graph file remains authoritative.
 
 **Linked Group Storage**:
-A planned Group Node storage mode in which a separate Node Graph file remains authoritative for the child graph.
-_Avoid_: imported graph when edits continue to save to the external source.
+A Group Node storage mode in which a separate Node Graph file remains authoritative for the child graph. Group Nodes linked to the same file share one live working graph, so unsaved edits through one occurrence are visible through the others.
+_Avoid_: imported graph when edits continue to save to the external source; embedded cache, because the linked file has one authoritative graph.
 
 **Director**:
 The narrative world model and rule runtime whose authored DSL is compiled by the Director Compiler Project Unit.
@@ -101,9 +101,12 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
 - An **Animation Tree** owns exactly one root **Animation Node**, and composite Animation Nodes own their child Animation Nodes within the same document.
 - A **Node Graph** edge connects one output port to one input port; connection capacity and compatibility belong to the participating ports.
-- A **Group Node** owns a child **Node Graph**; node identities are unique across the complete root graph document and every embedded child graph.
+- A **Group Node** owns a child **Node Graph**; node identities are unique within each authoritative graph document and its embedded inline child graphs.
+- Repeated occurrences of one linked graph share authored node identity by source and node id, but each occurrence has a distinct execution identity through its Group path.
 - Each **Graph Input** becomes one input port on its owning **Group Node**, and each **Graph Output** becomes one output port.
-- Stage-one Group Nodes use **Inline Group Storage**; **Linked Group Storage** is planned separately.
+- **Inline Group Storage** embeds the child graph in its parent graph document.
+- **Linked Group Storage** stores a Project-root-relative source path without an embedded child-graph cache.
+- Group Nodes linked to the same source share unsaved edits through one live working graph.
 - The Director Compiler is a **Project Unit** that compiles authored Director DSL into Director runtime data.
 - **Director Entity Availability** controls Director matching independently from any Host's ECS projection.
 - Hosts may react to selected **Director Applied Changes** without embedding Host behavior into Director rules.

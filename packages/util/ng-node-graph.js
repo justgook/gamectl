@@ -13,10 +13,32 @@ export const NG_NODE_KINDS = Object.freeze({
   GRAPH_OUTPUT: 6,
 })
 
+export const NG_GROUP_GRAPH_FORMAT = "gams-group-graph"
+export const NG_GROUP_GRAPH_VERSION = 1
+
 const VALID_KINDS = new Set(Object.values(NG_NODE_KINDS))
 
 export function ngInputPortId(id) { return `input:${id}` }
 export function ngOutputPortId(id) { return `output:${id}` }
+
+export function normalizeNgGroupPath(path) {
+  assert(typeof path === "string" && path.length > 0, "view-ng linked Group path must be a non-empty string")
+  const slashPath = path.replaceAll("\\", "/")
+  assert(!slashPath.startsWith("/") && !/^[A-Za-z]:\//.test(slashPath), `view-ng linked Group path must be project-relative: ${path}`)
+  const parts = []
+  for (const part of slashPath.split("/")) {
+    if (!part || part === ".") continue
+    if (part === "..") {
+      assert(parts.length > 0, `view-ng linked Group path escapes the project: ${path}`)
+      parts.pop()
+    } else {
+      assert(!part.includes("\0"), "view-ng linked Group path contains a null byte")
+      parts.push(part)
+    }
+  }
+  assert(parts.length > 0, `view-ng linked Group path must identify a document: ${path}`)
+  return parts.join("/")
+}
 
 function cloneInput(input, nodeId) {
   for (const key of ["id", "srcNodeId", "srcOutputId"])
@@ -32,7 +54,19 @@ function cloneOutput(output, nodeId) {
   return { id: output.id, name: output.name, value: output.value }
 }
 
-function cloneLevel(graph, globalIds, label, { allowExternalSources = false } = {}) {
+function groupStorage(raw, label) {
+  const storage = raw.storage ?? { mode: "inline" }
+  assert(storage && typeof storage === "object" && !Array.isArray(storage), `${label}.storage must be an object`)
+  assert(storage.mode === "inline" || storage.mode === "linked", `${label}.storage.mode must be inline or linked`)
+  if (storage.mode === "inline") {
+    assert(Array.isArray(raw.childGraph), `${label}.childGraph must be a raw node array`)
+    return { mode: "inline" }
+  }
+  assert(raw.childGraph === undefined, `${label} linked storage must not persist childGraph`)
+  return { mode: "linked", path: normalizeNgGroupPath(storage.path) }
+}
+
+function cloneLevel(graph, globalIds, label, { allowExternalSources = false, resolveLinked } = {}) {
   assert(Array.isArray(graph), `${label} must be a raw node array`)
   const localIds = new Set()
   const nodes = graph.map((raw) => {
@@ -62,48 +96,104 @@ function cloneLevel(graph, globalIds, label, { allowExternalSources = false } = 
       assert(!outputIds.has(output.id), `${label} node ${raw.id} has duplicate output id ${output.id}`)
       outputIds.add(output.id)
     }
-    if (raw.kind === NG_NODE_KINDS.GRAPH_INPUT) {
+    if (raw.kind === NG_NODE_KINDS.GRAPH_INPUT)
       assert(inputs.length === 0 && outputs.length === 1, `Graph Input ${raw.id} requires exactly one output and no inputs`)
-    }
-    if (raw.kind === NG_NODE_KINDS.GRAPH_OUTPUT) {
+    if (raw.kind === NG_NODE_KINDS.GRAPH_OUTPUT)
       assert(inputs.length === 1 && outputs.length === 0, `Graph Output ${raw.id} requires exactly one input and no outputs`)
-    }
-    return {
+    const result = {
       id: raw.id, kind: raw.kind, x: raw.x, y: raw.y, name: raw.name,
       codePath: raw.codePath, graphId: raw.graphId, graphName: raw.graphName,
       inputs, outputs,
-      ...(raw.kind === NG_NODE_KINDS.GROUP ? { childGraph: cloneLevel(raw.childGraph, globalIds, `view-ng Group Node ${raw.id}.childGraph`) } : {}),
     }
+    if (raw.kind === NG_NODE_KINDS.GROUP) {
+      result.storage = groupStorage(raw, `${label} Group Node ${raw.id}`)
+      if (result.storage.mode === "inline")
+        result.childGraph = cloneLevel(raw.childGraph, globalIds, `view-ng Group Node ${raw.id}.childGraph`, { resolveLinked })
+    }
+    return result
   })
-  for (const node of nodes) if (node.kind === NG_NODE_KINDS.GROUP) syncNgGroupBoundary(node, nodes)
-  for (const node of nodes) {
-    for (const input of node.inputs)
-      assert(allowExternalSources || input.srcNodeId === 0 || localIds.has(input.srcNodeId), `${label} input ${node.id}.${input.id} references node ${input.srcNodeId} outside its graph level`)
-  }
+  for (const node of nodes) if (node.kind === NG_NODE_KINDS.GROUP && (node.storage.mode === "inline" || resolveLinked))
+    syncNgGroupBoundary(node, nodes, { resolveLinked })
+  for (const node of nodes) for (const input of node.inputs)
+    assert(allowExternalSources || input.srcNodeId === 0 || localIds.has(input.srcNodeId), `${label} input ${node.id}.${input.id} references node ${input.srcNodeId} outside its graph level`)
   return nodes
 }
 
-export function cloneNgGraphFragment(graph) {
-  return cloneLevel(structuredClone(graph), new Set(), "view-ng graph fragment")
+function graphFromResolvedDocument(value, path) {
+  if (Array.isArray(value)) return cloneNgGraphFragment(value)
+  try {
+    return parseNgGroupGraphDocument(value)
+  } catch (error) {
+    throw new Error(`view-ng failed to resolve linked Group ${path}: ${error.message}`)
+  }
 }
 
-export function cloneNgGraph(graph) {
-  const cloned = cloneLevel(structuredClone(graph), new Set(), "view-ng graph")
+function resolverFrom(options) {
+  return typeof options === "function" ? options : options?.resolveLinked
+}
+
+function resolvedLinkedValue(resolveLinked, path) {
+  assert(typeof resolveLinked === "function", `view-ng linked Group ${path} requires resolveLinked(path)`)
+  const value = resolveLinked(path)
+  assert(value !== undefined && value !== null, `view-ng linked Group resolver returned no document for ${path}`)
+  return value
+}
+
+function resolveLinkedDocument(resolveLinked, path) {
+  return graphFromResolvedDocument(resolvedLinkedValue(resolveLinked, path), path)
+}
+
+function resolveLinkedDocumentReference(resolveLinked, path) {
+  const value = resolvedLinkedValue(resolveLinked, path)
+  return Array.isArray(value) ? value : graphFromResolvedDocument(value, path)
+}
+
+export function parseNgGroupGraphDocument(document) {
+  const raw = typeof document === "string" ? JSON.parse(document) : document
+  assert(raw && typeof raw === "object" && !Array.isArray(raw), "view-ng Group graph document must be an object")
+  assert(raw.format === NG_GROUP_GRAPH_FORMAT, `view-ng Group graph document format must be ${NG_GROUP_GRAPH_FORMAT}`)
+  assert(raw.version === NG_GROUP_GRAPH_VERSION, `view-ng Group graph document version must be ${NG_GROUP_GRAPH_VERSION}`)
+  return cloneNgGraphFragment(raw.nodes)
+}
+
+export function serializeNgGroupGraphDocument(graph) {
+  return { format: NG_GROUP_GRAPH_FORMAT, version: NG_GROUP_GRAPH_VERSION, nodes: cloneNgGraphFragment(graph) }
+}
+
+export function cloneNgGraphFragment(graph, options = {}) {
+  return cloneLevel(structuredClone(graph), new Set(), "view-ng graph fragment", { resolveLinked: resolverFrom(options) })
+}
+
+export function cloneNgGraph(graph, options = {}) {
+  const cloned = cloneLevel(structuredClone(graph), new Set(), "view-ng graph", { resolveLinked: resolverFrom(options) })
   for (const node of cloned)
     assert(node.kind !== NG_NODE_KINDS.GRAPH_INPUT && node.kind !== NG_NODE_KINDS.GRAPH_OUTPUT, `root graph cannot contain ${kindName(node.kind)} ${node.id}`)
   return cloned
 }
 
-export function visitNgNodes(graph, visitor, path = []) {
-  for (const node of graph) {
-    visitor(node, path)
-    if (node.kind === NG_NODE_KINDS.GROUP) visitNgNodes(node.childGraph, visitor, [...path, node.id])
+export function visitNgNodes(graph, visitor, pathOrOptions = [], maybeOptions = {}) {
+  const initialPath = Array.isArray(pathOrOptions) ? pathOrOptions : []
+  const options = Array.isArray(pathOrOptions) ? maybeOptions : pathOrOptions
+  const resolveLinked = resolverFrom(options)
+  const visitLevel = (level, path, linkedStack) => {
+    for (const node of level) {
+      visitor(node, path)
+      if (node.kind !== NG_NODE_KINDS.GROUP) continue
+      if ((node.storage?.mode ?? "inline") === "inline") {
+        visitLevel(node.childGraph, [...path, node.id], linkedStack)
+      } else if (resolveLinked) {
+        const linkedPath = normalizeNgGroupPath(node.storage.path)
+        assert(!linkedStack.includes(linkedPath), `view-ng linked Group alias cycle: ${[...linkedStack, linkedPath].join(" -> ")}`)
+        visitLevel(resolveLinkedDocument(resolveLinked, linkedPath), [...path, node.id], [...linkedStack, linkedPath])
+      }
+    }
   }
+  visitLevel(graph, initialPath, [])
 }
 
-export function nextNgNodeId(graph) {
+export function nextNgNodeId(graph, options = {}) {
   let maximum = 0
-  visitNgNodes(graph, (node) => { maximum = Math.max(maximum, node.id) })
+  visitNgNodes(graph, (node) => { maximum = Math.max(maximum, node.id) }, options)
   return maximum + 1
 }
 
@@ -119,55 +209,48 @@ export function cloneNgNodesWithNewIds(nodes, firstId) {
       srcNodeId: input.srcNodeId && idMap.has(input.srcNodeId) ? idMap.get(input.srcNodeId) : 0,
       srcOutputId: input.srcNodeId && idMap.has(input.srcNodeId) ? input.srcOutputId : 0,
     })
-    const result = {
-      ...node,
-      id: idMap.get(originalId),
-      inputs: node.inputs.map(remapSource),
-      outputs: node.outputs.map((output) => ({ ...output })),
-    }
-    if (node.kind === NG_NODE_KINDS.GROUP) {
+    const result = { ...node, id: idMap.get(originalId), inputs: node.inputs.map(remapSource), outputs: node.outputs.map((output) => ({ ...output })) }
+    if (node.kind === NG_NODE_KINDS.GROUP && node.storage.mode === "inline") {
       result.childGraph = remapLevel(node.childGraph)
       result.inputs = result.inputs.map((input) => ({ ...input, id: idMap.get(input.id) }))
       result.outputs = result.outputs.map((output) => ({ ...output, id: idMap.get(output.id) }))
     }
     return result
   })
-  return { nodes: remapLevel(cloned), nextId }
+  return { nodes: remapLevel(cloned), nextId, idMap }
 }
 
-export function findNgGroupPath(graph, groupPath) {
+export function findNgGroupPath(graph, groupPath, options = {}) {
+  const resolveLinked = resolverFrom(options)
   let level = graph
   const groups = []
   for (const id of groupPath) {
     const group = level.find((node) => node.id === id)
     assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing Group Node ${id}`)
     groups.push(group)
-    level = group.childGraph
+    if ((group.storage?.mode ?? "inline") === "inline") level = group.childGraph
+    else level = resolveLinkedDocumentReference(resolveLinked, normalizeNgGroupPath(group.storage.path))
   }
   return { graph: level, groups }
 }
 
-export function syncNgGroupBoundary(group, parentGraph = null) {
+export function syncNgGroupBoundary(group, parentGraph = null, options = {}) {
+  const resolveLinked = resolverFrom(options)
   assert(group.kind === NG_NODE_KINDS.GROUP, `view-ng node ${group.id} must be a Group Node`)
+  const storage = group.storage ?? { mode: "inline" }
+  const childGraph = storage.mode === "inline" ? group.childGraph : resolveLinkedDocument(resolveLinked, normalizeNgGroupPath(storage.path))
   const previousInputs = new Map(group.inputs.map((port) => [port.id, port]))
-  group.inputs = group.childGraph.filter((node) => node.kind === NG_NODE_KINDS.GRAPH_INPUT).map((node) => ({
-    id: node.id,
-    name: node.name || `input ${node.id}`,
+  group.inputs = childGraph.filter((node) => node.kind === NG_NODE_KINDS.GRAPH_INPUT).map((node) => ({
+    id: node.id, name: node.name || `input ${node.id}`,
     srcNodeId: previousInputs.get(node.id)?.srcNodeId || 0,
     srcOutputId: previousInputs.get(node.id)?.srcOutputId || 0,
   }))
-  group.outputs = group.childGraph.filter((node) => node.kind === NG_NODE_KINDS.GRAPH_OUTPUT).map((node) => ({
-    id: node.id,
-    name: node.name || `output ${node.id}`,
-    value: null,
-  }))
+  group.outputs = childGraph.filter((node) => node.kind === NG_NODE_KINDS.GRAPH_OUTPUT).map((node) => ({ id: node.id, name: node.name || `output ${node.id}`, value: null }))
   if (parentGraph) {
     const outputIds = new Set(group.outputs.map((output) => output.id))
-    for (const node of parentGraph) for (const input of node.inputs) {
-      if (input.srcNodeId === group.id && !outputIds.has(input.srcOutputId)) {
-        input.srcNodeId = 0
-        input.srcOutputId = 0
-      }
+    for (const node of parentGraph) for (const input of node.inputs) if (input.srcNodeId === group.id && !outputIds.has(input.srcOutputId)) {
+      input.srcNodeId = 0
+      input.srcOutputId = 0
     }
   }
   return group
@@ -192,11 +275,8 @@ export function projectNgGraph(rawGraph) {
     if (!source.outputs.some((output) => output.id === input.srcOutputId)) missingOutputs.get(source.id).add(input.srcOutputId)
   }
   const nodes = raw.map((node) => ({
-    id: node.id,
-    kind: kindName(node.kind),
-    name: node.name || `${kindName(node.kind)} #${node.id}`,
-    subtitle: kindName(node.kind),
-    x: node.x, y: node.y, ng: structuredClone(node), execState: "idle",
+    id: node.id, kind: kindName(node.kind), name: node.name || `${kindName(node.kind)} #${node.id}`,
+    subtitle: kindName(node.kind), x: node.x, y: node.y, ng: structuredClone(node), execState: "idle",
     ports: [
       ...node.inputs.map((input, index) => ({ id: ngInputPortId(input.id), name: input.name || `input ${index + 1}`, direction: "input", dataType: "ng-value", maxConnections: 1, ngPortId: input.id })),
       ...node.outputs.map((output, index) => ({ id: ngOutputPortId(output.id), name: node.kind === NG_NODE_KINDS.VALUE ? String(output.value ?? "") : output.name || `output ${index + 1}`, direction: "output", dataType: "ng-value", maxConnections: null, ngPortId: output.id })),
@@ -231,43 +311,85 @@ export function serializeNgNodeGraph(graph) {
   })
 }
 
-function sourceKey(source) { return `${source.srcNodeId}:${source.srcOutputId}` }
+function sourceKey(contextId, source) { return `${contextId}:${source.srcNodeId}:${source.srcOutputId}` }
 
-export function flattenNgGraph(graph) {
-  const document = cloneNgGraph(graph)
+export function flattenNgGraphWithLocations(graph, options = {}) {
+  const resolveLinked = resolverFrom(options)
+  const document = cloneNgGraph(graph, { resolveLinked })
   const aliases = new Map()
-  const ordinary = []
-  const addLevel = (level, owner = null) => {
+  const records = []
+  const executionIdBySource = new Map()
+  const locations = new Map()
+  let nextContextId = 1
+  let nextExecutionId = nextNgNodeId(document)
+  const rootContext = { id: 0, documentPath: null, linked: false }
+
+  const addLevel = (level, context, owner = null, occurrencePath = [], linkedStack = []) => {
     for (const node of level) {
       if (node.kind === NG_NODE_KINDS.GRAPH_INPUT) {
         assert(owner, `root graph cannot contain Graph Input ${node.id}`)
-        const parentInput = owner.inputs.find((input) => input.id === node.id)
-        assert(parentInput, `Group Node ${owner.id} missing input for Graph Input ${node.id}`)
-        aliases.set(`${node.id}:${node.outputs[0].id}`, parentInput.srcNodeId ? { srcNodeId: parentInput.srcNodeId, srcOutputId: parentInput.srcOutputId } : null)
+        const parentInput = owner.group.inputs.find((input) => input.id === node.id)
+        assert(parentInput, `Group Node ${owner.group.id} missing input for Graph Input ${node.id}`)
+        aliases.set(sourceKey(context.id, { srcNodeId: node.id, srcOutputId: node.outputs[0].id }), parentInput.srcNodeId ? { contextId: owner.context.id, srcNodeId: parentInput.srcNodeId, srcOutputId: parentInput.srcOutputId } : null)
       } else if (node.kind === NG_NODE_KINDS.GRAPH_OUTPUT) {
         assert(owner, `root graph cannot contain Graph Output ${node.id}`)
         const input = node.inputs[0]
-        aliases.set(`${owner.id}:${node.id}`, input.srcNodeId ? { srcNodeId: input.srcNodeId, srcOutputId: input.srcOutputId } : null)
-      } else if (node.kind === NG_NODE_KINDS.GROUP) addLevel(node.childGraph, node)
-      else ordinary.push(structuredClone(node))
+        aliases.set(sourceKey(owner.context.id, { srcNodeId: owner.group.id, srcOutputId: node.id }), input.srcNodeId ? { contextId: context.id, srcNodeId: input.srcNodeId, srcOutputId: input.srcOutputId } : null)
+      } else if (node.kind === NG_NODE_KINDS.GROUP) {
+        const childOccurrencePath = [...occurrencePath, node.id]
+        if (node.storage.mode === "inline") {
+          addLevel(node.childGraph, context, { group: node, context }, childOccurrencePath, linkedStack)
+        } else {
+          const path = node.storage.path
+          assert(resolveLinked, `view-ng linked Group ${path} requires resolveLinked(path)`)
+          assert(!linkedStack.includes(path), `view-ng linked Group alias cycle: ${[...linkedStack, path].join(" -> ")}`)
+          const childContext = { id: nextContextId++, documentPath: path, linked: true }
+          const child = cloneNgGraphFragment(resolveLinkedDocument(resolveLinked, path), { resolveLinked })
+          addLevel(child, childContext, { group: node, context }, childOccurrencePath, [...linkedStack, path])
+        }
+      } else {
+        const executionId = context.linked ? nextExecutionId++ : node.id
+        const key = `${context.id}:${node.id}`
+        executionIdBySource.set(key, executionId)
+        records.push({ node: structuredClone(node), context, executionId })
+        locations.set(executionId, {
+          executionNodeId: executionId,
+          sourceNodeId: node.id,
+          documentPath: context.documentPath,
+          groupPath: [...occurrencePath],
+        })
+      }
     }
   }
-  addLevel(document)
-  const resolve = (source) => {
+  addLevel(document, rootContext)
+
+  const resolve = (contextId, source) => {
     const seen = new Set()
-    let current = source
-    while (current && aliases.has(sourceKey(current))) {
-      const key = sourceKey(current)
+    let current = { contextId, srcNodeId: source.srcNodeId, srcOutputId: source.srcOutputId }
+    while (current && aliases.has(sourceKey(current.contextId, current))) {
+      const key = sourceKey(current.contextId, current)
       assert(!seen.has(key), `view-ng Group Node boundary alias cycle at ${key}`)
       seen.add(key)
       current = aliases.get(key)
     }
     return current
   }
-  for (const node of ordinary) node.inputs = node.inputs.map((input) => {
-    if (!input.srcNodeId) return input
-    const source = resolve(input)
-    return source ? { ...input, ...source } : { ...input, srcNodeId: 0, srcOutputId: 0 }
+
+  const nodes = records.map(({ node, context, executionId }) => {
+    node.id = executionId
+    node.inputs = node.inputs.map((input) => {
+      if (!input.srcNodeId) return input
+      const source = resolve(context.id, input)
+      if (!source) return { ...input, srcNodeId: 0, srcOutputId: 0 }
+      const sourceId = executionIdBySource.get(`${source.contextId}:${source.srcNodeId}`)
+      assert(sourceId !== undefined, `view-ng flattened input references non-executable node ${source.srcNodeId}`)
+      return { ...input, srcNodeId: sourceId, srcOutputId: source.srcOutputId }
+    })
+    return node
   })
-  return ordinary
+  return { nodes, locations }
+}
+
+export function flattenNgGraph(graph, options = {}) {
+  return flattenNgGraphWithLocations(graph, options).nodes
 }

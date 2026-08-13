@@ -6,13 +6,15 @@ import {
     cloneNgNodesWithNewIds,
     createNgNodeGraph,
     findNgGroupPath,
-    flattenNgGraph,
+    flattenNgGraphWithLocations,
     nextNgNodeId,
+    normalizeNgGroupPath,
+    parseNgGroupGraphDocument,
+    serializeNgGroupGraphDocument,
     ngInputPortId,
     ngOutputPortId,
     serializeNgNodeGraph,
     syncNgGroupBoundary,
-    visitNgNodes,
 } from "/util/ng-node-graph.js"
 import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
@@ -88,6 +90,7 @@ export class ViewNg extends ViewCanvasBase {
         super()
         this.renderer = null
         this.rootGraph = []
+        this.linkedGraphs = new Map()
         this.activeGroupPath = []
         this.graphModel = createNgNodeGraph([])
         this.graph = this.graphModel.graph
@@ -96,6 +99,7 @@ export class ViewNg extends ViewCanvasBase {
         this._suppressDataSourceReload = false
         this.nodePresetConfig = null
         this.currentRunId = ""
+        this.currentExecutionLocations = new Map()
         this.selectedNodeIds = new Set()
         this.selectedNodeId = null
         this.selectedEdgeId = null
@@ -211,12 +215,12 @@ export class ViewNg extends ViewCanvasBase {
     breadcrumbItems() {
         const items = [{ id: "root", label: this.graphName, icon: "schema" }]
         let level = this.rootGraph
-        for (const groupId of this.activeGroupPath) {
+        this.activeGroupPath.forEach((groupId, index) => {
             const group = level.find((node) => node.id === groupId)
             assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing breadcrumb Group Node ${groupId}`)
-            items.push({ id: String(group.id), label: group.name || `group #${group.id}`, icon: "account_tree" })
-            level = group.childGraph
-        }
+            items.push({ id: `group:${index}`, label: group.name || `group #${group.id}`, icon: "account_tree" })
+            level = this.groupChildGraph(group)
+        })
         return items
     }
 
@@ -230,8 +234,9 @@ export class ViewNg extends ViewCanvasBase {
     navigateToBreadcrumb(id) {
         if (id === "root") this.navigateToGroupPath([])
         else {
-            const index = this.activeGroupPath.indexOf(Number(id))
-            assert(index >= 0, `view-ng breadcrumb references inactive Group Node ${id}`)
+            assert(/^group:\d+$/.test(id), `view-ng breadcrumb has invalid Group path id ${id}`)
+            const index = Number(id.slice("group:".length))
+            assert(index >= 0 && index < this.activeGroupPath.length, `view-ng breadcrumb references inactive Group path ${id}`)
             this.navigateToGroupPath(this.activeGroupPath.slice(0, index + 1))
         }
     }
@@ -252,6 +257,9 @@ export class ViewNg extends ViewCanvasBase {
         <button type="button" data-action="add" aria-label="Add node" title="Add node"><i aria-hidden="true">add</i></button>
         <button type="button" data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
         <button type="button" data-action="delete" class="danger" aria-label="Delete selected" title="Delete selected"><i aria-hidden="true">delete</i></button>
+        <button type="button" data-action="import-group" aria-label="Import linked Group" title="Import linked Group"><i aria-hidden="true">link</i></button>
+        <button type="button" data-action="export-group" aria-label="Export Group" title="Export selected inline Group"><i aria-hidden="true">upload</i></button>
+        <button type="button" data-action="make-inline" aria-label="Make inline" title="Make selected linked Group inline"><i aria-hidden="true">link_off</i></button>
       </div>
       <div role="buttongroup" data-element="edit-actions">
         <button type="button" data-action="undo" aria-label="Undo" title="Undo"><i aria-hidden="true">undo</i></button>
@@ -274,6 +282,7 @@ export class ViewNg extends ViewCanvasBase {
         const actions = {
             new: () => this.new(), open: () => this.open(), save: () => this.save(), saveAs: () => this.saveAs(), reload: () => this.reload(),
             run: () => this.run(), add: () => this.add(), edit: () => this.edit(), delete: () => this.deleteSelected(),
+            importGroup: () => this.importLinkedGroup(), exportGroup: () => this.exportSelectedGroup(), makeInline: () => this.makeSelectedGroupInline(),
             undo: () => this.undo(), redo: () => this.redo(), copy: () => this.copy(), paste: () => this.paste(),
             zoomIn: () => this.zoomIn(), zoomFit: () => this.zoomFit(), zoomOut: () => this.zoomOut(), autoArrange: () => this.autoArrangeNodes(),
         }
@@ -306,6 +315,11 @@ export class ViewNg extends ViewCanvasBase {
         }
         const deleteButton = this.queryHeaderControl('[data-action="delete"]')
         if (deleteButton instanceof HTMLButtonElement) deleteButton.disabled = !hasNodeSelection && this.selectedEdgeId === null
+        const selectedGroup = this.selectedGroup()
+        const exportButton = this.queryHeaderControl('[data-action="export-group"]')
+        if (exportButton instanceof HTMLButtonElement) exportButton.disabled = !selectedGroup || this.groupStorageMode(selectedGroup) !== "inline"
+        const inlineButton = this.queryHeaderControl('[data-action="make-inline"]')
+        if (inlineButton instanceof HTMLButtonElement) inlineButton.disabled = !selectedGroup || this.groupStorageMode(selectedGroup) !== "linked"
         const undo = this.queryHeaderControl('[data-action="undo"]')
         const redo = this.queryHeaderControl('[data-action="redo"]')
         if (undo instanceof HTMLButtonElement) undo.disabled = this.undoStack.length === 0
@@ -350,8 +364,59 @@ export class ViewNg extends ViewCanvasBase {
         return { x: Math.min(start.x, current.x), y: Math.min(start.y, current.y), width: Math.abs(current.x - start.x), height: Math.abs(current.y - start.y) }
     }
 
+    linkedResolver() {
+        return (path) => {
+            const normalized = normalizeNgGroupPath(path)
+            assert(this.linkedGraphs.has(normalized), `view-ng linked Group document is not loaded: ${normalized}`)
+            return this.linkedGraphs.get(normalized)
+        }
+    }
+
+    groupStorageMode(group) {
+        return group.storage?.mode || "inline"
+    }
+
+    groupChildGraph(group) {
+        return this.groupStorageMode(group) === "inline" ? group.childGraph : this.linkedResolver()(group.storage.path)
+    }
+
+    selectedGroup() {
+        if (this.selectedNodeIds.size !== 1) return null
+        const id = this.selectedNodeId ?? [...this.selectedNodeIds][0]
+        const node = this.graph?.nodes.find((candidate) => candidate.id === id)?.ng
+        return node?.kind === NG_NODE_KINDS.GROUP ? node : null
+    }
+
+    activeLocation() {
+        let level = this.rootGraph
+        let documentPath = null
+        for (const groupId of this.activeGroupPath) {
+            const group = level.find((node) => node.id === groupId)
+            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing Group Node ${groupId}`)
+            if (this.groupStorageMode(group) === "linked") documentPath = group.storage.path
+            level = this.groupChildGraph(group)
+        }
+        return { graph: level, documentPath }
+    }
+
     activeGraph() {
         return serializeNgNodeGraph(this.graphModel)
+    }
+
+    syncAllGroupBoundaries() {
+        const seenDocuments = new Set()
+        const syncLevel = (level, documentKey) => {
+            if (seenDocuments.has(documentKey)) return
+            seenDocuments.add(documentKey)
+            for (const group of level.filter((node) => node.kind === NG_NODE_KINDS.GROUP)) {
+                const child = this.groupChildGraph(group)
+                if (this.groupStorageMode(group) === "inline") syncLevel(child, `${documentKey}/inline:${group.id}`)
+                else syncLevel(child, `linked:${group.storage.path}`)
+                syncNgGroupBoundary(group, level, { resolveLinked: this.linkedResolver() })
+            }
+        }
+        syncLevel(this.rootGraph, "root")
+        for (const [path, graph] of this.linkedGraphs) syncLevel(graph, `linked:${path}`)
     }
 
     syncActiveGraph() {
@@ -359,22 +424,23 @@ export class ViewNg extends ViewCanvasBase {
         if (this.activeGroupPath.length === 0) this.rootGraph = active
         else {
             const parentPath = this.activeGroupPath.slice(0, -1)
-            const parent = findNgGroupPath(this.rootGraph, parentPath).graph
+            const parent = findNgGroupPath(this.rootGraph, parentPath, { resolveLinked: this.linkedResolver() }).graph
             const groupId = this.activeGroupPath.at(-1)
             const group = parent.find((node) => node.id === groupId)
             assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${groupId}`)
-            group.childGraph = active
-            syncNgGroupBoundary(group, parent)
+            if (this.groupStorageMode(group) === "inline") group.childGraph = active
+            else this.linkedGraphs.set(group.storage.path, active)
         }
+        this.syncAllGroupBoundaries()
     }
 
     getGraph() {
         this.syncActiveGraph()
-        return cloneNgGraph(this.rootGraph)
+        return cloneNgGraph(this.rootGraph, { resolveLinked: this.linkedResolver() })
     }
 
     loadActiveGraph({ autoFit = true } = {}) {
-        const active = findNgGroupPath(this.rootGraph, this.activeGroupPath).graph
+        const active = findNgGroupPath(this.rootGraph, this.activeGroupPath, { resolveLinked: this.linkedResolver() }).graph
         this.graphModel = createNgNodeGraph(active)
         this.graph = this.graphModel.graph
         this.setNodeSelection([])
@@ -390,17 +456,18 @@ export class ViewNg extends ViewCanvasBase {
     replaceActiveGraph(rawGraph, { autoFit = false } = {}) {
         if (this.activeGroupPath.length === 0) this.rootGraph = cloneNgGraph(rawGraph)
         else {
-            const parent = findNgGroupPath(this.rootGraph, this.activeGroupPath.slice(0, -1)).graph
+            const parent = findNgGroupPath(this.rootGraph, this.activeGroupPath.slice(0, -1), { resolveLinked: this.linkedResolver() }).graph
             const group = parent.find((node) => node.id === this.activeGroupPath.at(-1))
             assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${this.activeGroupPath.at(-1)}`)
-            group.childGraph = cloneNgGraphFragment(rawGraph)
-            syncNgGroupBoundary(group, parent)
+            if (this.groupStorageMode(group) === "inline") group.childGraph = cloneNgGraphFragment(rawGraph)
+            else this.linkedGraphs.set(group.storage.path, cloneNgGraphFragment(rawGraph))
+            this.syncAllGroupBoundaries()
         }
         this.loadActiveGraph({ autoFit })
     }
 
     loadGraph(rawGraph, { resetHistory = true, autoFit = true } = {}) {
-        this.rootGraph = cloneNgGraph(rawGraph)
+        this.rootGraph = cloneNgGraph(rawGraph, { resolveLinked: this.linkedResolver() })
         this.activeGroupPath = []
         this.loadActiveGraph({ autoFit })
         if (resetHistory) { this.undoStack = []; this.redoStack = [] }
@@ -408,7 +475,7 @@ export class ViewNg extends ViewCanvasBase {
 
     navigateToGroupPath(path) {
         this.syncActiveGraph()
-        findNgGroupPath(this.rootGraph, path)
+        findNgGroupPath(this.rootGraph, path, { resolveLinked: this.linkedResolver() })
         this.activeGroupPath = [...path]
         this.loadActiveGraph()
         this._setStatus(this.activeGroupPath.length ? `editing group '${this.breadcrumbItems().at(-1).label}'` : `editing graph '${this.graphName}'`, "info")
@@ -417,6 +484,7 @@ export class ViewNg extends ViewCanvasBase {
     captureSnapshot() {
         return {
             graph: this.getGraph(),
+            linkedGraphs: [...this.linkedGraphs].map(([path, graph]) => [path, cloneNgGraphFragment(graph)]),
             activeGroupPath: [...this.activeGroupPath],
             selectedNodeIds: [...this.selectedNodeIds],
             selectedNodeId: this.selectedNodeId,
@@ -425,7 +493,9 @@ export class ViewNg extends ViewCanvasBase {
     }
 
     restoreSnapshot(snapshot) {
-        this.rootGraph = cloneNgGraph(snapshot.graph)
+        this.linkedGraphs = new Map(snapshot.linkedGraphs.map(([path, graph]) => [path, cloneNgGraphFragment(graph)]))
+        this.rootGraph = cloneNgGraph(snapshot.graph, { resolveLinked: this.linkedResolver() })
+        this.syncAllGroupBoundaries()
         this.activeGroupPath = [...snapshot.activeGroupPath]
         this.loadActiveGraph({ autoFit: false })
         const ids = new Set(this.graph.nodes.map((node) => node.id))
@@ -488,12 +558,17 @@ export class ViewNg extends ViewCanvasBase {
                 const prior = existing?.outputs?.find((output) => output.id === id)
                 return { id, name: kind === NG_NODE_KINDS.VALUE ? "" : String(port.name || prior?.name || "").trim(), value: port.value === null ? null : String(port.value ?? prior?.value ?? "") || null }
             }),
-            ...(kind === NG_NODE_KINDS.GROUP ? { childGraph: structuredClone(existing?.childGraph || draft.childGraph || []) } : {}),
+            ...(kind === NG_NODE_KINDS.GROUP ? {
+                storage: structuredClone(existing?.storage || { mode: "inline" }),
+                ...(this.groupStorageMode(existing || {}) === "inline" ? { childGraph: structuredClone(existing?.childGraph || draft.childGraph || []) } : {}),
+            } : {}),
         }
     }
 
     nextNodeId() {
-        return nextNgNodeId(this.getGraph())
+        const { graph, documentPath } = this.activeLocation()
+        const authoritative = documentPath ? this.linkedResolver()(documentPath) : this.rootGraph
+        return nextNgNodeId(authoritative)
     }
 
     async showAddNodePopup() {
@@ -960,19 +1035,17 @@ export class ViewNg extends ViewCanvasBase {
         if (payload.runId !== this.currentRunId) return okResult()
         const nodeId = Number(payload.nodeId || 0)
         assert(nodeId > 0, `view-ng progress ${method} missing nodeId`)
-        const node = this.graph.nodes.find((candidate) => candidate.id === nodeId)
-        if (!node) {
-            let documentNode = null
-            visitNgNodes(this.getGraph(), (candidate) => { if (candidate.id === nodeId) documentNode = candidate })
-            assert(documentNode, `view-ng progress references missing node ${nodeId}`)
-            return okResult()
-        }
+        const location = this.currentExecutionLocations.get(nodeId)
+        assert(location, `view-ng progress references missing execution node ${nodeId}`)
+        const visibleNodeId = JSON.stringify(location.groupPath) === JSON.stringify(this.activeGroupPath) ? location.sourceNodeId : null
+        const node = visibleNodeId === null ? null : this.graph.nodes.find((candidate) => candidate.id === visibleNodeId)
+        if (!node) return okResult()
         const starting = method === "nodeStart" || method === "goalStart"
         const state = starting ? "running" : method === "nodeError" ? "error" : "done"
         node.execState = state
         for (const edge of this.graph.edges) {
-            const connected = edge.from.nodeId === nodeId || edge.to.nodeId === nodeId
-            if ((starting && edge.to.nodeId === nodeId) || (!starting && connected)) edge.execState = state
+            const connected = edge.from.nodeId === visibleNodeId || edge.to.nodeId === visibleNodeId
+            if ((starting && edge.to.nodeId === visibleNodeId) || (!starting && connected)) edge.execState = state
         }
         this.draw()
         return okResult()
@@ -984,7 +1057,9 @@ export class ViewNg extends ViewCanvasBase {
         this.currentRunId = runId
         this._setStatus("compiling graph run...", "info")
         const compilerRead = unwrap(await runtime.invoke("fs/fs::read-text", "ng/compile-graph.lua"))
-        const graph = flattenNgGraph(this.getGraph())
+        const execution = flattenNgGraphWithLocations(this.getGraph(), { resolveLinked: this.linkedResolver() })
+        const graph = execution.nodes
+        this.currentExecutionLocations = execution.locations
         const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.pluginId)}\nlocal __ng_progress_run_id = ${luaStringLiteral(runId)}\nfunction __ng_progress(method, nodeId, message)\n  host.call(__ng_progress_plugin .. "." .. method, { runId = __ng_progress_run_id, nodeId = nodeId, message = message })\nend`
         const compilerSource = `_G.input = ${luaStringLiteral(JSON.stringify(graph))}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
         const generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
@@ -996,10 +1071,148 @@ export class ViewNg extends ViewCanvasBase {
         return true
     }
 
+    linkedPathsInGraph(graph) {
+        const paths = new Set()
+        const scan = (level) => {
+            for (const node of level) {
+                if (node.kind !== NG_NODE_KINDS.GROUP) continue
+                if (this.groupStorageMode(node) === "linked") paths.add(normalizeNgGroupPath(node.storage.path))
+                else scan(node.childGraph)
+            }
+        }
+        scan(graph)
+        return paths
+    }
+
+    async loadLinkedGraphFS(path, ancestors = [], target = this.linkedGraphs) {
+        const normalized = normalizeNgGroupPath(path)
+        assert(!ancestors.includes(normalized), `view-ng linked Group cycle: ${[...ancestors, normalized].join(" -> ")}`)
+        if (target.has(normalized)) return target.get(normalized)
+        const document = parseNgGroupGraphDocument(unwrap(await runtime.invoke("fs/fs::read-text", normalized), normalized))
+        target.set(normalized, document)
+        for (const childPath of this.linkedPathsInGraph(document)) await this.loadLinkedGraphFS(childPath, [...ancestors, normalized], target)
+        return document
+    }
+
+    async hydrateLinkedGraphs(rootGraph) {
+        const hydrated = new Map()
+        for (const path of this.linkedPathsInGraph(rootGraph)) await this.loadLinkedGraphFS(path, [], hydrated)
+        this.linkedGraphs = hydrated
+    }
+
+    graphLinksTo(graph, targetPath, seen = new Set()) {
+        for (const path of this.linkedPathsInGraph(graph)) {
+            if (path === targetPath) return true
+            if (seen.has(path)) continue
+            seen.add(path)
+            if (this.graphLinksTo(this.linkedResolver()(path), targetPath, seen)) return true
+        }
+        return false
+    }
+
+    assertLinkAllowedInActiveDocument(path, graph = this.linkedResolver()(path)) {
+        const targetPath = this.activeLocation().documentPath
+        if (!targetPath) return
+        assert(path !== targetPath && !this.graphLinksTo(graph, targetPath), `view-ng linked Group cycle: ${targetPath} -> ${path} -> ${targetPath}`)
+    }
+
+    selectedRawGroup() {
+        const selected = this.selectedGroup()
+        if (!selected) return null
+        const raw = this.activeGraph()
+        return raw.find((node) => node.id === selected.id && node.kind === NG_NODE_KINDS.GROUP) || null
+    }
+
+    async importLinkedGroup() {
+        const payload = unwrap(await runtime.call("ui.popup.open", { title: "Import Linked Group", size: "medium", tag: "view-files", props: { mode: "chooser", filter: "*.ng.json,*.json" } }))
+        if (!payload || payload.cancelled) return false
+        const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+        const path = normalizeNgGroupPath(selection?.path || "")
+        const before = this.captureSnapshot()
+        const previousLinkedGraphs = this.linkedGraphs
+        const importedLinkedGraphs = new Map(previousLinkedGraphs)
+        await this.loadLinkedGraphFS(path, [], importedLinkedGraphs)
+        this.linkedGraphs = importedLinkedGraphs
+        try { this.assertLinkAllowedInActiveDocument(path) }
+        catch (error) { this.linkedGraphs = previousLinkedGraphs; throw error }
+        const center = this.viewportCenterWorld()
+        const raw = this.activeGraph()
+        const group = {
+            id: this.nextNodeId(), kind: NG_NODE_KINDS.GROUP, x: Math.round(center.x), y: Math.round(center.y),
+            name: path.split("/").pop().replace(/\.ng\.json$/i, "").replace(/\.json$/i, ""), codePath: "", graphId: 0, graphName: "",
+            inputs: [], outputs: [], storage: { mode: "linked", path },
+        }
+        syncNgGroupBoundary(group, raw, { resolveLinked: this.linkedResolver() })
+        raw.push(group)
+        this.replaceActiveGraph(raw, { autoFit: false })
+        this.setNodeSelection([group.id], group.id)
+        this.recordEdit("import linked Group", before)
+        this.draw()
+        this._setStatus(`imported linked Group from ${path}`, "success")
+        return true
+    }
+
+    async exportSelectedGroup() {
+        const group = this.selectedRawGroup()
+        if (!group || this.groupStorageMode(group) !== "inline") return false
+        const payload = unwrap(await runtime.call("ui.popup.open", { title: "Export Group", size: "medium", tag: "view-files", props: { mode: "saver", filter: "*.ng.json,*.json", defaultName: `${group.name || "group"}.ng.json` } }))
+        if (!payload || payload.cancelled) return false
+        const path = normalizeNgGroupPath(payload.path)
+        if (this.graphPath) {
+            const rootPath = normalizeNgGroupPath(this.graphPath)
+            assert(path !== rootPath, "view-ng Group export cannot overwrite the root graph document")
+            assert(!this.graphLinksTo(group.childGraph, rootPath), `view-ng Group export would link back to the root graph ${rootPath}`)
+        }
+        assert(!this.graphLinksTo(group.childGraph, path), `view-ng Group export would create a linked cycle through ${path}`)
+        this.assertLinkAllowedInActiveDocument(path, group.childGraph)
+        const document = serializeNgGroupGraphDocument(group.childGraph)
+        await this.saveDocumentToPath(path, document)
+        const before = this.captureSnapshot()
+        this.linkedGraphs.set(path, cloneNgGraphFragment(group.childGraph))
+        const raw = this.activeGraph()
+        const index = raw.findIndex((node) => node.id === group.id)
+        raw[index] = { ...raw[index], storage: { mode: "linked", path } }
+        delete raw[index].childGraph
+        this.replaceActiveGraph(raw, { autoFit: false })
+        this.setNodeSelection([group.id], group.id)
+        this.recordEdit("export Group", before)
+        this.draw()
+        this._setStatus(`exported Group to ${path}`, "success")
+        await runtime.call("ui.toast.success", { message: `Exported Group to ${path}` })
+        return true
+    }
+
+    makeSelectedGroupInline() {
+        const group = this.selectedRawGroup()
+        if (!group || this.groupStorageMode(group) !== "linked") return false
+        const before = this.captureSnapshot()
+        const raw = this.activeGraph()
+        const index = raw.findIndex((node) => node.id === group.id)
+        const remapped = cloneNgNodesWithNewIds(this.linkedResolver()(group.storage.path), this.nextNodeId())
+        const next = { ...group, storage: { mode: "inline" }, childGraph: remapped.nodes }
+        next.inputs = group.inputs.map((input) => ({ ...input, id: remapped.idMap.get(input.id) }))
+        next.outputs = group.outputs.map((output) => ({ ...output, id: remapped.idMap.get(output.id) }))
+        for (const node of raw) for (const input of node.inputs) if (input.srcNodeId === group.id && remapped.idMap.has(input.srcOutputId)) input.srcOutputId = remapped.idMap.get(input.srcOutputId)
+        raw[index] = next
+        this.replaceActiveGraph(raw, { autoFit: false })
+        this.setNodeSelection([group.id], group.id)
+        this.recordEdit("make Group inline", before)
+        this.draw()
+        this._setStatus(`made Group #${group.id} inline`, "success")
+        return true
+    }
+
+    assertRootSavePathAvailable(path) {
+        const normalized = normalizeNgGroupPath(path)
+        assert(!this.linkedGraphs.has(normalized), `view-ng root graph path conflicts with linked Group document ${normalized}`)
+        return normalized
+    }
+
     async new() {
         const payload = unwrap(await runtime.call("ui.popup.open", { title: "Create Graph", size: "medium", tag: "view-files", props: { mode: "saver", filter: "*.ng.json,*.json", defaultName: "new-graph.ng.json" } }))
         if (!payload || payload.cancelled) return false
         assert(payload.path, "view-ng new graph requires selected path")
+        this.assertRootSavePathAvailable(payload.path)
         await this.saveToPath(payload.path, [])
         await this.loadGraphFS(payload.path, false)
         await runtime.call("ui.toast.success", { message: `Created graph ${payload.path}` })
@@ -1025,6 +1238,7 @@ export class ViewNg extends ViewCanvasBase {
 
     async save() {
         assert(this.graphPath.length > 0, "view-ng save requires current graph path")
+        await this.saveLinkedGraphs()
         await this.saveToPath(this.graphPath, this.getGraph())
         this._setStatus(`saved graph to ${this.graphPath}`, "success")
         await runtime.call("ui.toast.success", { message: `Saved graph to ${this.graphPath}` })
@@ -1035,15 +1249,38 @@ export class ViewNg extends ViewCanvasBase {
         const payload = unwrap(await runtime.call("ui.popup.open", { title: "Save Graph As", size: "medium", tag: "view-files", props: { mode: "saver", filter: "*.ng.json,*.json", defaultName: `${this.graphName || "graph"}.ng.json` } }))
         if (!payload || payload.cancelled) return false
         assert(payload.path, "view-ng save-as requires selected path")
+        this.assertRootSavePathAvailable(payload.path)
+        await this.saveLinkedGraphs()
         await this.saveToPath(payload.path, this.getGraph())
         this.setGraphPath(payload.path)
         await runtime.call("ui.toast.success", { message: `Saved graph to ${payload.path}` })
         return true
     }
 
-    async saveToPath(path, graph) {
+    async saveLinkedGraphs() {
+        this.syncActiveGraph()
+        const saved = new Set()
+        const active = new Set()
+        const savePath = async (path) => {
+            if (saved.has(path)) return
+            assert(!active.has(path), `view-ng linked Group cycle while saving: ${[...active, path].join(" -> ")}`)
+            active.add(path)
+            const graph = this.linkedResolver()(path)
+            for (const childPath of this.linkedPathsInGraph(graph)) await savePath(childPath)
+            await this.saveDocumentToPath(path, serializeNgGroupGraphDocument(graph))
+            active.delete(path)
+            saved.add(path)
+        }
+        for (const path of this.linkedPathsInGraph(this.rootGraph)) await savePath(path)
+    }
+
+    async saveDocumentToPath(path, document) {
         assert(typeof path === "string" && path.length > 0, "view-ng save requires path")
-        unwrap(await runtime.invoke("fs/fs::write-text", path, `${JSON.stringify(graph, null, 2)}\n`))
+        unwrap(await runtime.invoke("fs/fs::write-text", path, `${JSON.stringify(document, null, 2)}\n`))
+    }
+
+    async saveToPath(path, graph) {
+        await this.saveDocumentToPath(path, graph)
     }
 
     setGraphPath(path) {
@@ -1056,7 +1293,9 @@ export class ViewNg extends ViewCanvasBase {
 
     async loadGraphFS(path, notify = true) {
         const graph = JSON.parse(unwrap(await runtime.invoke("fs/fs::read-text", path), path))
-        this.loadGraph(graph)
+        const root = cloneNgGraph(graph)
+        await this.hydrateLinkedGraphs(root)
+        this.loadGraph(root)
         this.setGraphPath(path)
         this._setStatus(`loaded graph from ${path}`, "success")
         if (notify) await runtime.call("ui.toast.success", { message: `Loaded graph from ${path}` })
@@ -1064,6 +1303,7 @@ export class ViewNg extends ViewCanvasBase {
 
     async resetGraph() {
         const before = this.captureSnapshot()
+        this.linkedGraphs = new Map()
         this.loadGraph([], { resetHistory: false })
         this.recordEdit("reset graph", before)
         this._setStatus(`reset graph '${this.graphName}'`, "info")

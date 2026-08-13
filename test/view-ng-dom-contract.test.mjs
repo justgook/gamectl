@@ -15,7 +15,7 @@ test("view-ng places breadcrumbs first in its header controls", () => {
 
 test("view-ng breadcrumbs reflect the root graph and active Group Node path", () => {
   assert.match(source, /breadcrumbItems\(\) \{[\s\S]*?id: "root", label: this\.graphName, icon: "schema"/)
-  assert.match(source, /for \(const groupId of this\.activeGroupPath\)[\s\S]*?icon: "account_tree"/)
+  assert.match(source, /this\.activeGroupPath\.forEach\(\(groupId, index\) => \{[\s\S]*?id: `group:\$\{index\}`[\s\S]*?icon: "account_tree"/)
   assert.match(source, /breadcrumbs\.addEventListener\("navigate", \(event\) => this\.navigateToBreadcrumb\(event\.detail\.id\)\)/)
 })
 
@@ -26,4 +26,34 @@ test("editing a Group Node navigates into its child graph", () => {
 test("Graph Input and Graph Output node types are offered only inside groups", () => {
   assert.match(nodeEditorSource, /this\.popupProps\.allowGraphBoundaryNodes \? `<option value="input"[\s\S]*?<option value="output"/)
   assert.match(source, /allowGraphBoundaryNodes: this\.activeGroupPath\.length > 0/)
+})
+
+test("view-ng exposes Import, Export, and Make Inline Group actions", () => {
+  assert.match(source, /data-action="import-group"/)
+  assert.match(source, /data-action="export-group"/)
+  assert.match(source, /data-action="make-inline"/)
+  assert.match(source, /async importLinkedGroup\(\)/)
+  assert.match(source, /async exportSelectedGroup\(\)/)
+  assert.match(source, /makeSelectedGroupInline\(\)/)
+})
+
+test("view-ng saves linked dependencies before their parents and the root graph", () => {
+  assert.match(source, /async save\(\) \{[\s\S]*?await this\.saveLinkedGraphs\(\)[\s\S]*?await this\.saveToPath\(this\.graphPath/)
+  assert.match(source, /for \(const childPath of this\.linkedPathsInGraph\(graph\)\) await savePath\(childPath\)[\s\S]*?saveDocumentToPath\(path, serializeNgGroupGraphDocument\(graph\)\)/)
+})
+
+test("linked hydration swaps the per-view working set only after every file loads", () => {
+  assert.match(source, /async hydrateLinkedGraphs\(rootGraph\) \{\s*const hydrated = new Map\(\)[\s\S]*?await this\.loadLinkedGraphFS\(path, \[\], hydrated\)[\s\S]*?this\.linkedGraphs = hydrated/)
+})
+
+test("Group Export rejects root overwrite and export-path cycles", () => {
+  assert.match(source, /Group export cannot overwrite the root graph document/)
+  assert.match(source, /!this\.graphLinksTo\(group\.childGraph, path\)/)
+})
+
+test("New and Save As cannot overwrite a loaded linked Group document", () => {
+  assert.match(source, /assertRootSavePathAvailable\(path\)/)
+  assert.match(source, /root graph path conflicts with linked Group document/)
+  assert.match(source, /new graph requires selected path"\)\s*this\.assertRootSavePathAvailable\(payload\.path\)/)
+  assert.match(source, /save-as requires selected path"\)\s*this\.assertRootSavePathAvailable\(payload\.path\)/)
 })
