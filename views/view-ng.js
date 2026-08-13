@@ -2,13 +2,21 @@ import { runtime, unwrap } from "/core/runtime.js"
 import {
     NG_NODE_KINDS,
     cloneNgGraph,
+    cloneNgGraphFragment,
+    cloneNgNodesWithNewIds,
     createNgNodeGraph,
+    findNgGroupPath,
+    flattenNgGraph,
+    nextNgNodeId,
     ngInputPortId,
     ngOutputPortId,
     serializeNgNodeGraph,
+    syncNgGroupBoundary,
+    visitNgNodes,
 } from "/util/ng-node-graph.js"
 import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
+import "/widgets/breadcrumbs.js"
 
 const CLIPBOARD_FORMAT = "gams.view-ng.nodes"
 const HISTORY_LIMIT = 100
@@ -34,7 +42,9 @@ function canvasBackgroundColor(value) {
 function kindFromFormValue(value, fallback) {
     if (value === "value") return NG_NODE_KINDS.VALUE
     if (value === "goal") return NG_NODE_KINDS.GOAL
-    if (value === "import") return NG_NODE_KINDS.CALL
+    if (value === "group" || value === "import") return NG_NODE_KINDS.GROUP
+    if (value === "input") return NG_NODE_KINDS.GRAPH_INPUT
+    if (value === "output") return NG_NODE_KINDS.GRAPH_OUTPUT
     if (value === "code") return NG_NODE_KINDS.CODE
     return fallback
 }
@@ -55,8 +65,7 @@ function normalizePresetDraft(payload, fallbackKind = NG_NODE_KINDS.CODE) {
         kind,
         name: String(payload.name || "").trim(),
         codePath: kind === NG_NODE_KINDS.CODE ? String(payload.codePath || "").trim() : "",
-        graphId: kind === NG_NODE_KINDS.CALL ? Number(payload.graphId || 0) : 0,
-        graphName: kind === NG_NODE_KINDS.CALL ? String(payload.graphName || "").trim() : "",
+        childGraph: kind === NG_NODE_KINDS.GROUP ? structuredClone(payload.childGraph || []) : undefined,
         inputs: inputs.map((input, index) => ({
             inputId: Number(input.inputId || input.id || index + 1),
             name: String(input.name || "").trim(),
@@ -78,6 +87,8 @@ export class ViewNg extends ViewCanvasBase {
     constructor() {
         super()
         this.renderer = null
+        this.rootGraph = []
+        this.activeGroupPath = []
         this.graphModel = createNgNodeGraph([])
         this.graph = this.graphModel.graph
         this.graphName = String(this.getAttribute("graph-name") || "default").trim() || "default"
@@ -181,7 +192,10 @@ export class ViewNg extends ViewCanvasBase {
         if (oldValue === newValue) return
         if (name === "graph-name") {
             this.graphName = String(newValue || "default").trim() || "default"
-            if (this._ready) this._setStatus(`graph name set to '${this.graphName}'`, "info")
+            if (this._ready) {
+                this.syncBreadcrumbs()
+                this._setStatus(`graph name set to '${this.graphName}'`, "info")
+            }
             return
         }
         if (name === "data-source") {
@@ -194,9 +208,38 @@ export class ViewNg extends ViewCanvasBase {
         this.nodePresetConfig = await runtime.call("ui.views.config", "view-ng-node")
     }
 
+    breadcrumbItems() {
+        const items = [{ id: "root", label: this.graphName, icon: "schema" }]
+        let level = this.rootGraph
+        for (const groupId of this.activeGroupPath) {
+            const group = level.find((node) => node.id === groupId)
+            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing breadcrumb Group Node ${groupId}`)
+            items.push({ id: String(group.id), label: group.name || `group #${group.id}`, icon: "account_tree" })
+            level = group.childGraph
+        }
+        return items
+    }
+
+    syncBreadcrumbs() {
+        const breadcrumbs = this.queryHeaderControl('[data-element="breadcrumbs"]')
+        if (!breadcrumbs) return
+        assert(breadcrumbs.localName === "widget-breadcrumbs", "view-ng breadcrumbs must be a widget-breadcrumbs element")
+        breadcrumbs.items = this.breadcrumbItems()
+    }
+
+    navigateToBreadcrumb(id) {
+        if (id === "root") this.navigateToGroupPath([])
+        else {
+            const index = this.activeGroupPath.indexOf(Number(id))
+            assert(index >= 0, `view-ng breadcrumb references inactive Group Node ${id}`)
+            this.navigateToGroupPath(this.activeGroupPath.slice(0, index + 1))
+        }
+    }
+
     createHeaderControlsElement() {
         const controls = document.createElement("div")
         controls.innerHTML = `
+      <widget-breadcrumbs data-element="breadcrumbs"></widget-breadcrumbs>
       <div role="buttongroup" data-element="file-actions">
         <button type="button" data-action="new" aria-label="New graph" title="New graph"><i aria-hidden="true">docs</i></button>
         <button type="button" data-action="open" aria-label="Open graph" title="Open graph"><i aria-hidden="true">folder_open</i></button>
@@ -223,6 +266,11 @@ export class ViewNg extends ViewCanvasBase {
         <button type="button" data-action="auto-arrange" aria-label="Auto arrange" title="Auto arrange"><i aria-hidden="true">account_tree</i></button>
       </div>
     `
+        const breadcrumbs = controls.querySelector('[data-element="breadcrumbs"]')
+        assert(breadcrumbs instanceof HTMLElement && breadcrumbs.localName === "widget-breadcrumbs", "view-ng missing breadcrumbs control")
+        breadcrumbs.items = this.breadcrumbItems()
+        breadcrumbs.addEventListener("navigate", (event) => this.navigateToBreadcrumb(event.detail.id))
+
         const actions = {
             new: () => this.new(), open: () => this.open(), save: () => this.save(), saveAs: () => this.saveAs(), reload: () => this.reload(),
             run: () => this.run(), add: () => this.add(), edit: () => this.edit(), delete: () => this.deleteSelected(),
@@ -302,29 +350,84 @@ export class ViewNg extends ViewCanvasBase {
         return { x: Math.min(start.x, current.x), y: Math.min(start.y, current.y), width: Math.abs(current.x - start.x), height: Math.abs(current.y - start.y) }
     }
 
-    getGraph() {
+    activeGraph() {
         return serializeNgNodeGraph(this.graphModel)
     }
 
-    loadGraph(rawGraph, { resetHistory = true, autoFit = true } = {}) {
-        this.graphModel = createNgNodeGraph(rawGraph)
+    syncActiveGraph() {
+        const active = this.activeGraph()
+        if (this.activeGroupPath.length === 0) this.rootGraph = active
+        else {
+            const parentPath = this.activeGroupPath.slice(0, -1)
+            const parent = findNgGroupPath(this.rootGraph, parentPath).graph
+            const groupId = this.activeGroupPath.at(-1)
+            const group = parent.find((node) => node.id === groupId)
+            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${groupId}`)
+            group.childGraph = active
+            syncNgGroupBoundary(group, parent)
+        }
+    }
+
+    getGraph() {
+        this.syncActiveGraph()
+        return cloneNgGraph(this.rootGraph)
+    }
+
+    loadActiveGraph({ autoFit = true } = {}) {
+        const active = findNgGroupPath(this.rootGraph, this.activeGroupPath).graph
+        this.graphModel = createNgNodeGraph(active)
         this.graph = this.graphModel.graph
         this.setNodeSelection([])
         this.hoveredNodeId = null
         this.hoveredPort = null
         this.connectionDrag = null
         this.setData(this.graph, { autoFit })
-        if (resetHistory) { this.undoStack = []; this.redoStack = [] }
         if (this.handleElement instanceof HTMLOutputElement) this.handleElement.textContent = `nodes: ${this.graph.nodes.length}`
+        this.syncBreadcrumbs()
         this.syncControls()
     }
 
+    replaceActiveGraph(rawGraph, { autoFit = false } = {}) {
+        if (this.activeGroupPath.length === 0) this.rootGraph = cloneNgGraph(rawGraph)
+        else {
+            const parent = findNgGroupPath(this.rootGraph, this.activeGroupPath.slice(0, -1)).graph
+            const group = parent.find((node) => node.id === this.activeGroupPath.at(-1))
+            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${this.activeGroupPath.at(-1)}`)
+            group.childGraph = cloneNgGraphFragment(rawGraph)
+            syncNgGroupBoundary(group, parent)
+        }
+        this.loadActiveGraph({ autoFit })
+    }
+
+    loadGraph(rawGraph, { resetHistory = true, autoFit = true } = {}) {
+        this.rootGraph = cloneNgGraph(rawGraph)
+        this.activeGroupPath = []
+        this.loadActiveGraph({ autoFit })
+        if (resetHistory) { this.undoStack = []; this.redoStack = [] }
+    }
+
+    navigateToGroupPath(path) {
+        this.syncActiveGraph()
+        findNgGroupPath(this.rootGraph, path)
+        this.activeGroupPath = [...path]
+        this.loadActiveGraph()
+        this._setStatus(this.activeGroupPath.length ? `editing group '${this.breadcrumbItems().at(-1).label}'` : `editing graph '${this.graphName}'`, "info")
+    }
+
     captureSnapshot() {
-        return { graph: this.getGraph(), selectedNodeIds: [...this.selectedNodeIds], selectedNodeId: this.selectedNodeId, selectedEdgeId: this.selectedEdgeId }
+        return {
+            graph: this.getGraph(),
+            activeGroupPath: [...this.activeGroupPath],
+            selectedNodeIds: [...this.selectedNodeIds],
+            selectedNodeId: this.selectedNodeId,
+            selectedEdgeId: this.selectedEdgeId,
+        }
     }
 
     restoreSnapshot(snapshot) {
-        this.loadGraph(snapshot.graph, { resetHistory: false, autoFit: false })
+        this.rootGraph = cloneNgGraph(snapshot.graph)
+        this.activeGroupPath = [...snapshot.activeGroupPath]
+        this.loadActiveGraph({ autoFit: false })
         const ids = new Set(this.graph.nodes.map((node) => node.id))
         this.selectedNodeIds = new Set(snapshot.selectedNodeIds.filter((id) => ids.has(id)))
         this.selectedNodeId = ids.has(snapshot.selectedNodeId) ? snapshot.selectedNodeId : null
@@ -363,37 +466,50 @@ export class ViewNg extends ViewCanvasBase {
 
     _nodeFromDraft(nodeId, draft, existing = null) {
         const kind = Number(draft.kind || existing?.kind || NG_NODE_KINDS.CODE)
+        const name = String(draft.name || "").trim()
+        const draftInputs = kind === NG_NODE_KINDS.GRAPH_OUTPUT
+            ? [{ inputId: 1, name }]
+            : kind === NG_NODE_KINDS.GRAPH_INPUT || kind === NG_NODE_KINDS.GROUP ? [] : (Array.isArray(draft.inputs) ? draft.inputs : [])
+        const draftOutputs = kind === NG_NODE_KINDS.GRAPH_INPUT
+            ? [{ outputId: 1, name, value: null }]
+            : kind === NG_NODE_KINDS.GRAPH_OUTPUT || kind === NG_NODE_KINDS.GROUP ? [] : (Array.isArray(draft.outputs) ? draft.outputs : [])
         return {
-            id: Number(nodeId), kind, x: Number(existing?.x ?? 0), y: Number(existing?.y ?? 0), name: String(draft.name || "").trim(),
+            id: Number(nodeId), kind, x: Number(existing?.x ?? 0), y: Number(existing?.y ?? 0), name,
             codePath: kind === NG_NODE_KINDS.CODE ? String(draft.codePath || "").trim() : "",
-            graphId: kind === NG_NODE_KINDS.CALL ? Number(draft.graphId || 0) : 0,
-            graphName: kind === NG_NODE_KINDS.CALL ? String(draft.graphName || "").trim() : "",
-            inputs: (Array.isArray(draft.inputs) ? draft.inputs : []).map((port, index) => {
+            graphId: 0,
+            graphName: "",
+            inputs: draftInputs.map((port, index) => {
                 const id = Number(port.inputId || port.id || index + 1)
                 const prior = existing?.inputs?.find((input) => input.id === id)
                 return { id, name: String(port.name || "").trim(), srcNodeId: Number(prior?.srcNodeId || 0), srcOutputId: Number(prior?.srcOutputId || 0) }
             }),
-            outputs: (Array.isArray(draft.outputs) ? draft.outputs : []).map((port, index) => {
+            outputs: draftOutputs.map((port, index) => {
                 const id = Number(port.outputId || port.id || index + 1)
                 const prior = existing?.outputs?.find((output) => output.id === id)
                 return { id, name: kind === NG_NODE_KINDS.VALUE ? "" : String(port.name || prior?.name || "").trim(), value: port.value === null ? null : String(port.value ?? prior?.value ?? "") || null }
             }),
+            ...(kind === NG_NODE_KINDS.GROUP ? { childGraph: structuredClone(existing?.childGraph || draft.childGraph || []) } : {}),
         }
     }
 
     nextNodeId() {
-        return this.graph.nodes.length ? Math.max(...this.graph.nodes.map((node) => Number(node.id))) + 1 : 1
+        return nextNgNodeId(this.getGraph())
     }
 
     async showAddNodePopup() {
-        const payload = unwrap(await runtime.call("ui.popup.open", { title: "Add node", size: "medium", tag: "view-ng-node", props: { mode: "create" } }))
+        const payload = unwrap(await runtime.call("ui.popup.open", {
+            title: "Add node",
+            size: "medium",
+            tag: "view-ng-node",
+            props: { mode: "create", allowGraphBoundaryNodes: this.activeGroupPath.length > 0 },
+        }))
         if (!payload || payload.cancelled) return false
         const before = this.captureSnapshot()
         const center = this.viewportCenterWorld()
-        const raw = this.getGraph()
+        const raw = this.activeGraph()
         const node = this._nodeFromDraft(this.nextNodeId(), payload.draft || {}, { x: center.x, y: center.y })
         raw.push(node)
-        this.loadGraph(raw, { resetHistory: false, autoFit: false })
+        this.replaceActiveGraph(raw, { autoFit: false })
         const projected = this.graphModel.node(node.id)
         const size = this.renderer.nodeSize(projected)
         projected.x = Math.round(center.x - size.width / 2)
@@ -412,13 +528,18 @@ export class ViewNg extends ViewCanvasBase {
     async showEditNodePopup() {
         if (this.selectedNodeIds.size !== 1) { this._setStatus("select exactly one node to edit", "warning"); return false }
         const nodeId = this.selectedNodeId ?? [...this.selectedNodeIds][0]
-        const raw = this.getGraph()
+        const raw = this.activeGraph()
         const node = raw.find((candidate) => candidate.id === nodeId)
         assert(node, `view-ng missing selected node ${nodeId}`)
+        if (node.kind === NG_NODE_KINDS.GROUP) {
+            this.navigateToGroupPath([...this.activeGroupPath, node.id])
+            return true
+        }
         const payload = unwrap(await runtime.call("ui.popup.open", {
             title: `Edit node #${nodeId}`, size: "medium", tag: "view-ng-node", props: {
                 mode: "edit", nodeId, kind: node.kind, nodeName: node.name, inputCount: node.inputs.length, outputCount: node.outputs.length,
-                codePath: node.codePath, code: "", graphId: node.graphId, graphName: node.graphName, graphSummary: { inputs: [], outputs: [] },
+                allowGraphBoundaryNodes: node.kind === NG_NODE_KINDS.GRAPH_INPUT || node.kind === NG_NODE_KINDS.GRAPH_OUTPUT,
+                codePath: node.codePath, code: "",
                 valueText: node.kind === NG_NODE_KINDS.VALUE ? node.outputs[0]?.value || "" : "",
                 inputLabels: node.inputs.map((input, index) => input.name || `input ${index + 1}`),
                 outputLabels: node.outputs.map((output, index) => node.kind === NG_NODE_KINDS.VALUE ? output.value : output.name || `output ${index + 1}`),
@@ -429,7 +550,7 @@ export class ViewNg extends ViewCanvasBase {
         const next = this._nodeFromDraft(nodeId, payload.draft || {}, node)
         const index = raw.findIndex((candidate) => candidate.id === nodeId)
         raw[index] = next
-        this.loadGraph(raw, { resetHistory: false, autoFit: false })
+        this.replaceActiveGraph(raw, { autoFit: false })
         this.setNodeSelection([nodeId], nodeId)
         this.recordEdit("edit node", before)
         this.draw()
@@ -459,6 +580,10 @@ export class ViewNg extends ViewCanvasBase {
     }
 
     clearSelection() {
+        if (this.selectedNodeIds.size === 0 && this.selectedEdgeId === null && this.activeGroupPath.length > 0) {
+            this.navigateToGroupPath(this.activeGroupPath.slice(0, -1))
+            return true
+        }
         this.setNodeSelection([])
         this.draw()
         return true
@@ -475,6 +600,7 @@ export class ViewNg extends ViewCanvasBase {
             const name = String(entry?.name || "").trim()
             if (!name) return null
             const kind = kindFromConfigValue(entry.kind, NG_NODE_KINDS.CODE)
+            if ((kind === NG_NODE_KINDS.GRAPH_INPUT || kind === NG_NODE_KINDS.GRAPH_OUTPUT) && this.activeGroupPath.length === 0) return null
             const group = String(entry.group || "Presets").trim() || "Presets"
             return { name, kind, group, data: { ...entry, name, kind, group } }
         }).filter(Boolean)
@@ -485,7 +611,11 @@ export class ViewNg extends ViewCanvasBase {
             { label: "value", kind: NG_NODE_KINDS.VALUE, outputs: [{ value: "" }] },
             { label: "code", kind: NG_NODE_KINDS.CODE },
             { label: "goal", kind: NG_NODE_KINDS.GOAL },
-            { label: "import", kind: NG_NODE_KINDS.CALL },
+            { label: "group", kind: NG_NODE_KINDS.GROUP },
+            ...(this.activeGroupPath.length > 0 ? [
+                { label: "input", kind: NG_NODE_KINDS.GRAPH_INPUT, name: "input" },
+                { label: "output", kind: NG_NODE_KINDS.GRAPH_OUTPUT, name: "output" },
+            ] : []),
         ]
         const groups = new Map()
         for (const entry of this._nodePresetEntries()) {
@@ -498,10 +628,10 @@ export class ViewNg extends ViewCanvasBase {
 
     async createNodeFromDraftAt(draft, worldPoint) {
         const before = this.captureSnapshot()
-        const raw = this.getGraph()
+        const raw = this.activeGraph()
         const node = this._nodeFromDraft(this.nextNodeId(), draft, { x: Math.round(worldPoint.x), y: Math.round(worldPoint.y) })
         raw.push(node)
-        this.loadGraph(raw, { resetHistory: false, autoFit: false })
+        this.replaceActiveGraph(raw, { autoFit: false })
         this.setNodeSelection([node.id], node.id)
         this.recordEdit("add node", before)
         this.draw()
@@ -511,14 +641,14 @@ export class ViewNg extends ViewCanvasBase {
     clipboardPayload() {
         if (!this.selectedNodeIds.size) return null
         const selected = new Set(this.selectedNodeIds)
-        const nodes = this.getGraph().filter((node) => selected.has(node.id)).map((node) => ({ ...node, inputs: node.inputs.map((input) => selected.has(input.srcNodeId) ? input : { ...input, srcNodeId: 0, srcOutputId: 0 }) }))
+        const nodes = this.activeGraph().filter((node) => selected.has(node.id)).map((node) => ({ ...node, inputs: node.inputs.map((input) => selected.has(input.srcNodeId) ? input : { ...input, srcNodeId: 0, srcOutputId: 0 }) }))
         return { format: CLIPBOARD_FORMAT, version: 1, nodes }
     }
 
     parseClipboardPayload(text) {
         const payload = JSON.parse(String(text))
-        if (payload?.format === CLIPBOARD_FORMAT && payload.version === 1) return cloneNgGraph(payload.nodes)
-        if (Array.isArray(payload)) return cloneNgGraph(payload)
+        if (payload?.format === CLIPBOARD_FORMAT && payload.version === 1) return cloneNgGraphFragment(payload.nodes)
+        if (Array.isArray(payload)) return cloneNgGraphFragment(payload)
         throw new Error("view-ng clipboard does not contain graph nodes")
     }
 
@@ -555,15 +685,18 @@ export class ViewNg extends ViewCanvasBase {
     async pasteNodes(text, anchor) {
         const source = this.parseClipboardPayload(text)
         if (!source.length) return false
+        if (this.activeGroupPath.length === 0 && source.some((node) => node.kind === NG_NODE_KINDS.GRAPH_INPUT || node.kind === NG_NODE_KINDS.GRAPH_OUTPUT)) {
+            this._setStatus("Graph Input and Graph Output nodes can only be pasted inside a Group Node", "warning")
+            return false
+        }
         const before = this.captureSnapshot()
-        const raw = this.getGraph()
-        let nextId = this.nextNodeId()
-        const idMap = new Map(source.map((node) => [node.id, nextId++]))
+        const raw = this.activeGraph()
         const minX = Math.min(...source.map((node) => node.x))
         const minY = Math.min(...source.map((node) => node.y))
-        const pasted = source.map((node) => ({ ...node, id: idMap.get(node.id), x: Math.round(node.x + anchor.x - minX), y: Math.round(node.y + anchor.y - minY), inputs: node.inputs.map((input) => idMap.has(input.srcNodeId) ? { ...input, srcNodeId: idMap.get(input.srcNodeId) } : { ...input, srcNodeId: 0, srcOutputId: 0 }) }))
+        const remapped = cloneNgNodesWithNewIds(source, this.nextNodeId()).nodes
+        const pasted = remapped.map((node) => ({ ...node, x: Math.round(node.x + anchor.x - minX), y: Math.round(node.y + anchor.y - minY) }))
         raw.push(...pasted)
-        this.loadGraph(raw, { resetHistory: false, autoFit: false })
+        this.replaceActiveGraph(raw, { autoFit: false })
         this.setNodeSelection(pasted.map((node) => node.id), pasted.at(-1).id)
         this.recordEdit("paste nodes", before)
         this.draw()
@@ -828,7 +961,12 @@ export class ViewNg extends ViewCanvasBase {
         const nodeId = Number(payload.nodeId || 0)
         assert(nodeId > 0, `view-ng progress ${method} missing nodeId`)
         const node = this.graph.nodes.find((candidate) => candidate.id === nodeId)
-        assert(node, `view-ng progress references missing node ${nodeId}`)
+        if (!node) {
+            let documentNode = null
+            visitNgNodes(this.getGraph(), (candidate) => { if (candidate.id === nodeId) documentNode = candidate })
+            assert(documentNode, `view-ng progress references missing node ${nodeId}`)
+            return okResult()
+        }
         const starting = method === "nodeStart" || method === "goalStart"
         const state = starting ? "running" : method === "nodeError" ? "error" : "done"
         node.execState = state
@@ -846,7 +984,7 @@ export class ViewNg extends ViewCanvasBase {
         this.currentRunId = runId
         this._setStatus("compiling graph run...", "info")
         const compilerRead = unwrap(await runtime.invoke("fs/fs::read-text", "ng/compile-graph.lua"))
-        const graph = this.getGraph()
+        const graph = flattenNgGraph(this.getGraph())
         const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.pluginId)}\nlocal __ng_progress_run_id = ${luaStringLiteral(runId)}\nfunction __ng_progress(method, nodeId, message)\n  host.call(__ng_progress_plugin .. "." .. method, { runId = __ng_progress_run_id, nodeId = nodeId, message = message })\nend`
         const compilerSource = `_G.input = ${luaStringLiteral(JSON.stringify(graph))}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
         const generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
@@ -913,6 +1051,7 @@ export class ViewNg extends ViewCanvasBase {
         this.graphPath = path
         this.graphName = String(path.split("/").pop() || this.graphName).replace(/\.ng\.json$/i, "").replace(/\.json$/i, "")
         if (this.getAttribute("data-source") !== path) { this._suppressDataSourceReload = true; this.setAttribute("data-source", path); this._suppressDataSourceReload = false }
+        this.syncBreadcrumbs()
     }
 
     async loadGraphFS(path, notify = true) {

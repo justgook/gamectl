@@ -1,9 +1,11 @@
 -- compile-graph.lua
 --
--- Compiles a browser view-ng raw node-array graph into one Lua program.
+-- Compiles a flattened browser view-ng node array into one Lua program.
 --
 -- Compiler input:
---   _G.input or input: JSON string containing the graph returned by view-ng.getGraph().
+--   _G.input or input: JSON string containing the executable graph produced by
+--   flattenNgGraph(view-ng.getGraph()). Group boundaries are resolved before
+--   this compiler is invoked.
 --
 -- Compiler output:
 --   main() returns generated Lua source code as a string.
@@ -21,7 +23,7 @@
 local NG = {
 	NODE_GOAL = 1,
 	NODE_CODE = 2,
-	NODE_CALL = 3,
+	NODE_GROUP = 3,
 	NODE_VALUE = 4,
 }
 
@@ -603,8 +605,8 @@ local function emitNode(node)
 		emitCodeNode(node)
 	elseif node.kind == NG.NODE_GOAL then
 		-- Goal nodes are emitted in the final output block.
-	elseif node.kind == NG.NODE_CALL then
-		error("call/import nodes are not implemented yet: " .. tostring(node.id))
+	elseif node.kind == NG.NODE_GROUP then
+		error("Group Nodes must be flattened before compilation: " .. tostring(node.id))
 	else
 		error("unknown node kind " .. tostring(node.kind) .. " at node " .. tostring(node.id))
 	end

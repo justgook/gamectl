@@ -44,6 +44,26 @@ _Avoid_: graph node when the node's animation-composition role matters.
 A directed graph whose nodes expose explicit input and output ports and whose edges connect compatible output ports to input ports. Blend Trees are authored as Node Graphs; other domains may reuse the same graph vocabulary.
 _Avoid_: State Machine Graph, whose edges represent transitions between states rather than port connections.
 
+**Group Node**:
+A Node Graph node that owns an embedded child Node Graph and exposes that child graph's Graph Inputs and Graph Outputs as its own ports.
+_Avoid_: Import Node for an inline child graph; import describes a storage action rather than the node's compositional role.
+
+**Graph Input**:
+A child-graph boundary node with one output. It exposes a Group Node input to the parent Node Graph.
+_Avoid_: Value Node, because its value comes from the parent graph rather than authored literal data.
+
+**Graph Output**:
+A child-graph boundary node with one input. It exposes a Group Node output to the parent Node Graph.
+_Avoid_: Goal Node, because it returns data to the parent graph rather than defining a root graph result.
+
+**Inline Group Storage**:
+A Group Node storage mode in which the child Node Graph is embedded in its parent graph document.
+_Avoid_: imported graph when no separate graph file remains authoritative.
+
+**Linked Group Storage**:
+A planned Group Node storage mode in which a separate Node Graph file remains authoritative for the child graph.
+_Avoid_: imported graph when edits continue to save to the external source.
+
 **Director**:
 The narrative world model and rule runtime whose authored DSL is compiled by the Director Compiler Project Unit.
 _Avoid_: ECS or game world when referring specifically to Director state.
@@ -81,6 +101,9 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
 - An **Animation Tree** owns exactly one root **Animation Node**, and composite Animation Nodes own their child Animation Nodes within the same document.
 - A **Node Graph** edge connects one output port to one input port; connection capacity and compatibility belong to the participating ports.
+- A **Group Node** owns a child **Node Graph**; node identities are unique across the complete root graph document and every embedded child graph.
+- Each **Graph Input** becomes one input port on its owning **Group Node**, and each **Graph Output** becomes one output port.
+- Stage-one Group Nodes use **Inline Group Storage**; **Linked Group Storage** is planned separately.
 - The Director Compiler is a **Project Unit** that compiles authored Director DSL into Director runtime data.
 - **Director Entity Availability** controls Director matching independently from any Host's ECS projection.
 - Hosts may react to selected **Director Applied Changes** without embedding Host behavior into Director rules.

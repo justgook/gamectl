@@ -4,8 +4,10 @@ import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 const NG = {
     NODE_GOAL: 1,
     NODE_CODE: 2,
-    NODE_CALL: 3,
+    NODE_GROUP: 3,
     NODE_VALUE: 4,
+    NODE_GRAPH_INPUT: 5,
+    NODE_GRAPH_OUTPUT: 6,
 }
 
 function assert(condition, message) {
@@ -33,14 +35,18 @@ function dirname(path) {
 function kindToFormValue(kind) {
     if (kind === NG.NODE_VALUE) return "value"
     if (kind === NG.NODE_GOAL) return "goal"
-    if (kind === NG.NODE_CALL) return "import"
+    if (kind === NG.NODE_GROUP) return "group"
+    if (kind === NG.NODE_GRAPH_INPUT) return "input"
+    if (kind === NG.NODE_GRAPH_OUTPUT) return "output"
     return "code"
 }
 
 function kindFromFormValue(value, fallback = NG.NODE_CODE) {
     if (value === "value") return NG.NODE_VALUE
     if (value === "goal") return NG.NODE_GOAL
-    if (value === "import") return NG.NODE_CALL
+    if (value === "group" || value === "import") return NG.NODE_GROUP
+    if (value === "input") return NG.NODE_GRAPH_INPUT
+    if (value === "output") return NG.NODE_GRAPH_OUTPUT
     if (value === "code") return NG.NODE_CODE
     return fallback
 }
@@ -48,16 +54,16 @@ function kindFromFormValue(value, fallback = NG.NODE_CODE) {
 function kindFromConfigValue(value, fallback = NG.NODE_CODE) {
     if (typeof value === "string") return kindFromFormValue(value.trim().toLowerCase(), fallback)
     const kind = Number(value || fallback)
-    if (kind === NG.NODE_VALUE || kind === NG.NODE_GOAL || kind === NG.NODE_CODE || kind === NG.NODE_CALL) return kind
+    if (Object.values(NG).includes(kind)) return kind
     return fallback
 }
 
 function nodeSupportsInputs(kind) {
-    return kind === NG.NODE_CODE || kind === NG.NODE_GOAL || kind === NG.NODE_CALL
+    return kind === NG.NODE_CODE || kind === NG.NODE_GOAL || kind === NG.NODE_GRAPH_OUTPUT
 }
 
 function nodeSupportsOutputs(kind) {
-    return kind === NG.NODE_CODE || kind === NG.NODE_VALUE || kind === NG.NODE_CALL
+    return kind === NG.NODE_CODE || kind === NG.NODE_VALUE || kind === NG.NODE_GRAPH_INPUT
 }
 
 function createNodeDraft(kind = NG.NODE_CODE) {
@@ -72,9 +78,6 @@ function createNodeDraft(kind = NG.NODE_CODE) {
         newInputName: "",
         newOutputName: "",
         newOutputValue: "",
-        graphName: "",
-        graphId: 0,
-        graphSummary: { inputs: [], outputs: [] },
         inputs: [],
         outputs: [],
     }
@@ -83,15 +86,13 @@ function createNodeDraft(kind = NG.NODE_CODE) {
 function normalizeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
     const rawKind = Number(payload?.kind || fallbackKind)
     const kind =
-        rawKind === NG.NODE_VALUE || rawKind === NG.NODE_GOAL || rawKind === NG.NODE_CODE || rawKind === NG.NODE_CALL
+        Object.values(NG).includes(rawKind)
             ? rawKind
             : fallbackKind
     const normalized = createNodeDraft(kind)
     normalized.name = String(payload?.name || "").trim()
     normalized.codePath = String(payload?.codePath || "").trim()
     normalized.code = String(payload?.code || "")
-    normalized.graphName = String(payload?.graphName || "").trim()
-    normalized.graphId = Number(payload?.graphId || 0)
     normalized.codeReadOnly = kind === NG.NODE_CODE && (!normalized.codePath || Boolean(normalized.code))
     normalized.codeStatus = normalized.codePath
         ? ""
@@ -125,52 +126,6 @@ function normalizeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
     return normalized
 }
 
-function buildImportBoundarySummary(nodes) {
-    const inputs = []
-    const outputs = []
-    const list = Array.isArray(nodes) ? nodes : []
-
-    for (const node of list) {
-        const kind = Number(node?.kind || 0)
-        const nodeId = Number(node?.id || 0)
-        const nodeName = String(node?.name || `#${nodeId}`).trim()
-        if (kind === NG.NODE_VALUE) {
-            const bucket = Array.isArray(node?.outputs) ? node.outputs : []
-            bucket.forEach((port, index) => {
-                const outputId = Number(port?.id || port?.outputId || index + 1)
-                const portName = String(port?.name || `output ${index + 1}`).trim()
-                inputs.push({
-                    nodeId,
-                    portId: outputId,
-                    importPortId: nodeId * 33 + outputId,
-                    name: bucket.length > 1 ? `${nodeName}.${portName}` : nodeName,
-                    nodeName,
-                    portName,
-                    value: String(port?.value || ""),
-                })
-            })
-            continue
-        }
-        if (kind === NG.NODE_GOAL) {
-            const bucket = Array.isArray(node?.inputs) ? node.inputs : []
-            bucket.forEach((port, index) => {
-                const inputId = Number(port?.id || port?.inputId || index + 1)
-                const portName = String(port?.name || `input ${index + 1}`).trim()
-                outputs.push({
-                    nodeId,
-                    portId: inputId,
-                    importPortId: nodeId * 33 + inputId,
-                    name: bucket.length > 1 ? `${nodeName}.${portName}` : nodeName,
-                    nodeName,
-                    portName,
-                })
-            })
-        }
-    }
-
-    return { inputs, outputs }
-}
-
 export class ViewNgNode extends HTMLElement {
     constructor() {
         super()
@@ -180,7 +135,6 @@ export class ViewNgNode extends HTMLElement {
         this.formElement = null
         this.statusOutput = null
         this.templates = []
-        this.graphEntries = []
         this.draft = null
     }
 
@@ -209,12 +163,6 @@ export class ViewNgNode extends HTMLElement {
                 this.popupProps?.codeStatus ||
                     (kind === NG.NODE_CODE && !draft.codePath ? "Choose a code file to edit." : ""),
             )
-            draft.graphName = String(this.popupProps?.graphName || "").trim()
-            draft.graphId = Number(this.popupProps?.graphId || 0)
-            draft.graphSummary = this.popupProps?.graphSummary || {
-                inputs: [],
-                outputs: [],
-            }
             return draft
         }
         return createNodeDraft(NG.NODE_CODE)
@@ -246,9 +194,6 @@ export class ViewNgNode extends HTMLElement {
         if (this.mode !== "edit") {
             this.ensureDraftShape()
         }
-        if (this.draft.kind === NG.NODE_CALL && this.draft.graphId > 0) {
-            await this.applyImportNodeGraphRef(this.draft.graphId)
-        }
         this.renderForm()
         queueMicrotask(() => {
             const nameInput = this.querySelector('[data-field="name"]')
@@ -266,6 +211,7 @@ export class ViewNgNode extends HTMLElement {
                 const name = String(entry?.name || "").trim()
                 if (!name) return null
                 const kind = kindFromConfigValue(entry?.kind)
+                if ((kind === NG.NODE_GRAPH_INPUT || kind === NG.NODE_GRAPH_OUTPUT) && !this.popupProps.allowGraphBoundaryNodes) return null
                 const group = String(entry?.group || "Presets").trim() || "Presets"
                 return {
                     name,
@@ -278,10 +224,19 @@ export class ViewNgNode extends HTMLElement {
     }
 
     ensureDraftShape() {
-        if (this.draft.kind === NG.NODE_CALL) {
-            if (!this.draft.graphId && this.graphEntries.length) {
-                this.draft.graphId = Number(this.graphEntries[0].id || 0)
-            }
+        if (this.draft.kind === NG.NODE_GROUP) {
+            this.draft.inputs = []
+            this.draft.outputs = []
+            return
+        }
+        if (this.draft.kind === NG.NODE_GRAPH_INPUT) {
+            this.draft.inputs = []
+            this.draft.outputs = [{ outputId: 1, name: this.draft.name, value: "" }]
+            return
+        }
+        if (this.draft.kind === NG.NODE_GRAPH_OUTPUT) {
+            this.draft.inputs = [{ inputId: 1, name: this.draft.name, value: "" }]
+            this.draft.outputs = []
             return
         }
 
@@ -340,7 +295,8 @@ export class ViewNgNode extends HTMLElement {
         <option value="value" ${selected === "value" ? "selected" : ""}>value</option>
         <option value="code" ${selected === "code" ? "selected" : ""}>code</option>
         <option value="goal" ${selected === "goal" ? "selected" : ""}>goal</option>
-        <option value="import" ${selected === "import" ? "selected" : ""}>import</option>
+        <option value="group" ${selected === "group" ? "selected" : ""}>group</option>
+        ${this.popupProps.allowGraphBoundaryNodes ? `<option value="input" ${selected === "input" ? "selected" : ""}>input</option><option value="output" ${selected === "output" ? "selected" : ""}>output</option>` : ""}
       </optgroup>
       ${templateOptions}
     `
@@ -360,49 +316,6 @@ export class ViewNgNode extends HTMLElement {
           <button type="button" data-action="edit-code-file">Edit</button>
         </div>
         ${message ? `<output class="warning">${escapeAttribute(message)}</output>` : ""}
-      </fieldset>
-    `
-    }
-
-    renderImportBoundarySummary(summary = {}) {
-        const inputs = Array.isArray(summary.inputs) ? summary.inputs : []
-        const outputs = Array.isArray(summary.outputs) ? summary.outputs : []
-        return `
-      <fieldset>
-        <legend>Imported inputs</legend>
-        <table>
-          <thead><tr><th>Name</th><th>Default</th></tr></thead>
-          <tbody>
-            ${
-                inputs.length
-                    ? inputs
-                          .map(
-                              (item, index) =>
-                                  `<tr><td>${escapeAttribute(String(item?.name || `input ${index + 1}`))}</td><td>${escapeAttribute(String(item?.value || ""))}</td></tr>`,
-                          )
-                          .join("")
-                    : '<tr><td colspan="2">none</td></tr>'
-            }
-          </tbody>
-        </table>
-      </fieldset>
-      <fieldset>
-        <legend>Imported outputs</legend>
-        <table>
-          <thead><tr><th>Name</th></tr></thead>
-          <tbody>
-            ${
-                outputs.length
-                    ? outputs
-                          .map(
-                              (item, index) =>
-                                  `<tr><td>${escapeAttribute(String(item?.name || `output ${index + 1}`))}</td></tr>`,
-                          )
-                          .join("")
-                    : "<tr><td>none</td></tr>"
-            }
-          </tbody>
-        </table>
       </fieldset>
     `
     }
@@ -436,15 +349,6 @@ export class ViewNgNode extends HTMLElement {
         const isEdit = this.mode === "edit"
         const isCodeNode = this.draft.kind === NG.NODE_CODE
         const isValueNode = this.draft.kind === NG.NODE_VALUE
-        const isImportNode = this.draft.kind === NG.NODE_CALL
-        const graphOptions = this.graphEntries.length
-            ? this.graphEntries
-                  .map(
-                      (entry) =>
-                          `<option value="${Number(entry.id || 0)}" ${Number(entry.id || 0) === Number(this.draft.graphId || 0) ? "selected" : ""}>${escapeAttribute(entry.name)} (${Number(entry.nodeCount || 0)} node${Number(entry.nodeCount || 0) === 1 ? "" : "s"})</option>`,
-                  )
-                  .join("")
-            : '<option value="" disabled selected>no saved graphs</option>'
 
         this.formElement.innerHTML = `
       ${isEdit ? `<output data-element="node-id">Node #${this.nodeId}</output>` : "<p>Add a new node.</p>"}
@@ -458,25 +362,9 @@ export class ViewNgNode extends HTMLElement {
         Node name
         <input type="text" data-field="name" name="name" placeholder="Enter node name" value="${escapeAttribute(this.draft.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </label>
-      ${
-          isImportNode
-              ? `
-      <fieldset>
-        <legend>Imported graph</legend>
-        <label>
-          Graph
-          <select name="graph-name">
-            <option value="" ${!this.draft.graphId ? "selected" : ""}>choose graph</option>
-            ${graphOptions}
-          </select>
-        </label>
-        ${this.renderImportBoundarySummary(this.draft.graphSummary)}
-      </fieldset>`
-              : ""
-}
       ${isCodeNode ? this.renderCodeSourceFields() : ""}
       ${
-          nodeSupportsInputs(this.draft.kind) && !isImportNode
+          nodeSupportsInputs(this.draft.kind) && this.draft.kind !== NG.NODE_GRAPH_OUTPUT
               ? `
       <fieldset>
         <legend>Inputs</legend>
@@ -494,7 +382,7 @@ export class ViewNgNode extends HTMLElement {
               : ""
 }
       ${
-          nodeSupportsOutputs(this.draft.kind) && !isImportNode
+          nodeSupportsOutputs(this.draft.kind) && this.draft.kind !== NG.NODE_GRAPH_INPUT
               ? `
       <fieldset>
         <legend>Outputs</legend>
@@ -545,9 +433,6 @@ export class ViewNgNode extends HTMLElement {
                         return
                     }
                     this.applyNodeTemplateToDraft(templateEntry)
-                    if (this.draft.kind === NG.NODE_CALL && this.draft.graphId > 0) {
-                        await this.applyImportNodeGraphRef(this.draft.graphId)
-                    }
                     this.renderForm()
                     return
                 }
@@ -555,17 +440,6 @@ export class ViewNgNode extends HTMLElement {
                 this.draft.kind = kindFromFormValue(selectedValue, this.draft.kind)
                 this.draft.templateName = ""
                 if (this.draft.kind !== previousKind) this.ensureDraftShape()
-                if (this.draft.kind === NG.NODE_CALL && this.draft.graphId > 0) {
-                    await this.applyImportNodeGraphRef(this.draft.graphId)
-                }
-                this.renderForm()
-            }
-        }
-
-        const graphSelect = this.querySelector('[name="graph-name"]')
-        if (graphSelect instanceof HTMLSelectElement && isImportNode) {
-            graphSelect.onchange = async () => {
-                await this.applyImportNodeGraphRef(Number(graphSelect.value || 0))
                 this.renderForm()
             }
         }
@@ -791,50 +665,7 @@ export class ViewNgNode extends HTMLElement {
         this.draft.newOutputValue = ""
         this.draft.inputs = payload.inputs
         this.draft.outputs = payload.outputs
-        this.draft.graphName = payload.graphName
-        this.draft.graphId = payload.graphId
-    }
-
-    async readGraphEntryById(graphId) {
-        const normalized = Number(graphId || 0)
-        return this.graphEntries.find((entry) => Number(entry.id) === normalized) || null
-    }
-
-    async applyImportNodeGraphRef(graphRef) {
-        const graphId = Number(graphRef || 0) || 0
-        const graph = graphId > 0 ? await this.readGraphEntryById(graphId) : null
-        const cleanName = String(graph?.name || "").trim()
-        const previousGraphName = String(this.draft.graphName || "").trim()
-        this.draft.graphId = graph?.id || graphId
-        this.draft.graphName = cleanName
-        if (!String(this.draft.name || "").trim() || String(this.draft.name || "").trim() === previousGraphName) {
-            this.draft.name = cleanName
-        }
-        this.draft.inputs = []
-        this.draft.outputs = []
-        if (!cleanName) {
-            this.draft.graphSummary = { inputs: [], outputs: [] }
-            return
-        }
-        let nodes = []
-        try {
-            const parsed = JSON.parse(String(graph?.data || "{}"))
-            nodes = Array.isArray(parsed?.nodes) ? parsed.nodes : []
-        } catch {
-            nodes = []
-        }
-        const summary = buildImportBoundarySummary(nodes)
-        this.draft.graphSummary = summary
-        this.draft.inputs = summary.inputs.map((entry, index) => ({
-            inputId: Number(entry.importPortId || index + 1),
-            name: entry.name,
-            value: entry.value,
-        }))
-        this.draft.outputs = summary.outputs.map((entry, index) => ({
-            outputId: Number(entry.importPortId || index + 1),
-            name: entry.name,
-            value: "",
-        }))
+        this.draft.childGraph = payload.kind === NG.NODE_GROUP ? structuredClone(templateEntry.data.childGraph || []) : undefined
     }
 
     async chooseCodeFile() {
@@ -950,15 +781,6 @@ export class ViewNgNode extends HTMLElement {
             return
         }
 
-        if (this.draft.kind === NG.NODE_CALL) {
-            const graphId = Number(formData.get("graph-name") || this.draft.graphId || 0)
-            if (!Number.isFinite(graphId) || graphId <= 0) {
-                this.setStatus("Choose a graph to import.", "warning")
-                return
-            }
-            await this.applyImportNodeGraphRef(graphId)
-        }
-
         if (this.mode === "edit") {
             unwrap(
                 await runtime.call("ui.popup.close", {
@@ -971,9 +793,7 @@ export class ViewNgNode extends HTMLElement {
                         name: String(this.draft.name || "").trim(),
                         codePath: String(this.draft.codePath || "").trim(),
                         code: String(this.draft.code || ""),
-                        graphName: String(this.draft.graphName || "").trim(),
-                        graphId: Number(this.draft.graphId || 0),
-                        graphSummary: this.draft.graphSummary,
+                        childGraph: this.draft.kind === NG.NODE_GROUP ? structuredClone(this.draft.childGraph || []) : undefined,
                         inputs: this.draft.inputs.map((port, index) => ({
                             inputId: Number(port.inputId || index + 1),
                             name: String(port.name || "").trim(),
@@ -1001,9 +821,7 @@ export class ViewNgNode extends HTMLElement {
                     name: String(this.draft.name || "").trim(),
                     codePath: String(this.draft.codePath || "").trim(),
                     code: String(this.draft.code || ""),
-                    graphName: String(this.draft.graphName || "").trim(),
-                    graphId: Number(this.draft.graphId || 0),
-                    graphSummary: this.draft.graphSummary,
+                    childGraph: this.draft.kind === NG.NODE_GROUP ? structuredClone(this.draft.childGraph || []) : undefined,
                     inputs: this.draft.inputs.map((port, index) => ({
                         inputId: Number(port.inputId || index + 1),
                         name: String(port.name || "").trim(),
