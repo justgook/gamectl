@@ -40,16 +40,40 @@ export function validateNodeGraphRendererConfig(input) {
 }
 
 export class NodeGraphRenderer {
-  constructor(config) {
+  constructor(config, { measureText = null } = {}) {
     this.config = validateNodeGraphRendererConfig(config)
+    assert(measureText === null || typeof measureText === "function", "node graph renderer measureText must be a function or null")
+    if (measureText) this.measureText = measureText
+    else {
+      const canvas = document.createElement("canvas")
+      const context = canvas.getContext("2d")
+      assert(context, "node graph renderer failed to create text measurement context")
+      this.measureText = (value, font) => {
+        context.font = font
+        return context.measureText(String(value)).width
+      }
+    }
+  }
+
+  textFont(weight = "normal") {
+    const prefix = weight === "normal" ? "" : `${weight} `
+    return `${prefix}${this.config.text.size}px ${this.config.text.font}`
   }
 
   nodeSize(node) {
-    const inputs = node.ports.filter((port) => port.direction === "input").length
-    const outputs = node.ports.filter((port) => port.direction === "output").length
+    const inputs = this.ports(node, "input")
+    const outputs = this.ports(node, "output")
+    const rows = Math.max(1, inputs.length, outputs.length)
+    let contentWidth = this.measureText(String(node.name), this.textFont("600"))
+    for (let index = 0; index < rows; index += 1) {
+      const inputWidth = inputs[index] ? this.measureText(String(inputs[index].name ?? inputs[index].id), this.textFont()) : 0
+      const outputWidth = outputs[index] ? this.measureText(String(outputs[index].name ?? outputs[index].id), this.textFont()) : 0
+      const labelGap = inputWidth > 0 && outputWidth > 0 ? this.config.node.portRadius * 2 : 0
+      contentWidth = Math.max(contentWidth, inputWidth + outputWidth + labelGap)
+    }
     return {
-      width: this.config.node.width,
-      height: this.config.node.headerHeight + Math.max(1, inputs, outputs) * this.config.node.portRowHeight + this.config.node.padding,
+      width: Math.max(this.config.node.width, Math.ceil(contentWidth + this.config.node.padding * 2)),
+      height: this.config.node.headerHeight + rows * this.config.node.portRowHeight + this.config.node.padding,
     }
   }
 
@@ -90,7 +114,7 @@ export class NodeGraphRenderer {
     const index = list.findIndex((candidate) => candidate.id === portId)
     assert(index >= 0, `node graph renderer missing ${port.direction} port ${node.id}.${portId}`)
     return {
-      x: port.direction === "input" ? node.x : node.x + this.config.node.width,
+      x: port.direction === "input" ? node.x : node.x + this.nodeSize(node).width,
       y: node.y + this.config.node.headerHeight + this.config.node.portRowHeight * (index + 0.5),
     }
   }
@@ -164,19 +188,30 @@ export class NodeGraphRenderer {
     assert(ctx instanceof CanvasRenderingContext2D, "node graph renderer requires a 2d canvas context")
     assert(state.selectedNodeIds instanceof Set, "node graph renderer selectedNodeIds must be a Set")
     const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
-    for (const edge of graph.edges) this.drawEdge(ctx, this.edgeGeometry(edge, nodesById), state.selectedEdgeId === edge.id)
+    for (const edge of graph.edges) this.drawEdge(ctx, this.edgeGeometry(edge, nodesById), {
+      selected: state.selectedEdgeId === edge.id,
+      execState: edge.execState ?? "idle",
+    })
     for (const node of graph.nodes) this.drawNode(ctx, node, {
       selected: state.selectedNodeIds.has(node.id),
       hovered: state.hoveredNodeId === node.id,
       hoveredPortId: state.hoveredPort?.nodeId === node.id ? state.hoveredPort.portId : null,
       required: state.requiredNodeIds.has(node.id),
+      execState: node.execState ?? "idle",
     })
   }
 
-  drawEdge(ctx, geometry, selected) {
+  executionColor(execState, fallback) {
+    if (execState === "running") return this.config.theme.portHover
+    if (execState === "done") return this.config.theme.port
+    if (execState === "error") return this.config.theme.edgePreviewInvalid
+    return fallback
+  }
+
+  drawEdge(ctx, geometry, state) {
     ctx.save()
-    ctx.strokeStyle = cssColor(selected ? this.config.theme.edgeSelected : this.config.theme.edge)
-    ctx.lineWidth = selected ? this.config.edge.selectedWidth : this.config.edge.width
+    ctx.strokeStyle = cssColor(this.executionColor(state.execState, state.selected ? this.config.theme.edgeSelected : this.config.theme.edge))
+    ctx.lineWidth = state.selected ? this.config.edge.selectedWidth : this.config.edge.width
     ctx.beginPath()
     ctx.moveTo(geometry.start.x, geometry.start.y)
     ctx.bezierCurveTo(geometry.control1.x, geometry.control1.y, geometry.control2.x, geometry.control2.y, geometry.end.x, geometry.end.y)
@@ -208,7 +243,7 @@ export class NodeGraphRenderer {
   }
 
   drawNode(ctx, node, state) {
-    const { node: nodeConfig, text, theme } = this.config
+    const { node: nodeConfig, theme } = this.config
     const rect = this.nodeBounds(node)
     const fill = state.selected ? theme.nodeSelected : state.hovered ? theme.nodeHover : theme.node
     ctx.save()
@@ -221,10 +256,10 @@ export class NodeGraphRenderer {
     ctx.stroke()
     ctx.beginPath()
     ctx.roundRect(rect.x, rect.y, rect.width, nodeConfig.headerHeight, [nodeConfig.radius, nodeConfig.radius, 0, 0])
-    ctx.fillStyle = cssColor(state.required ? theme.requiredHeader : theme.header)
+    ctx.fillStyle = cssColor(this.executionColor(state.execState, state.required ? theme.requiredHeader : theme.header))
     ctx.fill()
     ctx.fillStyle = cssColor(theme.text)
-    ctx.font = `600 ${text.size}px ${text.font}`
+    ctx.font = this.textFont("600")
     ctx.textBaseline = "middle"
     ctx.fillText(String(node.name), rect.x + nodeConfig.padding, rect.y + nodeConfig.headerHeight / 2, rect.width - nodeConfig.padding * 2)
     for (const direction of ["input", "output"]) {
@@ -236,7 +271,7 @@ export class NodeGraphRenderer {
         ctx.fillStyle = cssColor(state.hoveredPortId === port.id ? theme.portHover : theme.port)
         ctx.fill()
         ctx.fillStyle = cssColor(theme.textMuted)
-        ctx.font = `${text.size}px ${text.font}`
+        ctx.font = this.textFont()
         ctx.textAlign = direction === "input" ? "left" : "right"
         const x = direction === "input" ? rect.x + nodeConfig.padding : rect.x + rect.width - nodeConfig.padding
         ctx.fillText(String(port.name ?? port.id), x, center.y)
