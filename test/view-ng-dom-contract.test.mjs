@@ -13,25 +13,32 @@ test("view-ng places breadcrumbs first in its header controls", () => {
   )
 })
 
-test("view-ng breadcrumbs reflect the root graph and active Group Node path", () => {
+test("view-ng breadcrumbs reflect root and nested child-graph owners", () => {
   assert.match(source, /breadcrumbItems\(\) \{[\s\S]*?id: "root", label: this\.graphName, icon: "schema"/)
-  assert.match(source, /this\.activeGroupPath\.forEach\(\(groupId, index\) => \{[\s\S]*?id: `group:\$\{index\}`[\s\S]*?icon: "account_tree"/)
+  assert.match(source, /this\.activeGroupPath\.forEach\(\(groupId, index\) => \{[\s\S]*?id: `group:\$\{index\}`/)
+  assert.match(source, /group\.kind === NG_NODE_KINDS\.FOR_EACH \? "repeat" : "account_tree"/)
   assert.match(source, /breadcrumbs\.addEventListener\("navigate", \(event\) => this\.navigateToBreadcrumb\(event\.detail\.id\)\)/)
 })
 
-test("editing a Group Node navigates into its child graph", () => {
-  assert.match(source, /if \(node\.kind === NG_NODE_KINDS\.GROUP\) \{\s*this\.navigateToGroupPath\(\[\.\.\.this\.activeGroupPath, node\.id\]\)/)
+test("editing Group and For Each Nodes navigates into their child graphs", () => {
+  assert.match(source, /if \(node\.kind === NG_NODE_KINDS\.GROUP \|\| node\.kind === NG_NODE_KINDS\.FOR_EACH\) \{\s*this\.navigateToGroupPath\(\[\.\.\.this\.activeGroupPath, node\.id\]\)/)
 })
 
-test("editing with no node selected inside a Group renames the active Group", () => {
+test("editing with no selection renames the active child-graph owner", () => {
   assert.match(source, /if \(this\.selectedNodeIds\.size === 0 && this\.activeGroupPath\.length > 0\) return this\.showRenameActiveGroupPopup\(\)/)
-  assert.match(source, /async showRenameActiveGroupPopup\(\)[\s\S]*?group\.name = payload\.draft\.name\.trim\(\)[\s\S]*?this\.syncBreadcrumbs\(\)[\s\S]*?this\.recordEdit\("rename Group", before\)/)
+  assert.match(source, /async showRenameActiveGroupPopup\(\)[\s\S]*?group\.name = payload\.draft\.name\.trim\(\)[\s\S]*?this\.syncBreadcrumbs\(\)[\s\S]*?this\.recordEdit\(`rename \$\{label\}`, before\)/)
   assert.match(source, /editButton\.disabled = !hasNodeSelection && this\.activeGroupPath\.length === 0/)
 })
 
-test("Graph Input and Graph Output node types are offered only inside groups", () => {
-  assert.match(nodeEditorSource, /this\.popupProps\.allowGraphBoundaryNodes \? `<option value="input"[\s\S]*?<option value="output"/)
-  assert.match(source, /allowGraphBoundaryNodes: this\.activeGroupPath\.length > 0/)
+test("boundary node types follow the active child-graph owner", () => {
+  assert.match(nodeEditorSource, /childGraphOwnerKind[\s\S]*?<option value="for-each"/)
+  assert.match(nodeEditorSource, /<option value="for-each-input"[\s\S]*?<option value="iteration-control"/)
+  assert.match(source, /childGraphOwnerKind: this\.activeGroupPath\.length \? this\.activeGroupNode\(\)\.kind : 0/)
+})
+
+test("new composite presets receive fresh child identities", () => {
+  assert.match(source, /freshChildGraph = \(childGraph\) => cloneNgNodesWithNewIds\(childGraph, Number\(nodeId\) \+ 1\)\.nodes/)
+  assert.match(source, /existing\?\.childGraph \|\| freshChildGraph/)
 })
 
 test("view-ng exposes Import, Export, and Make Inline Group actions", () => {

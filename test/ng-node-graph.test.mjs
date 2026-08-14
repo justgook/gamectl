@@ -15,6 +15,7 @@ import {
   parseNgGroupGraphDocument,
   serializeNgGroupGraphDocument,
   serializeNgNodeGraph,
+  syncNgForEachBoundary,
   syncNgGroupBoundary,
 } from "../packages/util/ng-node-graph.js"
 
@@ -267,4 +268,98 @@ test("copying a linked Group remaps only the local Group identity", () => {
   assert.equal(copy.nextId, 201)
   assert.deepEqual(copy.nodes[0], { ...linkedGroup(200, "graphs/transform.json") })
   assert.equal(Object.hasOwn(copy.nodes[0], "childGraph"), false)
+})
+
+function forEachGraph() {
+  const source = rawGraph()[0]
+  source.outputs[0].value = '["a", "b"]'
+  const forEach = {
+    id: 10, kind: NG_NODE_KINDS.FOR_EACH, x: 100, y: 100, name: "Each item",
+    inputs: [{ id: 20, name: "items", srcNodeId: 1, srcOutputId: 1 }],
+    outputs: [{ id: 22, name: "result", value: null }],
+    childGraph: [
+      { id: 20, kind: NG_NODE_KINDS.FOR_EACH_INPUT, x: 0, y: 0, name: "items", inputs: [], outputs: [
+        { id: 1, name: "Item", value: null }, { id: 2, name: "Index", value: null }, { id: 3, name: "Array", value: null },
+      ] },
+      { id: 21, kind: NG_NODE_KINDS.CODE, x: 200, y: 0, name: "Transform", codePath: "transform.lua", inputs: [{ id: 1, name: "item", srcNodeId: 20, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
+      { id: 22, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 400, y: 0, name: "result", inputs: [{ id: 1, name: "result", srcNodeId: 21, srcOutputId: 1 }], outputs: [] },
+      { id: 23, kind: NG_NODE_KINDS.ITERATION_CONTROL, x: 400, y: 100, name: "Iteration Control", inputs: [
+        { id: 1, name: "Skip", srcNodeId: 0, srcOutputId: 0 }, { id: 2, name: "Break", srcNodeId: 0, srcOutputId: 0 },
+      ], outputs: [] },
+    ],
+  }
+  return [source, forEach]
+}
+
+test("For Each boundaries derive array inputs and collected outputs", () => {
+  const graph = forEachGraph()
+  graph[1].inputs = []
+  graph[1].outputs = []
+  syncNgForEachBoundary(graph[1])
+  assert.deepEqual(graph[1].inputs, [{ id: 20, name: "items", srcNodeId: 0, srcOutputId: 0 }])
+  assert.deepEqual(graph[1].outputs, [{ id: 22, name: "result", value: null }])
+})
+
+test("For Each remains structured while nested Groups flatten", () => {
+  const graph = forEachGraph()
+  const flat = flattenNgGraph(graph)
+  assert.deepEqual(flat.map((node) => node.id), [1, 10])
+  assert.deepEqual(flat[1].childGraph.map((node) => node.id), [20, 21, 22, 23])
+  assert.equal(flat[1].childGraph[1].inputs[0].srcNodeId, 20)
+})
+
+test("For Each schema requires its dedicated boundaries", () => {
+  const graph = forEachGraph()
+  graph[1].childGraph[0].outputs[0].name = "value"
+  assert.throws(() => cloneNgGraph(graph), /output 1 must be Item/)
+  const withoutInput = forEachGraph()
+  withoutInput[1].childGraph.shift()
+  withoutInput[1].childGraph[0].inputs[0] = { id: 1, name: "item", srcNodeId: 0, srcOutputId: 0 }
+  assert.throws(() => cloneNgGraph(withoutInput), /requires at least one For Each Input/)
+  const duplicateControl = forEachGraph()
+  duplicateControl[1].childGraph.push(structuredClone(duplicateControl[1].childGraph[3]))
+  duplicateControl[1].childGraph.at(-1).id = 24
+  assert.throws(() => cloneNgGraph(duplicateControl), /allows at most one Iteration Control/)
+  const nestedGoal = forEachGraph()
+  nestedGoal[1].childGraph.push({
+    id: 30, kind: NG_NODE_KINDS.GROUP, x: 0, y: 200, name: "Nested Group", inputs: [], outputs: [], childGraph: [
+      { id: 31, kind: NG_NODE_KINDS.GOAL, x: 0, y: 0, name: "Invalid Goal", inputs: [], outputs: [] },
+    ],
+  })
+  assert.throws(() => cloneNgGraph(nestedGoal), /Goal Node 31 cannot be inside a For Each Node/)
+})
+
+test("copying For Each remaps child and boundary identities", () => {
+  const cloned = cloneNgNodesWithNewIds([forEachGraph()[1]], 100).nodes[0]
+  assert.equal(cloned.id, 100)
+  assert.deepEqual(cloned.childGraph.map((node) => node.id), [101, 102, 103, 104])
+  assert.equal(cloned.inputs[0].id, 101)
+  assert.equal(cloned.outputs[0].id, 103)
+  assert.equal(cloned.childGraph[1].inputs[0].srcNodeId, 101)
+})
+
+test("For Each boundary ids become occurrence ids inside linked Groups", () => {
+  const linkedForEach = structuredClone(forEachGraph()[1])
+  linkedForEach.id = 110
+  linkedForEach.inputs[0] = { id: 20, name: "items", srcNodeId: 100, srcOutputId: 1 }
+  linkedForEach.childGraph[1].id = 121
+  linkedForEach.childGraph[2].id = 122
+  linkedForEach.childGraph[2].inputs[0].srcNodeId = 121
+  linkedForEach.childGraph[3].id = 123
+  linkedForEach.outputs[0].id = 122
+  const document = serializeNgGroupGraphDocument([
+    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "items", inputs: [], outputs: [{ id: 1, name: "items", value: null }] },
+    linkedForEach,
+    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 400, y: 0, name: "results", inputs: [{ id: 1, name: "results", srcNodeId: 110, srcOutputId: 122 }], outputs: [] },
+  ])
+  const root = rawGraph()
+  root[1].inputs[0] = { id: 1, name: "value", srcNodeId: 10, srcOutputId: 102 }
+  const rootGroup = linkedGroup(10, "each.ng", 1)
+  rootGroup.inputs = [{ id: 100, name: "items", srcNodeId: 1, srcOutputId: 1 }]
+  root.splice(1, 0, rootGroup)
+  const flat = flattenNgGraph(root, { resolveLinked: () => document })
+  const occurrence = flat.find((node) => node.kind === NG_NODE_KINDS.FOR_EACH)
+  const collector = occurrence.childGraph.find((node) => node.kind === NG_NODE_KINDS.GRAPH_OUTPUT)
+  assert.equal(occurrence.outputs[0].id, collector.id)
+  assert.equal(flat.find((node) => node.id === 2).inputs[0].srcOutputId, collector.id)
 })

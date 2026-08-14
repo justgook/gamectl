@@ -8,6 +8,9 @@ const NG = {
     NODE_VALUE: 4,
     NODE_GRAPH_INPUT: 5,
     NODE_GRAPH_OUTPUT: 6,
+    NODE_FOR_EACH: 7,
+    NODE_FOR_EACH_INPUT: 8,
+    NODE_ITERATION_CONTROL: 9,
 }
 
 function assert(condition, message) {
@@ -38,6 +41,9 @@ function kindToFormValue(kind) {
     if (kind === NG.NODE_GROUP) return "group"
     if (kind === NG.NODE_GRAPH_INPUT) return "input"
     if (kind === NG.NODE_GRAPH_OUTPUT) return "output"
+    if (kind === NG.NODE_FOR_EACH) return "for-each"
+    if (kind === NG.NODE_FOR_EACH_INPUT) return "for-each-input"
+    if (kind === NG.NODE_ITERATION_CONTROL) return "iteration-control"
     return "code"
 }
 
@@ -47,6 +53,9 @@ function kindFromFormValue(value, fallback = NG.NODE_CODE) {
     if (value === "group" || value === "import") return NG.NODE_GROUP
     if (value === "input") return NG.NODE_GRAPH_INPUT
     if (value === "output") return NG.NODE_GRAPH_OUTPUT
+    if (value === "for-each") return NG.NODE_FOR_EACH
+    if (value === "for-each-input") return NG.NODE_FOR_EACH_INPUT
+    if (value === "iteration-control") return NG.NODE_ITERATION_CONTROL
     if (value === "code") return NG.NODE_CODE
     return fallback
 }
@@ -215,7 +224,11 @@ export class ViewNgNode extends HTMLElement {
                 const name = String(entry?.name || "").trim()
                 if (!name) return null
                 const kind = kindFromConfigValue(entry?.kind)
-                if ((kind === NG.NODE_GRAPH_INPUT || kind === NG.NODE_GRAPH_OUTPUT) && !this.popupProps.allowGraphBoundaryNodes) return null
+                const ownerKind = Number(this.popupProps.childGraphOwnerKind || 0)
+                if (kind === NG.NODE_GRAPH_INPUT && ownerKind !== NG.NODE_GROUP) return null
+                if (kind === NG.NODE_GRAPH_OUTPUT && ![NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(ownerKind)) return null
+                if ([NG.NODE_FOR_EACH_INPUT, NG.NODE_ITERATION_CONTROL].includes(kind) && ownerKind !== NG.NODE_FOR_EACH) return null
+                if (kind === NG.NODE_GOAL && this.popupProps.insideForEach) return null
                 const group = String(entry?.group || "Presets").trim() || "Presets"
                 return {
                     name,
@@ -234,8 +247,18 @@ export class ViewNgNode extends HTMLElement {
             delete this.draft.codeReadOnly
             delete this.draft.codeStatus
         }
-        if (this.draft.kind === NG.NODE_GROUP) {
+        if (this.draft.kind === NG.NODE_GROUP || this.draft.kind === NG.NODE_FOR_EACH) {
             this.draft.inputs = []
+            this.draft.outputs = []
+            return
+        }
+        if (this.draft.kind === NG.NODE_FOR_EACH_INPUT) {
+            this.draft.inputs = []
+            this.draft.outputs = ["Item", "Index", "Array"].map((name, index) => ({ outputId: index + 1, name, value: "" }))
+            return
+        }
+        if (this.draft.kind === NG.NODE_ITERATION_CONTROL) {
+            this.draft.inputs = ["Skip", "Break"].map((name, index) => ({ inputId: index + 1, name, value: "" }))
             this.draft.outputs = []
             return
         }
@@ -304,9 +327,12 @@ export class ViewNgNode extends HTMLElement {
       <optgroup label="Base">
         <option value="value" ${selected === "value" ? "selected" : ""}>value</option>
         <option value="code" ${selected === "code" ? "selected" : ""}>code</option>
-        <option value="goal" ${selected === "goal" ? "selected" : ""}>goal</option>
+        ${!this.popupProps.insideForEach ? `<option value="goal" ${selected === "goal" ? "selected" : ""}>goal</option>` : ""}
         <option value="group" ${selected === "group" ? "selected" : ""}>group</option>
-        ${this.popupProps.allowGraphBoundaryNodes ? `<option value="input" ${selected === "input" ? "selected" : ""}>input</option><option value="output" ${selected === "output" ? "selected" : ""}>output</option>` : ""}
+        <option value="for-each" ${selected === "for-each" ? "selected" : ""}>for each</option>
+        ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_GROUP ? `<option value="input" ${selected === "input" ? "selected" : ""}>input</option>` : ""}
+        ${[NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(Number(this.popupProps.childGraphOwnerKind || 0)) ? `<option value="output" ${selected === "output" ? "selected" : ""}>output</option>` : ""}
+        ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_FOR_EACH ? `<option value="for-each-input" ${selected === "for-each-input" ? "selected" : ""}>for each input</option><option value="iteration-control" ${selected === "iteration-control" ? "selected" : ""}>iteration control</option>` : ""}
       </optgroup>
       ${templateOptions}
     `
@@ -682,7 +708,7 @@ export class ViewNgNode extends HTMLElement {
         this.draft.newOutputValue = ""
         this.draft.inputs = payload.inputs
         this.draft.outputs = payload.outputs
-        this.draft.childGraph = payload.kind === NG.NODE_GROUP ? structuredClone(templateEntry.data.childGraph || []) : undefined
+        this.draft.childGraph = payload.kind === NG.NODE_GROUP || payload.kind === NG.NODE_FOR_EACH ? structuredClone(templateEntry.data.childGraph || []) : undefined
     }
 
     async chooseCodeFile() {
@@ -812,7 +838,7 @@ export class ViewNgNode extends HTMLElement {
                             codePath: String(this.draft.codePath || "").trim(),
                             code: String(this.draft.code || ""),
                         } : {}),
-                        childGraph: this.draft.kind === NG.NODE_GROUP ? structuredClone(this.draft.childGraph || []) : undefined,
+                        childGraph: [NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(this.draft.kind) ? structuredClone(this.draft.childGraph || []) : undefined,
                         inputs: this.draft.inputs.map((port, index) => ({
                             inputId: Number(port.inputId || index + 1),
                             name: String(port.name || "").trim(),
@@ -842,7 +868,7 @@ export class ViewNgNode extends HTMLElement {
                         codePath: String(this.draft.codePath || "").trim(),
                         code: String(this.draft.code || ""),
                     } : {}),
-                    childGraph: this.draft.kind === NG.NODE_GROUP ? structuredClone(this.draft.childGraph || []) : undefined,
+                    childGraph: [NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(this.draft.kind) ? structuredClone(this.draft.childGraph || []) : undefined,
                     inputs: this.draft.inputs.map((port, index) => ({
                         inputId: Number(port.inputId || index + 1),
                         name: String(port.name || "").trim(),

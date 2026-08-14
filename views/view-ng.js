@@ -1,5 +1,7 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import {
+    NG_FOR_EACH_INPUT_OUTPUTS,
+    NG_ITERATION_CONTROL_INPUTS,
     NG_NODE_KINDS,
     cloneNgGraph,
     cloneNgGraphFragment,
@@ -14,6 +16,7 @@ import {
     ngInputPortId,
     ngOutputPortId,
     serializeNgNodeGraph,
+    syncNgForEachBoundary,
     syncNgGroupBoundary,
 } from "/util/ng-node-graph.js"
 import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
@@ -47,6 +50,9 @@ function kindFromFormValue(value, fallback) {
     if (value === "group" || value === "import") return NG_NODE_KINDS.GROUP
     if (value === "input") return NG_NODE_KINDS.GRAPH_INPUT
     if (value === "output") return NG_NODE_KINDS.GRAPH_OUTPUT
+    if (value === "for-each") return NG_NODE_KINDS.FOR_EACH
+    if (value === "for-each-input") return NG_NODE_KINDS.FOR_EACH_INPUT
+    if (value === "iteration-control") return NG_NODE_KINDS.ITERATION_CONTROL
     if (value === "code") return NG_NODE_KINDS.CODE
     return fallback
 }
@@ -67,7 +73,7 @@ function normalizePresetDraft(payload, fallbackKind = NG_NODE_KINDS.CODE) {
         kind,
         name: String(payload.name || "").trim(),
         ...(kind === NG_NODE_KINDS.CODE ? { codePath: String(payload.codePath || "").trim() } : {}),
-        childGraph: kind === NG_NODE_KINDS.GROUP ? structuredClone(payload.childGraph || []) : undefined,
+        childGraph: kind === NG_NODE_KINDS.GROUP || kind === NG_NODE_KINDS.FOR_EACH ? structuredClone(payload.childGraph || []) : undefined,
         inputs: inputs.map((input, index) => ({
             inputId: Number(input.inputId || input.id || index + 1),
             name: String(input.name || "").trim(),
@@ -217,8 +223,9 @@ export class ViewNg extends ViewCanvasBase {
         let level = this.rootGraph
         this.activeGroupPath.forEach((groupId, index) => {
             const group = level.find((node) => node.id === groupId)
-            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing breadcrumb Group Node ${groupId}`)
-            items.push({ id: `group:${index}`, label: group.name || `group #${group.id}`, icon: "account_tree" })
+            assert(group && (group.kind === NG_NODE_KINDS.GROUP || group.kind === NG_NODE_KINDS.FOR_EACH), `view-ng missing breadcrumb child-graph owner ${groupId}`)
+            const fallback = group.kind === NG_NODE_KINDS.FOR_EACH ? "for each" : "group"
+            items.push({ id: `group:${index}`, label: group.name || `${fallback} #${group.id}`, icon: group.kind === NG_NODE_KINDS.FOR_EACH ? "repeat" : "account_tree" })
             level = this.groupChildGraph(group)
         })
         return items
@@ -377,6 +384,8 @@ export class ViewNg extends ViewCanvasBase {
     }
 
     groupChildGraph(group) {
+        if (group.kind === NG_NODE_KINDS.FOR_EACH) return group.childGraph
+        assert(group.kind === NG_NODE_KINDS.GROUP, `view-ng node ${group.id} must own a child graph`)
         return this.groupStorageMode(group) === "inline" ? group.childGraph : this.linkedResolver()(group.storage.path)
     }
 
@@ -392,8 +401,8 @@ export class ViewNg extends ViewCanvasBase {
         let documentPath = null
         for (const groupId of this.activeGroupPath) {
             const group = level.find((node) => node.id === groupId)
-            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing Group Node ${groupId}`)
-            if (this.groupStorageMode(group) === "linked") documentPath = group.storage.path
+            assert(group && (group.kind === NG_NODE_KINDS.GROUP || group.kind === NG_NODE_KINDS.FOR_EACH), `view-ng missing child-graph owner ${groupId}`)
+            if (group.kind === NG_NODE_KINDS.GROUP && this.groupStorageMode(group) === "linked") documentPath = group.storage.path
             level = this.groupChildGraph(group)
         }
         return { graph: level, documentPath }
@@ -408,11 +417,12 @@ export class ViewNg extends ViewCanvasBase {
         const syncLevel = (level, documentKey) => {
             if (seenDocuments.has(documentKey)) return
             seenDocuments.add(documentKey)
-            for (const group of level.filter((node) => node.kind === NG_NODE_KINDS.GROUP)) {
+            for (const group of level.filter((node) => node.kind === NG_NODE_KINDS.GROUP || node.kind === NG_NODE_KINDS.FOR_EACH)) {
                 const child = this.groupChildGraph(group)
-                if (this.groupStorageMode(group) === "inline") syncLevel(child, `${documentKey}/inline:${group.id}`)
+                if (group.kind === NG_NODE_KINDS.FOR_EACH || this.groupStorageMode(group) === "inline") syncLevel(child, `${documentKey}/inline:${group.id}`)
                 else syncLevel(child, `linked:${group.storage.path}`)
-                syncNgGroupBoundary(group, level, { resolveLinked: this.linkedResolver() })
+                if (group.kind === NG_NODE_KINDS.FOR_EACH) syncNgForEachBoundary(group, level)
+                else syncNgGroupBoundary(group, level, { resolveLinked: this.linkedResolver() })
             }
         }
         syncLevel(this.rootGraph, "root")
@@ -427,8 +437,8 @@ export class ViewNg extends ViewCanvasBase {
             const parent = findNgGroupPath(this.rootGraph, parentPath, { resolveLinked: this.linkedResolver() }).graph
             const groupId = this.activeGroupPath.at(-1)
             const group = parent.find((node) => node.id === groupId)
-            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${groupId}`)
-            if (this.groupStorageMode(group) === "inline") group.childGraph = active
+            assert(group && (group.kind === NG_NODE_KINDS.GROUP || group.kind === NG_NODE_KINDS.FOR_EACH), `view-ng missing active child-graph owner ${groupId}`)
+            if (group.kind === NG_NODE_KINDS.FOR_EACH || this.groupStorageMode(group) === "inline") group.childGraph = active
             else this.linkedGraphs.set(group.storage.path, active)
         }
         this.syncAllGroupBoundaries()
@@ -458,9 +468,11 @@ export class ViewNg extends ViewCanvasBase {
         else {
             const parent = findNgGroupPath(this.rootGraph, this.activeGroupPath.slice(0, -1), { resolveLinked: this.linkedResolver() }).graph
             const group = parent.find((node) => node.id === this.activeGroupPath.at(-1))
-            assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${this.activeGroupPath.at(-1)}`)
-            if (this.groupStorageMode(group) === "inline") group.childGraph = cloneNgGraphFragment(rawGraph)
-            else this.linkedGraphs.set(group.storage.path, cloneNgGraphFragment(rawGraph))
+            assert(group && (group.kind === NG_NODE_KINDS.GROUP || group.kind === NG_NODE_KINDS.FOR_EACH), `view-ng missing active child-graph owner ${this.activeGroupPath.at(-1)}`)
+            const ownerKind = group.kind
+            const insideForEach = this.isInsideForEach()
+            if (group.kind === NG_NODE_KINDS.FOR_EACH || this.groupStorageMode(group) === "inline") group.childGraph = cloneNgGraphFragment(rawGraph, { ownerKind, insideForEach })
+            else this.linkedGraphs.set(group.storage.path, cloneNgGraphFragment(rawGraph, { ownerKind, insideForEach }))
             this.syncAllGroupBoundaries()
         }
         this.loadActiveGraph({ autoFit })
@@ -478,7 +490,9 @@ export class ViewNg extends ViewCanvasBase {
         findNgGroupPath(this.rootGraph, path, { resolveLinked: this.linkedResolver() })
         this.activeGroupPath = [...path]
         this.loadActiveGraph()
-        this._setStatus(this.activeGroupPath.length ? `editing group '${this.breadcrumbItems().at(-1).label}'` : `editing graph '${this.graphName}'`, "info")
+        const owner = this.activeGroupPath.length ? this.activeGroupNode() : null
+        const ownerLabel = owner?.kind === NG_NODE_KINDS.FOR_EACH ? "For Each" : "Group"
+        this._setStatus(owner ? `editing ${ownerLabel} '${this.breadcrumbItems().at(-1).label}'` : `editing graph '${this.graphName}'`, "info")
     }
 
     captureSnapshot() {
@@ -537,13 +551,27 @@ export class ViewNg extends ViewCanvasBase {
     _nodeFromDraft(nodeId, draft, existing = null) {
         const kind = Number(draft.kind || existing?.kind || NG_NODE_KINDS.CODE)
         const name = String(draft.name || "").trim()
+        const defaultForEachChild = [{
+            id: 1, kind: NG_NODE_KINDS.FOR_EACH_INPUT, x: 0, y: 0, name: "items", inputs: [],
+            outputs: NG_FOR_EACH_INPUT_OUTPUTS.map((port) => ({ ...port, value: null })),
+        }]
+        const freshChildGraph = (childGraph) => cloneNgNodesWithNewIds(childGraph, Number(nodeId) + 1).nodes
+        const forEachChild = kind === NG_NODE_KINDS.FOR_EACH
+            ? structuredClone(existing?.childGraph || freshChildGraph(Array.isArray(draft.childGraph) && draft.childGraph.length ? draft.childGraph : defaultForEachChild))
+            : null
         const draftInputs = kind === NG_NODE_KINDS.GRAPH_OUTPUT
             ? [{ inputId: 1, name }]
-            : kind === NG_NODE_KINDS.GRAPH_INPUT || kind === NG_NODE_KINDS.GROUP ? [] : (Array.isArray(draft.inputs) ? draft.inputs : [])
+            : kind === NG_NODE_KINDS.ITERATION_CONTROL
+              ? NG_ITERATION_CONTROL_INPUTS.map((port) => ({ inputId: port.id, name: port.name }))
+              : [NG_NODE_KINDS.GRAPH_INPUT, NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(kind)
+                ? [] : (Array.isArray(draft.inputs) ? draft.inputs : [])
         const draftOutputs = kind === NG_NODE_KINDS.GRAPH_INPUT
             ? [{ outputId: 1, name, value: null }]
-            : kind === NG_NODE_KINDS.GRAPH_OUTPUT || kind === NG_NODE_KINDS.GROUP ? [] : (Array.isArray(draft.outputs) ? draft.outputs : [])
-        return {
+            : kind === NG_NODE_KINDS.FOR_EACH_INPUT
+              ? NG_FOR_EACH_INPUT_OUTPUTS.map((port) => ({ outputId: port.id, name: port.name, value: null }))
+              : [NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.ITERATION_CONTROL, NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(kind)
+                ? [] : (Array.isArray(draft.outputs) ? draft.outputs : [])
+        const result = {
             id: Number(nodeId), kind, x: Number(existing?.x ?? 0), y: Number(existing?.y ?? 0), name,
             ...(kind === NG_NODE_KINDS.CODE ? { codePath: String(draft.codePath || "").trim() } : {}),
             inputs: draftInputs.map((port, index) => {
@@ -558,9 +586,12 @@ export class ViewNg extends ViewCanvasBase {
             }),
             ...(kind === NG_NODE_KINDS.GROUP ? {
                 storage: structuredClone(existing?.storage || { mode: "inline" }),
-                ...(this.groupStorageMode(existing || {}) === "inline" ? { childGraph: structuredClone(existing?.childGraph || draft.childGraph || []) } : {}),
+                ...(this.groupStorageMode(existing || {}) === "inline" ? { childGraph: structuredClone(existing?.childGraph || freshChildGraph(draft.childGraph || [])) } : {}),
             } : {}),
+            ...(kind === NG_NODE_KINDS.FOR_EACH ? { childGraph: forEachChild } : {}),
         }
+        if (kind === NG_NODE_KINDS.FOR_EACH) syncNgForEachBoundary(result)
+        return result
     }
 
     nextNodeId() {
@@ -574,13 +605,22 @@ export class ViewNg extends ViewCanvasBase {
             title: "Add node",
             size: "medium",
             tag: "view-ng-node",
-            props: { mode: "create", allowGraphBoundaryNodes: this.activeGroupPath.length > 0 },
+            props: {
+                mode: "create",
+                allowGraphBoundaryNodes: this.activeGroupPath.length > 0,
+                childGraphOwnerKind: this.activeGroupPath.length ? this.activeGroupNode().kind : 0,
+                insideForEach: this.isInsideForEach(),
+            },
         }))
         if (!payload || payload.cancelled) return false
         const before = this.captureSnapshot()
         const center = this.viewportCenterWorld()
         const raw = this.activeGraph()
         const node = this._nodeFromDraft(this.nextNodeId(), payload.draft || {}, { x: center.x, y: center.y })
+        if (node.kind === NG_NODE_KINDS.ITERATION_CONTROL && raw.some((candidate) => candidate.kind === NG_NODE_KINDS.ITERATION_CONTROL)) {
+            this._setStatus("For Each allows only one Iteration Control", "warning")
+            return false
+        }
         raw.push(node)
         this.replaceActiveGraph(raw, { autoFit: false })
         const projected = this.graphModel.node(node.id)
@@ -603,32 +643,38 @@ export class ViewNg extends ViewCanvasBase {
     }
 
     activeGroupNode() {
-        assert(this.activeGroupPath.length > 0, "view-ng must be inside a Group Node")
+        assert(this.activeGroupPath.length > 0, "view-ng must be inside a child-graph node")
         const parent = findNgGroupPath(this.rootGraph, this.activeGroupPath.slice(0, -1), { resolveLinked: this.linkedResolver() }).graph
         const groupId = this.activeGroupPath.at(-1)
         const group = parent.find((node) => node.id === groupId)
-        assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${groupId}`)
+        assert(group && (group.kind === NG_NODE_KINDS.GROUP || group.kind === NG_NODE_KINDS.FOR_EACH), `view-ng missing active child-graph owner ${groupId}`)
         return group
+    }
+
+    isInsideForEach() {
+        if (!this.activeGroupPath.length) return false
+        return findNgGroupPath(this.rootGraph, this.activeGroupPath, { resolveLinked: this.linkedResolver() }).owners.some((owner) => owner.kind === NG_NODE_KINDS.FOR_EACH)
     }
 
     async showRenameActiveGroupPopup() {
         this.syncActiveGraph()
         const group = this.activeGroupNode()
+        const label = group.kind === NG_NODE_KINDS.FOR_EACH ? "For Each" : "Group"
         const payload = unwrap(await runtime.call("ui.popup.open", {
-            title: `Rename Group #${group.id}`,
+            title: `Rename ${label} #${group.id}`,
             size: "medium",
             tag: "view-ng-node",
             props: { mode: "edit", nodeId: group.id, kind: group.kind, nodeName: group.name },
         }))
         if (!payload || payload.cancelled) return false
-        assert(payload.draft && typeof payload.draft === "object", "view-ng Group rename requires a draft")
-        assert(typeof payload.draft.name === "string", "view-ng Group rename requires a name")
+        assert(payload.draft && typeof payload.draft === "object", `view-ng ${label} rename requires a draft`)
+        assert(typeof payload.draft.name === "string", `view-ng ${label} rename requires a name`)
         const before = this.captureSnapshot()
         group.name = payload.draft.name.trim()
         this.syncBreadcrumbs()
-        this.recordEdit("rename Group", before)
+        this.recordEdit(`rename ${label}`, before)
         this.draw()
-        this._setStatus(`renamed Group #${group.id} to '${group.name}'`, "success")
+        this._setStatus(`renamed ${label} #${group.id} to '${group.name}'`, "success")
         return true
     }
 
@@ -638,14 +684,16 @@ export class ViewNg extends ViewCanvasBase {
         const raw = this.activeGraph()
         const node = raw.find((candidate) => candidate.id === nodeId)
         assert(node, `view-ng missing selected node ${nodeId}`)
-        if (node.kind === NG_NODE_KINDS.GROUP) {
+        if (node.kind === NG_NODE_KINDS.GROUP || node.kind === NG_NODE_KINDS.FOR_EACH) {
             this.navigateToGroupPath([...this.activeGroupPath, node.id])
             return true
         }
         const payload = unwrap(await runtime.call("ui.popup.open", {
             title: `Edit node #${nodeId}`, size: "medium", tag: "view-ng-node", props: {
                 mode: "edit", nodeId, kind: node.kind, nodeName: node.name, inputCount: node.inputs.length, outputCount: node.outputs.length,
-                allowGraphBoundaryNodes: node.kind === NG_NODE_KINDS.GRAPH_INPUT || node.kind === NG_NODE_KINDS.GRAPH_OUTPUT,
+                allowGraphBoundaryNodes: [NG_NODE_KINDS.GRAPH_INPUT, NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind),
+                childGraphOwnerKind: this.activeGroupPath.length ? this.activeGroupNode().kind : 0,
+                insideForEach: this.isInsideForEach(),
                 ...(node.kind === NG_NODE_KINDS.CODE ? { codePath: node.codePath, code: "" } : {}),
                 valueText: node.kind === NG_NODE_KINDS.VALUE ? node.outputs[0]?.value || "" : "",
                 inputLabels: node.inputs.map((input, index) => input.name || `input ${index + 1}`),
@@ -667,6 +715,14 @@ export class ViewNg extends ViewCanvasBase {
 
     async deleteSelected() {
         if (!this.selectedNodeIds.size && this.selectedEdgeId === null) return false
+        if (this.selectedNodeIds.size && this.activeGroupPath.length && this.activeGroupNode().kind === NG_NODE_KINDS.FOR_EACH) {
+            const raw = this.activeGraph()
+            const remainingInputs = raw.filter((node) => node.kind === NG_NODE_KINDS.FOR_EACH_INPUT && !this.selectedNodeIds.has(node.id))
+            if (remainingInputs.length === 0) {
+                this._setStatus("For Each requires at least one For Each Input", "warning")
+                return false
+            }
+        }
         const before = this.captureSnapshot()
         if (this.selectedEdgeId !== null) {
             this.graphModel.removeEdge(this.selectedEdgeId)
@@ -707,21 +763,29 @@ export class ViewNg extends ViewCanvasBase {
             const name = String(entry?.name || "").trim()
             if (!name) return null
             const kind = kindFromConfigValue(entry.kind, NG_NODE_KINDS.CODE)
-            if ((kind === NG_NODE_KINDS.GRAPH_INPUT || kind === NG_NODE_KINDS.GRAPH_OUTPUT) && this.activeGroupPath.length === 0) return null
+            const ownerKind = this.activeGroupPath.length ? this.activeGroupNode().kind : 0
+            if (kind === NG_NODE_KINDS.GRAPH_INPUT && ownerKind !== NG_NODE_KINDS.GROUP) return null
+            if (kind === NG_NODE_KINDS.GRAPH_OUTPUT && ![NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind)) return null
+            if ([NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(kind) && ownerKind !== NG_NODE_KINDS.FOR_EACH) return null
+            if (kind === NG_NODE_KINDS.GOAL && this.isInsideForEach()) return null
             const group = String(entry.group || "Presets").trim() || "Presets"
             return { name, kind, group, data: { ...entry, name, kind, group } }
         }).filter(Boolean)
     }
 
     _buildNodeContextMenuItems() {
+        const ownerKind = this.activeGroupPath.length ? this.activeGroupNode().kind : 0
         const base = [
             { label: "value", kind: NG_NODE_KINDS.VALUE, outputs: [{ value: "" }] },
             { label: "code", kind: NG_NODE_KINDS.CODE },
-            { label: "goal", kind: NG_NODE_KINDS.GOAL },
+            ...(!this.isInsideForEach() ? [{ label: "goal", kind: NG_NODE_KINDS.GOAL }] : []),
             { label: "group", kind: NG_NODE_KINDS.GROUP },
-            ...(this.activeGroupPath.length > 0 ? [
-                { label: "input", kind: NG_NODE_KINDS.GRAPH_INPUT, name: "input" },
-                { label: "output", kind: NG_NODE_KINDS.GRAPH_OUTPUT, name: "output" },
+            { label: "for each", kind: NG_NODE_KINDS.FOR_EACH },
+            ...(ownerKind === NG_NODE_KINDS.GROUP ? [{ label: "input", kind: NG_NODE_KINDS.GRAPH_INPUT, name: "input" }] : []),
+            ...([NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind) ? [{ label: "output", kind: NG_NODE_KINDS.GRAPH_OUTPUT, name: "output" }] : []),
+            ...(ownerKind === NG_NODE_KINDS.FOR_EACH ? [
+                { label: "for each input", kind: NG_NODE_KINDS.FOR_EACH_INPUT, name: "items" },
+                { label: "iteration control", kind: NG_NODE_KINDS.ITERATION_CONTROL, name: "Iteration Control" },
             ] : []),
         ]
         const groups = new Map()
@@ -737,6 +801,10 @@ export class ViewNg extends ViewCanvasBase {
         const before = this.captureSnapshot()
         const raw = this.activeGraph()
         const node = this._nodeFromDraft(this.nextNodeId(), draft, { x: Math.round(worldPoint.x), y: Math.round(worldPoint.y) })
+        if (node.kind === NG_NODE_KINDS.ITERATION_CONTROL && raw.some((candidate) => candidate.kind === NG_NODE_KINDS.ITERATION_CONTROL)) {
+            this._setStatus("For Each allows only one Iteration Control", "warning")
+            return false
+        }
         raw.push(node)
         this.replaceActiveGraph(raw, { autoFit: false })
         this.setNodeSelection([node.id], node.id)
@@ -792,12 +860,23 @@ export class ViewNg extends ViewCanvasBase {
     async pasteNodes(text, anchor) {
         const source = this.parseClipboardPayload(text)
         if (!source.length) return false
-        if (this.activeGroupPath.length === 0 && source.some((node) => node.kind === NG_NODE_KINDS.GRAPH_INPUT || node.kind === NG_NODE_KINDS.GRAPH_OUTPUT)) {
-            this._setStatus("Graph Input and Graph Output nodes can only be pasted inside a Group Node", "warning")
+        const ownerKind = this.activeGroupPath.length ? this.activeGroupNode().kind : 0
+        const invalidBoundary = source.some((node) =>
+            (node.kind === NG_NODE_KINDS.GRAPH_INPUT && ownerKind !== NG_NODE_KINDS.GROUP) ||
+            (node.kind === NG_NODE_KINDS.GRAPH_OUTPUT && ![NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind)) ||
+            ([NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind) && ownerKind !== NG_NODE_KINDS.FOR_EACH))
+        if (invalidBoundary) {
+            this._setStatus("boundary nodes can only be pasted into their matching child graph", "warning")
+            return false
+        }
+        const raw = this.activeGraph()
+        const pastedControlCount = source.filter((node) => node.kind === NG_NODE_KINDS.ITERATION_CONTROL).length
+        const existingControlCount = raw.filter((node) => node.kind === NG_NODE_KINDS.ITERATION_CONTROL).length
+        if (ownerKind === NG_NODE_KINDS.FOR_EACH && pastedControlCount + existingControlCount > 1) {
+            this._setStatus("For Each allows only one Iteration Control", "warning")
             return false
         }
         const before = this.captureSnapshot()
-        const raw = this.activeGraph()
         const minX = Math.min(...source.map((node) => node.x))
         const minY = Math.min(...source.map((node) => node.y))
         const remapped = cloneNgNodesWithNewIds(source, this.nextNodeId()).nodes
@@ -1107,9 +1186,11 @@ export class ViewNg extends ViewCanvasBase {
         const paths = new Set()
         const scan = (level) => {
             for (const node of level) {
-                if (node.kind !== NG_NODE_KINDS.GROUP) continue
-                if (this.groupStorageMode(node) === "linked") paths.add(normalizeNgGroupPath(node.storage.path))
-                else scan(node.childGraph)
+                if (node.kind === NG_NODE_KINDS.FOR_EACH) scan(node.childGraph)
+                else if (node.kind === NG_NODE_KINDS.GROUP) {
+                    if (this.groupStorageMode(node) === "linked") paths.add(normalizeNgGroupPath(node.storage.path))
+                    else scan(node.childGraph)
+                }
             }
         }
         scan(graph)

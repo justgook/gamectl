@@ -25,6 +25,11 @@ local NG = {
 	NODE_CODE = 2,
 	NODE_GROUP = 3,
 	NODE_VALUE = 4,
+	NODE_GRAPH_INPUT = 5,
+	NODE_GRAPH_OUTPUT = 6,
+	NODE_FOR_EACH = 7,
+	NODE_FOR_EACH_INPUT = 8,
+	NODE_ITERATION_CONTROL = 9,
 }
 
 function main()
@@ -64,16 +69,25 @@ local function portLabel(node, port, direction)
 end
 
 local nodesById = {}
-for index, node in ipairs(graph) do
-	if type(node) ~= "table" then
-		error("graph entry " .. tostring(index) .. " must be an object")
+local function indexLevel(level, label)
+	for index, node in ipairs(level) do
+		if type(node) ~= "table" then
+			error(label .. " entry " .. tostring(index) .. " must be an object")
+		end
+		local id = assertInteger(node.id, label .. " entry " .. tostring(index) .. ".id")
+		if nodesById[id] then
+			error("duplicate node id: " .. tostring(id))
+		end
+		nodesById[id] = node
+		if node.kind == NG.NODE_FOR_EACH then
+			if type(node.childGraph) ~= "table" then
+				error(nodeLabel(node) .. ".childGraph must be an array")
+			end
+			indexLevel(node.childGraph, nodeLabel(node) .. ".childGraph")
+		end
 	end
-	local id = assertInteger(node.id, "graph entry " .. tostring(index) .. ".id")
-	if nodesById[id] then
-		error("duplicate node id: " .. tostring(id))
-	end
-	nodesById[id] = node
 end
+indexLevel(graph, "graph")
 
 local function getNode(nodeId)
 	local node = nodesById[nodeId]
@@ -108,8 +122,14 @@ local function isConnectedInput(inputPort)
 end
 
 
-local function validateGraph()
-	for _, node in ipairs(graph) do
+local function validateLevel(level, ownerKind)
+	local localIds = {}
+	for _, node in ipairs(level) do
+		localIds[node.id] = true
+	end
+	local controlCount = 0
+	local forEachInputCount = 0
+	for _, node in ipairs(level) do
 		assertInteger(node.id, nodeLabel(node) .. ".id")
 		assertInteger(node.kind, nodeLabel(node) .. ".kind")
 
@@ -125,19 +145,14 @@ local function validateGraph()
 			inputIds[inputId] = true
 
 			if isConnectedInput(inputPort) then
-				local srcNodeId =
-					assertInteger(inputPort.srcNodeId, portLabel(node, inputPort, "input") .. ".srcNodeId")
-				local srcOutputId =
-					assertInteger(inputPort.srcOutputId, portLabel(node, inputPort, "input") .. ".srcOutputId")
+				local srcNodeId = assertInteger(inputPort.srcNodeId, portLabel(node, inputPort, "input") .. ".srcNodeId")
+				local srcOutputId = assertInteger(inputPort.srcOutputId, portLabel(node, inputPort, "input") .. ".srcOutputId")
+				if not localIds[srcNodeId] then
+					error(portLabel(node, inputPort, "input") .. " references a node outside its graph level")
+				end
 				local srcNode = getNode(srcNodeId)
 				if not hasOutput(srcNode, srcOutputId) then
-					error(
-						portLabel(node, inputPort, "input")
-							.. " references missing source output "
-							.. tostring(srcNodeId)
-							.. "."
-							.. tostring(srcOutputId)
-					)
+					error(portLabel(node, inputPort, "input") .. " references missing source output " .. tostring(srcNodeId) .. "." .. tostring(srcOutputId))
 				end
 			end
 		end
@@ -153,11 +168,35 @@ local function validateGraph()
 			end
 			outputIds[outputId] = true
 		end
+
+		if node.kind == NG.NODE_FOR_EACH then
+			validateLevel(node.childGraph, NG.NODE_FOR_EACH)
+		elseif node.kind == NG.NODE_FOR_EACH_INPUT then
+			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be inside For Each") end
+			forEachInputCount = forEachInputCount + 1
+		elseif node.kind == NG.NODE_GRAPH_OUTPUT then
+			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " Graph Output must be inside For Each") end
+		elseif node.kind == NG.NODE_ITERATION_CONTROL then
+			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be inside For Each") end
+			controlCount = controlCount + 1
+		elseif node.kind == NG.NODE_GRAPH_INPUT or node.kind == NG.NODE_GROUP then
+			error("Group boundaries must be flattened before compilation: " .. tostring(node.id))
+		elseif ownerKind == NG.NODE_FOR_EACH and node.kind == NG.NODE_GOAL then
+			error("Goal Nodes cannot be inside For Each: " .. tostring(node.id))
+		end
+	end
+	if ownerKind == NG.NODE_FOR_EACH then
+		if forEachInputCount == 0 then error("For Each requires at least one For Each Input") end
+		if controlCount > 1 then error("For Each allows at most one Iteration Control") end
 	end
 end
 
-local function isCodeGoal(node)
-	return node.kind == NG.NODE_CODE and #getOutputs(node) == 0
+local function validateGraph()
+	validateLevel(graph, nil)
+end
+
+local function isRunTarget(node)
+	return (node.kind == NG.NODE_CODE or node.kind == NG.NODE_FOR_EACH) and #getOutputs(node) == 0
 end
 
 local function findRunTargetNodes()
@@ -166,7 +205,7 @@ local function findRunTargetNodes()
 	for _, node in ipairs(graph) do
 		if node.kind == NG.NODE_GOAL then
 			explicitGoals[#explicitGoals + 1] = node
-		elseif isCodeGoal(node) then
+		elseif isRunTarget(node) then
 			codeGoals[#codeGoals + 1] = node
 		end
 	end
@@ -340,6 +379,45 @@ local function orderNeededNodes()
 			visit(node.id)
 		end
 	end
+end
+
+local function orderForEachBody(level)
+	local localNodes = {}
+	local localNeeded = {}
+	local localVisiting = {}
+	local localVisited = {}
+	local localOrdered = {}
+	for _, node in ipairs(level) do localNodes[node.id] = node end
+
+	local function mark(nodeId)
+		if localNeeded[nodeId] then return end
+		local node = localNodes[nodeId]
+		if not node then error("For Each body references missing node " .. tostring(nodeId)) end
+		localNeeded[nodeId] = true
+		for _, inputPort in ipairs(getInputs(node)) do
+			if isConnectedInput(inputPort) then mark(inputPort.srcNodeId) end
+		end
+	end
+
+	for _, node in ipairs(level) do
+		if node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL or isRunTarget(node) then mark(node.id) end
+	end
+
+	local function visitLocal(nodeId)
+		if localVisited[nodeId] then return end
+		if localVisiting[nodeId] then error("cycle detected at node: " .. tostring(nodeId)) end
+		localVisiting[nodeId] = true
+		local node = localNodes[nodeId]
+		for _, inputPort in ipairs(getInputs(node)) do
+			if isConnectedInput(inputPort) and localNeeded[inputPort.srcNodeId] then visitLocal(inputPort.srcNodeId) end
+		end
+		localVisiting[nodeId] = nil
+		localVisited[nodeId] = true
+		localOrdered[#localOrdered + 1] = node
+	end
+
+	for _, node in ipairs(level) do if localNeeded[node.id] then visitLocal(node.id) end end
+	return localOrdered
 end
 
 local lines = {}
@@ -524,6 +602,29 @@ local function emitCodeNodeErrorHandler(node)
 	emit("  end)")
 end
 
+local function emitForEachHelpers()
+	emit("local function __ng_require_dense_array(value, label)")
+	emit("  if type(value) ~= 'table' then")
+	emit("    error(label .. ' must be a dense array, got ' .. type(value))")
+	emit("  end")
+	emit("  local count = 0")
+	emit("  local maximum = 0")
+	emit("  for key, _ in pairs(value) do")
+	emit("    if type(key) ~= 'number' or key ~= math.floor(key) or key < 1 then")
+	emit("      error(label .. ' must be a dense array')")
+	emit("    end")
+	emit("    count = count + 1")
+	emit("    if key > maximum then maximum = key end")
+	emit("  end")
+	emit("  if count ~= maximum then error(label .. ' must be a dense array') end")
+	emit("  if count == 0 and type(json.is_array) == 'function' and not json.is_array(value) then")
+	emit("    error(label .. ' must be an array, not an object')")
+	emit("  end")
+	emit("  return maximum")
+	emit("end")
+	emit("")
+end
+
 local function emitValueTypeHelper()
 	emit("local function __ng_value_type(value)")
 	emit("  if value == nil then")
@@ -598,14 +699,134 @@ local function emitCodeNode(node)
 	emit("")
 end
 
-local function emitNode(node)
+local emitNode
+
+local function emitForEachControlValue(node, inputPort, variableName)
+	emit(("  local %s = false"):format(variableName))
+	if not isConnectedInput(inputPort) then return end
+	local activeVar = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+	local valueVar = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+	emit(("  if %s then"):format(activeVar))
+	emit(("    if type(%s) ~= 'boolean' then"):format(valueVar))
+	emit(("      __ng_node_error(%d, %s)"):format(node.id, luaString(portLabel(node, inputPort, "input") .. " must be boolean")))
+	emit(("      error(%s)"):format(luaString(portLabel(node, inputPort, "input") .. " must be boolean")))
+	emit("    end")
+	emit(("    %s = %s"):format(variableName, valueVar))
+	emit("  end")
+end
+
+local function emitForEachNode(node)
+	local child = node.childGraph
+	local bodyOrder = orderForEachBody(child)
+	local boundaries = {}
+	local collectors = {}
+	local control = nil
+	for _, childNode in ipairs(child) do
+		if childNode.kind == NG.NODE_FOR_EACH_INPUT then boundaries[#boundaries + 1] = childNode end
+		if childNode.kind == NG.NODE_GRAPH_OUTPUT then collectors[#collectors + 1] = childNode end
+		if childNode.kind == NG.NODE_ITERATION_CONTROL then control = childNode end
+	end
+
+	for _, inputPort in ipairs(getInputs(node)) do
+		if not isConnectedInput(inputPort) then error(portLabel(node, inputPort, "input") .. " must be connected") end
+	end
+	for _, collector in ipairs(collectors) do
+		if not isConnectedInput(collector.inputs[1]) then error(nodeLabel(collector) .. " must be connected") end
+	end
+
+	emit(("-- for each node %d: %s"):format(node.id, node.name or ""))
+	emit(("__ng_node_start(%d)"):format(node.id))
+	for _, childNode in ipairs(child) do emitOutputDeclarations(childNode) end
+	emit(("local __ng_each_arrays_%d = {}"):format(node.id))
+	emit(("local __ng_each_lengths_%d = {}"):format(node.id))
+	emit(("local __ng_each_count_%d = 0"):format(node.id))
+	for _, boundary in ipairs(boundaries) do
+		local parentInput = nil
+		for _, inputPort in ipairs(getInputs(node)) do if inputPort.id == boundary.id then parentInput = inputPort end end
+		if not parentInput then error(nodeLabel(node) .. " missing input for For Each Input " .. tostring(boundary.id)) end
+		local sourceActive = luaActiveVar(parentInput.srcNodeId, parentInput.srcOutputId)
+		local sourceValue = luaVar(parentInput.srcNodeId, parentInput.srcOutputId)
+		emit(("if not %s then"):format(sourceActive))
+		emit(("  __ng_node_error(%d, %s)"):format(node.id, luaString(portLabel(node, parentInput, "input") .. " must be active")))
+		emit(("  error(%s)"):format(luaString(portLabel(node, parentInput, "input") .. " must be active")))
+		emit("end")
+		emit(("__ng_each_arrays_%d[%d] = %s"):format(node.id, boundary.id, sourceValue))
+		local validationOk = ("__ng_each_array_ok_%d_%d"):format(node.id, boundary.id)
+		local validationResult = ("__ng_each_array_result_%d_%d"):format(node.id, boundary.id)
+		emit(("local %s, %s = pcall(__ng_require_dense_array, %s, %s)"):format(validationOk, validationResult, sourceValue, luaString(portLabel(node, parentInput, "input"))))
+		emit(("if not %s then"):format(validationOk))
+		emit(("  __ng_node_error(%d, %s)"):format(node.id, validationResult))
+		emit(("  error(%s)"):format(validationResult))
+		emit("end")
+		emit(("__ng_each_lengths_%d[%d] = %s"):format(node.id, boundary.id, validationResult))
+		emit(("if __ng_each_lengths_%d[%d] > __ng_each_count_%d then __ng_each_count_%d = __ng_each_lengths_%d[%d] end"):format(node.id, boundary.id, node.id, node.id, node.id, boundary.id))
+	end
+	for _, outputPort in ipairs(getOutputs(node)) do
+		emit(("%s = json.array()"):format(luaVar(node.id, outputPort.id)))
+		emit(("%s = false"):format(luaActiveVar(node.id, outputPort.id)))
+	end
+	emit(("for __ng_each_index_%d = 1, __ng_each_count_%d do"):format(node.id, node.id))
+	for _, boundary in ipairs(boundaries) do
+		emit(("  if __ng_each_index_%d <= __ng_each_lengths_%d[%d] then"):format(node.id, node.id, boundary.id))
+		emit(("    %s = __ng_each_arrays_%d[%d][__ng_each_index_%d]"):format(luaVar(boundary.id, 1), node.id, boundary.id, node.id))
+		emit(("    %s = true"):format(luaActiveVar(boundary.id, 1)))
+		emit(("    %s = __ng_each_index_%d"):format(luaVar(boundary.id, 2), node.id))
+		emit(("    %s = true"):format(luaActiveVar(boundary.id, 2)))
+		emit("  else")
+		emit(("    %s = nil"):format(luaVar(boundary.id, 1)))
+		emit(("    %s = false"):format(luaActiveVar(boundary.id, 1)))
+		emit(("    %s = nil"):format(luaVar(boundary.id, 2)))
+		emit(("    %s = false"):format(luaActiveVar(boundary.id, 2)))
+		emit("  end")
+		emit(("  %s = __ng_each_arrays_%d[%d]"):format(luaVar(boundary.id, 3), node.id, boundary.id))
+		emit(("  %s = true"):format(luaActiveVar(boundary.id, 3)))
+	end
+	for _, childNode in ipairs(bodyOrder) do
+		if childNode.kind ~= NG.NODE_FOR_EACH_INPUT and childNode.kind ~= NG.NODE_GRAPH_OUTPUT and childNode.kind ~= NG.NODE_ITERATION_CONTROL then emitNode(childNode) end
+	end
+	local skipVariable = "__ng_each_skip_" .. tostring(node.id)
+	local breakVariable = "__ng_each_break_" .. tostring(node.id)
+	if control then
+		emitForEachControlValue(control, control.inputs[1], skipVariable)
+		emitForEachControlValue(control, control.inputs[2], breakVariable)
+	else
+		emit(("  local %s = false"):format(skipVariable))
+		emit(("  local %s = false"):format(breakVariable))
+	end
+	for _, collector in ipairs(collectors) do
+		local parentOutput = nil
+		for _, outputPort in ipairs(getOutputs(node)) do if outputPort.id == collector.id then parentOutput = outputPort end end
+		if not parentOutput then error(nodeLabel(node) .. " missing output for Graph Output " .. tostring(collector.id)) end
+		local inputPort = collector.inputs[1]
+		local sourceActive = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+		local sourceValue = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+		emit(("  if not %s and not %s then"):format(breakVariable, skipVariable))
+		emit(("    if not %s or %s == nil then"):format(sourceActive, sourceValue))
+		emit(("      __ng_node_error(%d, %s)"):format(node.id, luaString(nodeLabel(collector) .. " must produce an active, non-nil value")))
+		emit(("      error(%s)"):format(luaString(nodeLabel(collector) .. " must produce an active, non-nil value")))
+		emit("    end")
+		emit(("    %s[#%s + 1] = %s"):format(luaVar(node.id, parentOutput.id), luaVar(node.id, parentOutput.id), sourceValue))
+		emit("  end")
+	end
+	emit(("  if %s then break end"):format(breakVariable))
+	emit("end")
+	for _, outputPort in ipairs(getOutputs(node)) do emit(("%s = true"):format(luaActiveVar(node.id, outputPort.id))) end
+	emit(("__ng_node_done(%d)"):format(node.id))
+	emit("")
+end
+
+emitNode = function(node)
 	if node.kind == NG.NODE_VALUE then
 		emitValueNode(node)
 	elseif node.kind == NG.NODE_CODE then
 		emitCodeNode(node)
+	elseif node.kind == NG.NODE_FOR_EACH then
+		emitForEachNode(node)
 	elseif node.kind == NG.NODE_GOAL then
 		-- Goal nodes are emitted in the final output block.
-	elseif node.kind == NG.NODE_GROUP then
+	elseif node.kind == NG.NODE_FOR_EACH_INPUT or node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL then
+		-- For Each boundaries are emitted by their owning For Each Node.
+	elseif node.kind == NG.NODE_GROUP or node.kind == NG.NODE_GRAPH_INPUT then
 		error("Group Nodes must be flattened before compilation: " .. tostring(node.id))
 	else
 		error("unknown node kind " .. tostring(node.kind) .. " at node " .. tostring(node.id))
@@ -660,6 +881,7 @@ emit("")
 emit("function main()")
 emitProgressHelpers()
 emitValueTypeHelper()
+emitForEachHelpers()
 emit("local __ng_values = {}")
 emit("local __ng_active = {}")
 emit("local __ng_node_active = false")

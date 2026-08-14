@@ -48,6 +48,18 @@ _Avoid_: State Machine Graph, whose edges represent transitions between states r
 A Node Graph node that owns an embedded child Node Graph and exposes that child graph's Graph Inputs and Graph Outputs as its own ports.
 _Avoid_: Import Node for an inline child graph; import describes a storage action rather than the node's compositional role.
 
+**For Each Node**:
+A Node Graph node that owns an inline child Node Graph and executes it repeatedly over one or more input arrays. Each iteration can inspect the current item, current index, and complete input array; collected outputs may contain fewer items than the inputs when iterations skip or break.
+_Avoid_: Map Node, because For Each execution does not guarantee one output for every input item; Group Node, because a Group executes its child graph only once.
+
+**For Each Input**:
+A For Each child-graph boundary node representing one parent array input. It exposes fixed Item, Index, and Array outputs for the current item, its one-based index, and the complete original array.
+_Avoid_: Graph Input, which exposes one parent value inside a Group Node rather than iteration context.
+
+**Iteration Control**:
+An optional For Each child-graph boundary node with global skip and break inputs. Skip omits the current iteration from every collected output; break omits the current iteration and stops the sequence.
+_Avoid_: Graph Output, because Iteration Control governs execution rather than exposing collected data to the parent Node Graph.
+
 **Graph Input**:
 A child-graph boundary node with one output. It exposes a Group Node input to the parent Node Graph.
 _Avoid_: Value Node, because its value comes from the parent graph rather than authored literal data.
@@ -104,6 +116,16 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - A **Group Node** owns a child **Node Graph**; node identities are unique within each authoritative graph document and its embedded inline child graphs.
 - Repeated occurrences of one linked graph share authored node identity by source and node id, but each occurrence has a distinct execution identity through its Group path.
 - Each **Graph Input** becomes one input port on its owning **Group Node**, and each **Graph Output** becomes one output port.
+- A **For Each Node** uses inline child-graph storage only. Reusable or separately stored iteration behavior can place the For Each Node inside a **Group Node** using Linked Group Storage.
+- For Each Nodes and Group Nodes may nest within one another, including nested For Each Nodes.
+- For Each iterations execute sequentially in input order. Collected outputs preserve retained iteration order, and each iteration's side effects complete before the next begins. Any child-node failure aborts the graph run without returning partial outputs.
+- A **For Each Node** may reduce output cardinality through global skip or break behavior and therefore is not a Map Node. Skip omits the entire current iteration from every collected output; break stops the entire iteration sequence.
+- Each **For Each Input** becomes one required array input port on its owning **For Each Node**. Its fixed Item, Index, and Array outputs cannot be added, removed, or renamed; renaming the boundary node renames the parent input.
+- For Each inputs must be connected, active dense arrays at execution time. Scalars, objects, sparse arrays, nil values, and inactive inputs fail execution. Empty arrays are valid; when every input is empty, the body executes zero times and each collected output is an empty array.
+- **Graph Outputs** inside a For Each child graph collect iteration values into array outputs on the owning For Each Node. Every retained iteration must produce one active, non-nil value for every Graph Output; otherwise execution fails.
+- A multi-input **For Each Node** iterates to the longest input array. Current indexes are one-based. During iterations beyond a shorter input, that input exposes no current item or current index but continues to expose its complete array.
+- A For Each child graph may contain zero Graph Outputs for side-effect-only execution. A zero-output For Each Node is a graph run target, like a zero-output Code Node.
+- A For Each child graph may contain at most one **Iteration Control**. If both control inputs are true, break takes precedence over skip; absent or unconnected control inputs are false.
 - **Inline Group Storage** embeds the child graph in its parent graph document.
 - **Linked Group Storage** stores a Project-root-relative source path without an embedded child-graph cache.
 - Group Nodes linked to the same source share unsaved edits through one live working graph.
