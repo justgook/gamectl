@@ -5,9 +5,6 @@
     "x": 23,
     "y": 79,
     "name": "Director source",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -24,8 +21,6 @@
     "y": 80,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -54,8 +49,6 @@
     "y": 80,
     "name": "Director Compile",
     "codePath": "ng/presets/director-compile.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -83,9 +76,6 @@
     "x": 1234,
     "y": 59,
     "name": "Segment triggers source",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -102,8 +92,6 @@
     "y": 60,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -132,8 +120,6 @@
     "y": 162,
     "name": "Director symbols",
     "codePath": "ng/presets/from-object.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -272,8 +258,6 @@
     "y": 692,
     "name": "Answer links",
     "codePath": "ng/presets/to-array.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -315,8 +299,6 @@
     "y": 308,
     "name": "Director config",
     "codePath": "ng/presets/to-object.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -460,8 +442,6 @@
     "y": 183,
     "name": "Director slots",
     "codePath": "ng/presets/to-array.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -496,9 +476,6 @@
     "x": 2061,
     "y": 80,
     "name": "Director respack",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -525,8 +502,6 @@
     "y": 113,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -561,9 +536,6 @@
     "x": 518,
     "y": 658,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -580,8 +552,6 @@
     "y": 677,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,

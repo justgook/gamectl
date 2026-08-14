@@ -5,9 +5,6 @@
     "x": 70,
     "y": 336,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -29,8 +26,6 @@
     "y": 331,
     "name": "Aseprite Animations",
     "codePath": "ng/presets/aseprite-animation.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -69,9 +64,6 @@
     "x": 1059,
     "y": 869,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -88,8 +80,6 @@
     "y": 890,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -113,8 +103,6 @@
     "y": 294,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -137,9 +125,6 @@
     "x": 1853,
     "y": -178,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -156,8 +141,6 @@
     "y": -210,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -186,9 +169,6 @@
     "x": 2641,
     "y": -178,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -205,8 +185,6 @@
     "y": -177,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -230,8 +208,6 @@
     "y": 107,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -267,8 +243,6 @@
     "y": 189,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -303,9 +277,6 @@
     "x": 2516,
     "y": 52,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -332,8 +303,6 @@
     "y": 137,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -357,8 +326,6 @@
     "y": 357,
     "name": "Wrap Object",
     "codePath": "ng/presets/to-object.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -388,8 +355,6 @@
     "y": 120,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -431,8 +396,6 @@
     "y": 164,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -494,9 +457,6 @@
     "x": 1830,
     "y": 637,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -513,8 +473,6 @@
     "y": 632,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -538,8 +496,6 @@
     "y": 303,
     "name": "FlipY",
     "codePath": "ng/presets/image-flipy.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -562,9 +518,6 @@
     "x": -148,
     "y": 480,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -586,8 +539,6 @@
     "y": 469,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -611,8 +562,6 @@
     "y": 461,
     "name": "Aseprite Animations",
     "codePath": "ng/presets/aseprite-animation.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -652,8 +601,6 @@
     "y": 254,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -683,8 +630,6 @@
     "y": 373,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -714,8 +659,6 @@
     "y": 566,
     "name": "fromObject",
     "codePath": "ng/presets/from-object.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -739,8 +682,6 @@
     "y": 490,
     "name": "fromObject",
     "codePath": "ng/presets/from-object.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -764,8 +705,6 @@
     "y": 538,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -795,8 +734,6 @@
     "y": 594,
     "name": "Add Fields",
     "codePath": "ng/presets/add-fields.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -831,9 +768,6 @@
     "x": 889,
     "y": 637,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -850,8 +784,6 @@
     "y": 737,
     "name": "Array Length",
     "codePath": "ng/presets/array-length.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,

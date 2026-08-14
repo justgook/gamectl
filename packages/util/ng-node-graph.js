@@ -71,13 +71,16 @@ function cloneLevel(graph, globalIds, label, { allowExternalSources = false, res
   const localIds = new Set()
   const nodes = graph.map((raw) => {
     assert(raw && typeof raw === "object" && !Array.isArray(raw), `${label} node must be an object`)
-    for (const key of ["id", "kind", "x", "y", "graphId"])
+    for (const key of ["id", "kind", "x", "y"])
       assert(typeof raw[key] === "number" && Number.isFinite(raw[key]), `${label} node ${key} must be a finite number`)
-    for (const key of ["name", "codePath", "graphName"])
-      assert(typeof raw[key] === "string", `${label} node ${raw.id}.${key} must be a string`)
+    assert(typeof raw.name === "string", `${label} node ${raw.id}.name must be a string`)
     assert(raw.id > 0, `${label} node id must be positive: ${raw.id}`)
     assert(!globalIds.has(raw.id), `view-ng graph has duplicate document node id ${raw.id}`)
     assert(VALID_KINDS.has(raw.kind), `${label} node ${raw.id} has unknown kind ${raw.kind}`)
+    if (raw.kind === NG_NODE_KINDS.CODE)
+      assert(typeof raw.codePath === "string", `${label} Code Node ${raw.id}.codePath must be a string`)
+    else
+      assert(raw.codePath === undefined || raw.codePath === "", `${label} non-Code Node ${raw.id} must not have codePath`)
     assert(Array.isArray(raw.inputs), `${label} node ${raw.id}.inputs must be an array`)
     assert(Array.isArray(raw.outputs), `${label} node ${raw.id}.outputs must be an array`)
     globalIds.add(raw.id)
@@ -102,7 +105,7 @@ function cloneLevel(graph, globalIds, label, { allowExternalSources = false, res
       assert(inputs.length === 1 && outputs.length === 0, `Graph Output ${raw.id} requires exactly one input and no outputs`)
     const result = {
       id: raw.id, kind: raw.kind, x: raw.x, y: raw.y, name: raw.name,
-      codePath: raw.codePath, graphId: raw.graphId, graphName: raw.graphName,
+      ...(raw.kind === NG_NODE_KINDS.CODE ? { codePath: raw.codePath } : {}),
       inputs, outputs,
     }
     if (raw.kind === NG_NODE_KINDS.GROUP) {

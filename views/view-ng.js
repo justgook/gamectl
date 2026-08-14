@@ -66,7 +66,7 @@ function normalizePresetDraft(payload, fallbackKind = NG_NODE_KINDS.CODE) {
     return {
         kind,
         name: String(payload.name || "").trim(),
-        codePath: kind === NG_NODE_KINDS.CODE ? String(payload.codePath || "").trim() : "",
+        ...(kind === NG_NODE_KINDS.CODE ? { codePath: String(payload.codePath || "").trim() } : {}),
         childGraph: kind === NG_NODE_KINDS.GROUP ? structuredClone(payload.childGraph || []) : undefined,
         inputs: inputs.map((input, index) => ({
             inputId: Number(input.inputId || input.id || index + 1),
@@ -309,10 +309,10 @@ export class ViewNg extends ViewCanvasBase {
 
     syncControls() {
         const hasNodeSelection = this.selectedNodeIds.size > 0
-        for (const action of ["edit", "copy"]) {
-            const button = this.queryHeaderControl(`[data-action="${action}"]`)
-            if (button instanceof HTMLButtonElement) button.disabled = !hasNodeSelection
-        }
+        const editButton = this.queryHeaderControl('[data-action="edit"]')
+        if (editButton instanceof HTMLButtonElement) editButton.disabled = !hasNodeSelection && this.activeGroupPath.length === 0
+        const copyButton = this.queryHeaderControl('[data-action="copy"]')
+        if (copyButton instanceof HTMLButtonElement) copyButton.disabled = !hasNodeSelection
         const deleteButton = this.queryHeaderControl('[data-action="delete"]')
         if (deleteButton instanceof HTMLButtonElement) deleteButton.disabled = !hasNodeSelection && this.selectedEdgeId === null
         const selectedGroup = this.selectedGroup()
@@ -545,9 +545,7 @@ export class ViewNg extends ViewCanvasBase {
             : kind === NG_NODE_KINDS.GRAPH_OUTPUT || kind === NG_NODE_KINDS.GROUP ? [] : (Array.isArray(draft.outputs) ? draft.outputs : [])
         return {
             id: Number(nodeId), kind, x: Number(existing?.x ?? 0), y: Number(existing?.y ?? 0), name,
-            codePath: kind === NG_NODE_KINDS.CODE ? String(draft.codePath || "").trim() : "",
-            graphId: 0,
-            graphName: "",
+            ...(kind === NG_NODE_KINDS.CODE ? { codePath: String(draft.codePath || "").trim() } : {}),
             inputs: draftInputs.map((port, index) => {
                 const id = Number(port.inputId || port.id || index + 1)
                 const prior = existing?.inputs?.find((input) => input.id === id)
@@ -598,7 +596,41 @@ export class ViewNg extends ViewCanvasBase {
     }
 
     async add() { return this.showAddNodePopup() }
-    async edit() { return this.showEditNodePopup() }
+
+    async edit() {
+        if (this.selectedNodeIds.size === 0 && this.activeGroupPath.length > 0) return this.showRenameActiveGroupPopup()
+        return this.showEditNodePopup()
+    }
+
+    activeGroupNode() {
+        assert(this.activeGroupPath.length > 0, "view-ng must be inside a Group Node")
+        const parent = findNgGroupPath(this.rootGraph, this.activeGroupPath.slice(0, -1), { resolveLinked: this.linkedResolver() }).graph
+        const groupId = this.activeGroupPath.at(-1)
+        const group = parent.find((node) => node.id === groupId)
+        assert(group && group.kind === NG_NODE_KINDS.GROUP, `view-ng missing active Group Node ${groupId}`)
+        return group
+    }
+
+    async showRenameActiveGroupPopup() {
+        this.syncActiveGraph()
+        const group = this.activeGroupNode()
+        const payload = unwrap(await runtime.call("ui.popup.open", {
+            title: `Rename Group #${group.id}`,
+            size: "medium",
+            tag: "view-ng-node",
+            props: { mode: "edit", nodeId: group.id, kind: group.kind, nodeName: group.name },
+        }))
+        if (!payload || payload.cancelled) return false
+        assert(payload.draft && typeof payload.draft === "object", "view-ng Group rename requires a draft")
+        assert(typeof payload.draft.name === "string", "view-ng Group rename requires a name")
+        const before = this.captureSnapshot()
+        group.name = payload.draft.name.trim()
+        this.syncBreadcrumbs()
+        this.recordEdit("rename Group", before)
+        this.draw()
+        this._setStatus(`renamed Group #${group.id} to '${group.name}'`, "success")
+        return true
+    }
 
     async showEditNodePopup() {
         if (this.selectedNodeIds.size !== 1) { this._setStatus("select exactly one node to edit", "warning"); return false }
@@ -614,7 +646,7 @@ export class ViewNg extends ViewCanvasBase {
             title: `Edit node #${nodeId}`, size: "medium", tag: "view-ng-node", props: {
                 mode: "edit", nodeId, kind: node.kind, nodeName: node.name, inputCount: node.inputs.length, outputCount: node.outputs.length,
                 allowGraphBoundaryNodes: node.kind === NG_NODE_KINDS.GRAPH_INPUT || node.kind === NG_NODE_KINDS.GRAPH_OUTPUT,
-                codePath: node.codePath, code: "",
+                ...(node.kind === NG_NODE_KINDS.CODE ? { codePath: node.codePath, code: "" } : {}),
                 valueText: node.kind === NG_NODE_KINDS.VALUE ? node.outputs[0]?.value || "" : "",
                 inputLabels: node.inputs.map((input, index) => input.name || `input ${index + 1}`),
                 outputLabels: node.outputs.map((output, index) => node.kind === NG_NODE_KINDS.VALUE ? output.value : output.name || `output ${index + 1}`),
@@ -1139,7 +1171,7 @@ export class ViewNg extends ViewCanvasBase {
         const raw = this.activeGraph()
         const group = {
             id: this.nextNodeId(), kind: NG_NODE_KINDS.GROUP, x: Math.round(center.x), y: Math.round(center.y),
-            name: path.split("/").pop().replace(/\.ng\.json$/i, "").replace(/\.json$/i, ""), codePath: "", graphId: 0, graphName: "",
+            name: path.split("/").pop().replace(/\.ng\.json$/i, "").replace(/\.json$/i, ""),
             inputs: [], outputs: [], storage: { mode: "linked", path },
         }
         syncNgGroupBoundary(group, raw, { resolveLinked: this.linkedResolver() })

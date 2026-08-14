@@ -6,8 +6,6 @@
     "y": 57,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -30,9 +28,6 @@
     "x": 80,
     "y": 58,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -49,8 +44,6 @@
     "y": 45,
     "name": "BulletML Slots JSON",
     "codePath": "ng/presets/bulletml-slots-json.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -79,8 +72,6 @@
     "y": 59,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -115,9 +106,6 @@
     "x": 497,
     "y": 188,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -144,8 +132,6 @@
     "y": 226,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,

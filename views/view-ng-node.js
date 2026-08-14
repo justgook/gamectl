@@ -71,10 +71,12 @@ function createNodeDraft(kind = NG.NODE_CODE) {
         kind,
         templateName: "",
         name: "",
-        codePath: "",
-        code: "",
-        codeReadOnly: kind === NG.NODE_CODE,
-        codeStatus: kind === NG.NODE_CODE ? "Choose a code file to edit." : "",
+        ...(kind === NG.NODE_CODE ? {
+            codePath: "",
+            code: "",
+            codeReadOnly: true,
+            codeStatus: "Choose a code file to edit.",
+        } : {}),
         newInputName: "",
         newOutputName: "",
         newOutputValue: "",
@@ -91,16 +93,16 @@ function normalizeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
             : fallbackKind
     const normalized = createNodeDraft(kind)
     normalized.name = String(payload?.name || "").trim()
-    normalized.codePath = String(payload?.codePath || "").trim()
-    normalized.code = String(payload?.code || "")
-    normalized.codeReadOnly = kind === NG.NODE_CODE && (!normalized.codePath || Boolean(normalized.code))
-    normalized.codeStatus = normalized.codePath
-        ? ""
-        : normalized.code
-          ? "Legacy inline code detected. Choose a file path and edit it in view-code."
-          : kind === NG.NODE_CODE
-            ? "Choose a code file to edit."
-            : ""
+    if (kind === NG.NODE_CODE) {
+        normalized.codePath = String(payload?.codePath || "").trim()
+        normalized.code = String(payload?.code || "")
+        normalized.codeReadOnly = !normalized.codePath || Boolean(normalized.code)
+        normalized.codeStatus = normalized.codePath
+            ? ""
+            : normalized.code
+              ? "Legacy inline code detected. Choose a file path and edit it in view-code."
+              : "Choose a code file to edit."
+    }
 
     const inputList = Array.isArray(payload?.inputs) ? payload.inputs : []
     const outputList = Array.isArray(payload?.outputs) ? payload.outputs : []
@@ -156,13 +158,15 @@ export class ViewNgNode extends HTMLElement {
                     value: kind === NG.NODE_VALUE ? String(value || "") : "",
                 }),
             )
-            draft.codePath = String(this.popupProps?.codePath || "").trim()
-            draft.code = String(this.popupProps?.code || "")
-            draft.codeReadOnly = Boolean(this.popupProps?.codeReadOnly ?? (kind === NG.NODE_CODE && !draft.codePath))
-            draft.codeStatus = String(
-                this.popupProps?.codeStatus ||
-                    (kind === NG.NODE_CODE && !draft.codePath ? "Choose a code file to edit." : ""),
-            )
+            if (kind === NG.NODE_CODE) {
+                draft.codePath = String(this.popupProps?.codePath || "").trim()
+                draft.code = String(this.popupProps?.code || "")
+                draft.codeReadOnly = Boolean(this.popupProps?.codeReadOnly ?? !draft.codePath)
+                draft.codeStatus = String(
+                    this.popupProps?.codeStatus ||
+                        (!draft.codePath ? "Choose a code file to edit." : ""),
+                )
+            }
             return draft
         }
         return createNodeDraft(NG.NODE_CODE)
@@ -224,6 +228,12 @@ export class ViewNgNode extends HTMLElement {
     }
 
     ensureDraftShape() {
+        if (this.draft.kind !== NG.NODE_CODE) {
+            delete this.draft.codePath
+            delete this.draft.code
+            delete this.draft.codeReadOnly
+            delete this.draft.codeStatus
+        }
         if (this.draft.kind === NG.NODE_GROUP) {
             this.draft.inputs = []
             this.draft.outputs = []
@@ -510,7 +520,7 @@ export class ViewNgNode extends HTMLElement {
     captureDraftFromForm() {
         const formData = new FormData(this.formElement)
         this.draft.name = String(formData.get("name") || "").trim()
-        this.draft.codePath = String(formData.get("code-path") || "").trim()
+        if (this.draft.kind === NG.NODE_CODE) this.draft.codePath = String(formData.get("code-path") || "").trim()
         this.draft.newInputName = String(formData.get("new-input-name") || "")
         this.draft.newOutputName = String(formData.get("new-output-name") || "")
         this.draft.newOutputValue = String(formData.get("new-output-value") || "")
@@ -656,10 +666,17 @@ export class ViewNgNode extends HTMLElement {
         this.draft.kind = payload.kind
         this.draft.templateName = String(templateEntry?.name || "").trim()
         this.draft.name = payload.name
-        this.draft.codePath = payload.codePath
-        this.draft.code = payload.code
-        this.draft.codeReadOnly = payload.codeReadOnly
-        this.draft.codeStatus = payload.codeStatus
+        if (payload.kind === NG.NODE_CODE) {
+            this.draft.codePath = payload.codePath
+            this.draft.code = payload.code
+            this.draft.codeReadOnly = payload.codeReadOnly
+            this.draft.codeStatus = payload.codeStatus
+        } else {
+            delete this.draft.codePath
+            delete this.draft.code
+            delete this.draft.codeReadOnly
+            delete this.draft.codeStatus
+        }
         this.draft.newInputName = ""
         this.draft.newOutputName = ""
         this.draft.newOutputValue = ""
@@ -791,8 +808,10 @@ export class ViewNgNode extends HTMLElement {
                     draft: {
                         kind: Number(this.draft.kind || NG.NODE_CODE),
                         name: String(this.draft.name || "").trim(),
-                        codePath: String(this.draft.codePath || "").trim(),
-                        code: String(this.draft.code || ""),
+                        ...(this.draft.kind === NG.NODE_CODE ? {
+                            codePath: String(this.draft.codePath || "").trim(),
+                            code: String(this.draft.code || ""),
+                        } : {}),
                         childGraph: this.draft.kind === NG.NODE_GROUP ? structuredClone(this.draft.childGraph || []) : undefined,
                         inputs: this.draft.inputs.map((port, index) => ({
                             inputId: Number(port.inputId || index + 1),
@@ -819,8 +838,10 @@ export class ViewNgNode extends HTMLElement {
                     kind: Number(this.draft.kind || NG.NODE_CODE),
                     templateName: String(this.draft.templateName || ""),
                     name: String(this.draft.name || "").trim(),
-                    codePath: String(this.draft.codePath || "").trim(),
-                    code: String(this.draft.code || ""),
+                    ...(this.draft.kind === NG.NODE_CODE ? {
+                        codePath: String(this.draft.codePath || "").trim(),
+                        code: String(this.draft.code || ""),
+                    } : {}),
                     childGraph: this.draft.kind === NG.NODE_GROUP ? structuredClone(this.draft.childGraph || []) : undefined,
                     inputs: this.draft.inputs.map((port, index) => ({
                         inputId: Number(port.inputId || index + 1),

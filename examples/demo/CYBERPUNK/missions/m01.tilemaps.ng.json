@@ -5,9 +5,6 @@
     "x": 692,
     "y": 482,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -24,8 +21,6 @@
     "y": 483,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -54,8 +49,6 @@
     "y": 535,
     "name": "Tilemap Markov Apply",
     "codePath": "ng/presets/tilemap-markov-apply.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -112,9 +105,6 @@
     "x": 921,
     "y": 631,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -146,8 +136,6 @@
     "y": 563,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -170,9 +158,6 @@
     "x": 2010,
     "y": 489,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -189,8 +174,6 @@
     "y": 651,
     "name": "Copy Prop",
     "codePath": "ng/presets/copy-prop.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -231,9 +214,6 @@
     "x": 1282,
     "y": 715,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -255,8 +235,6 @@
     "y": 675,
     "name": "Reduce Tile index",
     "codePath": "ng/presets/tilemap-subtract.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -285,9 +263,6 @@
     "x": 1728,
     "y": 760,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -304,8 +279,6 @@
     "y": 472,
     "name": "Flatten Tilemap",
     "codePath": "ng/presets/tilemap-flatten.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -345,9 +318,6 @@
     "x": 1225,
     "y": 359,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -364,8 +334,6 @@
     "y": 374,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -388,9 +356,6 @@
     "x": 994,
     "y": 562,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {

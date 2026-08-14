@@ -5,9 +5,6 @@
     "x": -1247,
     "y": -1430,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -29,8 +26,6 @@
     "y": -1399,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -59,8 +54,6 @@
     "y": -1315,
     "name": "Objects to Component Storage",
     "codePath": "ng/presets/objects-to-component-storage.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -89,9 +82,6 @@
     "x": -939,
     "y": -1318,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -108,8 +98,6 @@
     "y": -1312,
     "name": "fromObject",
     "codePath": "ng/presets/from-object.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -138,8 +126,6 @@
     "y": -1361,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -168,8 +154,6 @@
     "y": -788,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -198,9 +182,6 @@
     "x": 1816,
     "y": -756,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [],
     "outputs": [
       {
@@ -217,8 +198,6 @@
     "y": -1338,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -281,8 +260,6 @@
     "y": -1334,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -306,8 +283,6 @@
     "y": -1166,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -349,8 +324,6 @@
     "y": -1304,
     "name": "fromArray",
     "codePath": "ng/presets/from-array.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -384,8 +357,6 @@
     "y": -1201,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 1,
@@ -419,10 +390,7 @@
     "kind": 3,
     "x": 450,
     "y": -1293,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
+    "name": "background",
     "inputs": [
       {
         "id": 17,
@@ -449,9 +417,6 @@
     "x": 464,
     "y": -1204,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 17,
@@ -478,9 +443,6 @@
     "x": 462,
     "y": -1108,
     "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
     "inputs": [
       {
         "id": 17,

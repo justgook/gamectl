@@ -21,11 +21,11 @@ import {
 function rawGraph() {
   return [
     {
-      id: 1, kind: 4, x: 10, y: 20, name: "Value", codePath: "", graphId: 0, graphName: "",
+      id: 1, kind: 4, x: 10, y: 20, name: "Value",
       inputs: [], outputs: [{ id: 1, name: "", value: "hello" }],
     },
     {
-      id: 2, kind: 2, x: 200, y: 20, name: "Code", codePath: "code.lua", graphId: 0, graphName: "",
+      id: 2, kind: 2, x: 200, y: 20, name: "Code", codePath: "code.lua",
       inputs: [{ id: 1, name: "value", srcNodeId: 1, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }],
     },
   ]
@@ -57,19 +57,28 @@ test("NG projection preserves legacy references to undeclared output ids", () =>
 test("NG cloning retains the persisted schema only", () => {
   const raw = rawGraph()
   raw[0].unknown = true
+  raw[0].codePath = ""
+  raw[0].graphId = 42
+  raw[0].graphName = "obsolete call target"
   raw[0].outputs[0].unknown = true
   assert.deepEqual(serializeNgNodeGraph(createNgNodeGraph(raw)), rawGraph())
+})
+
+test("only Code Nodes may persist codePath", () => {
+  const raw = rawGraph()
+  raw[0].codePath = "not-code.lua"
+  assert.throws(() => cloneNgGraph(raw), /non-Code Node 1 must not have codePath/)
 })
 
 function groupedGraph() {
   const graph = rawGraph()
   graph[1].inputs[0] = { id: 1, name: "value", srcNodeId: 10, srcOutputId: 22 }
   graph.unshift({
-    id: 10, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Transform", codePath: "", graphId: 0, graphName: "",
+    id: 10, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Transform",
     inputs: [], outputs: [], childGraph: [
-      { id: 20, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
-      { id: 21, kind: NG_NODE_KINDS.CODE, x: 200, y: 0, name: "Inner", codePath: "inner.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "source", srcNodeId: 20, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
-      { id: 22, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 400, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 21, srcOutputId: 1 }], outputs: [] },
+      { id: 20, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+      { id: 21, kind: NG_NODE_KINDS.CODE, x: 200, y: 0, name: "Inner", codePath: "inner.lua", inputs: [{ id: 1, name: "source", srcNodeId: 20, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
+      { id: 22, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 400, y: 0, name: "result", inputs: [{ id: 1, name: "result", srcNodeId: 21, srcOutputId: 1 }], outputs: [] },
     ],
   })
   graph[0].inputs = [{ id: 20, name: "source", srcNodeId: 1, srcOutputId: 1 }]
@@ -106,13 +115,13 @@ test("nested Group Node boundaries flatten through every level", () => {
   inner.inputs[0].srcNodeId = 31
   inner.inputs[0].srcOutputId = 1
   const outer = {
-    id: 30, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Outer", codePath: "", graphId: 0, graphName: "",
+    id: 30, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Outer",
     inputs: [{ id: 31, name: "source", srcNodeId: 1, srcOutputId: 1 }],
     outputs: [{ id: 32, name: "result", value: null }],
     childGraph: [
-      { id: 31, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+      { id: 31, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
       inner,
-      { id: 32, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 400, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 10, srcOutputId: 22 }], outputs: [] },
+      { id: 32, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 400, y: 0, name: "result", inputs: [{ id: 1, name: "result", srcNodeId: 10, srcOutputId: 22 }], outputs: [] },
     ],
   }
   base[2].inputs[0].srcNodeId = 30
@@ -141,7 +150,7 @@ test("copying Group Nodes remaps every nested identity and boundary port", () =>
 
 function linkedGroup(id, path, srcNodeId = 0) {
   return {
-    id, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Linked", codePath: "", graphId: 0, graphName: "",
+    id, kind: NG_NODE_KINDS.GROUP, x: 100, y: 100, name: "Linked",
     storage: { mode: "linked", path },
     inputs: [{ id: 100, name: "source", srcNodeId, srcOutputId: srcNodeId ? 1 : 0 }],
     outputs: [{ id: 102, name: "result", value: null }],
@@ -150,9 +159,9 @@ function linkedGroup(id, path, srcNodeId = 0) {
 
 function linkedDocument() {
   return serializeNgGroupGraphDocument([
-    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
-    { id: 101, kind: NG_NODE_KINDS.CODE, x: 100, y: 0, name: "Linked code", codePath: "linked.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "source", srcNodeId: 100, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
-    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 200, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 101, srcOutputId: 1 }], outputs: [] },
+    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+    { id: 101, kind: NG_NODE_KINDS.CODE, x: 100, y: 0, name: "Linked code", codePath: "linked.lua", inputs: [{ id: 1, name: "source", srcNodeId: 100, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
+    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 200, y: 0, name: "result", inputs: [{ id: 1, name: "result", srcNodeId: 101, srcOutputId: 1 }], outputs: [] },
   ])
 }
 
@@ -206,17 +215,17 @@ test("flattening synchronizes stale linked Group boundary snapshots", () => {
 
 test("flattening synchronizes nested linked Group boundary snapshots", () => {
   const b = serializeNgGroupGraphDocument([
-    { id: 200, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
-    { id: 201, kind: NG_NODE_KINDS.CODE, x: 100, y: 0, name: "Nested", codePath: "nested.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "source", srcNodeId: 200, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
-    { id: 202, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 200, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 201, srcOutputId: 1 }], outputs: [] },
+    { id: 200, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+    { id: 201, kind: NG_NODE_KINDS.CODE, x: 100, y: 0, name: "Nested", codePath: "nested.lua", inputs: [{ id: 1, name: "source", srcNodeId: 200, srcOutputId: 1 }], outputs: [{ id: 1, name: "result", value: null }] },
+    { id: 202, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 200, y: 0, name: "result", inputs: [{ id: 1, name: "result", srcNodeId: 201, srcOutputId: 1 }], outputs: [] },
   ])
   const nested = linkedGroup(110, "b.ng")
   nested.inputs = [{ id: 200, name: "stale", srcNodeId: 100, srcOutputId: 1 }]
   nested.outputs = []
   const a = serializeNgGroupGraphDocument([
-    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", codePath: "", graphId: 0, graphName: "", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
+    { id: 100, kind: NG_NODE_KINDS.GRAPH_INPUT, x: 0, y: 0, name: "source", inputs: [], outputs: [{ id: 1, name: "source", value: null }] },
     nested,
-    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 300, y: 0, name: "result", codePath: "", graphId: 0, graphName: "", inputs: [{ id: 1, name: "result", srcNodeId: 110, srcOutputId: 202 }], outputs: [] },
+    { id: 102, kind: NG_NODE_KINDS.GRAPH_OUTPUT, x: 300, y: 0, name: "result", inputs: [{ id: 1, name: "result", srcNodeId: 110, srcOutputId: 202 }], outputs: [] },
   ])
   const documents = new Map([["a.ng", a], ["b.ng", b]])
   const rootGroup = linkedGroup(10, "a.ng", 1)
@@ -228,8 +237,8 @@ test("repeated linked sources flatten as independent execution occurrences", () 
   const graph = rawGraph().slice(0, 1)
   graph.push(linkedGroup(10, "graphs/transform.json", 1))
   graph.push(linkedGroup(11, "graphs/transform.json", 1))
-  graph.push({ id: 12, kind: NG_NODE_KINDS.CODE, x: 300, y: 0, name: "First", codePath: "first.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "value", srcNodeId: 10, srcOutputId: 102 }], outputs: [{ id: 1, name: "result", value: null }] })
-  graph.push({ id: 13, kind: NG_NODE_KINDS.CODE, x: 300, y: 100, name: "Second", codePath: "second.lua", graphId: 0, graphName: "", inputs: [{ id: 1, name: "value", srcNodeId: 11, srcOutputId: 102 }], outputs: [{ id: 1, name: "result", value: null }] })
+  graph.push({ id: 12, kind: NG_NODE_KINDS.CODE, x: 300, y: 0, name: "First", codePath: "first.lua", inputs: [{ id: 1, name: "value", srcNodeId: 10, srcOutputId: 102 }], outputs: [{ id: 1, name: "result", value: null }] })
+  graph.push({ id: 13, kind: NG_NODE_KINDS.CODE, x: 300, y: 100, name: "Second", codePath: "second.lua", inputs: [{ id: 1, name: "value", srcNodeId: 11, srcOutputId: 102 }], outputs: [{ id: 1, name: "result", value: null }] })
 
   const { nodes, locations } = flattenNgGraphWithLocations(graph, { resolveLinked: () => linkedDocument() })
   const occurrences = nodes.filter((node) => node.codePath === "linked.lua")

@@ -23,6 +23,12 @@ test("editing a Group Node navigates into its child graph", () => {
   assert.match(source, /if \(node\.kind === NG_NODE_KINDS\.GROUP\) \{\s*this\.navigateToGroupPath\(\[\.\.\.this\.activeGroupPath, node\.id\]\)/)
 })
 
+test("editing with no node selected inside a Group renames the active Group", () => {
+  assert.match(source, /if \(this\.selectedNodeIds\.size === 0 && this\.activeGroupPath\.length > 0\) return this\.showRenameActiveGroupPopup\(\)/)
+  assert.match(source, /async showRenameActiveGroupPopup\(\)[\s\S]*?group\.name = payload\.draft\.name\.trim\(\)[\s\S]*?this\.syncBreadcrumbs\(\)[\s\S]*?this\.recordEdit\("rename Group", before\)/)
+  assert.match(source, /editButton\.disabled = !hasNodeSelection && this\.activeGroupPath\.length === 0/)
+})
+
 test("Graph Input and Graph Output node types are offered only inside groups", () => {
   assert.match(nodeEditorSource, /this\.popupProps\.allowGraphBoundaryNodes \? `<option value="input"[\s\S]*?<option value="output"/)
   assert.match(source, /allowGraphBoundaryNodes: this\.activeGroupPath\.length > 0/)
