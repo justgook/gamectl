@@ -41,6 +41,13 @@ test("new composite presets receive fresh child identities", () => {
   assert.match(source, /existing\?\.childGraph \|\| freshChildGraph/)
 })
 
+test("linked Group presets preserve storage and hydrate their authoritative document", () => {
+  assert.match(nodeEditorSource, /this\.draft\.storage = payload\.kind === NG\.NODE_GROUP \? structuredClone\(payload\.storage\) : undefined/)
+  assert.match(source, /await this\.loadLinkedGraphFS\(path, \[\], hydrated\)/)
+  assert.match(source, /this\.assertLinkAllowedInActiveDocument\(path\)/)
+  assert.match(source, /syncNgGroupBoundary\(node, raw, \{ resolveLinked: this\.linkedResolver\(\) \}\)/)
+})
+
 test("view-ng exposes Import, Export, and Make Inline Group actions", () => {
   assert.match(source, /data-action="import-group"/)
   assert.match(source, /data-action="export-group"/)

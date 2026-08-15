@@ -1,6 +1,6 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
-import { createWriteInput } from "/util/fs.js"
+import { planCreateEntry } from "/util/files-create-path.js"
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -35,12 +35,12 @@ function getParentPath(path) {
 }
 
 async function callFs(method, ...input) {
-  return unwrap(await runtime.invoke(`fs/fs::${method}`, input))
+  return unwrap(await runtime.invoke(`fs/fs::${method}`, ...input))
 }
 
 async function pathExists(path) {
   try {
-    await callFs("stats", path)
+    await callFs("stat", path)
   } catch (e) {
     return false
   }
@@ -186,7 +186,7 @@ export class FileRename extends HTMLElement {
     if (tone) this.statusOutput.classList.add(tone)
   }
 
-  validateName(name) {
+  validateRenameName(name) {
     if (!name) {
       throw new Error(
         `${this.kind === "directory" ? "Folder" : "File"} name is required`,
@@ -204,10 +204,10 @@ export class FileRename extends HTMLElement {
     const name = this.nameInput.value.trim()
 
     try {
-      this.validateName(name)
       this.nameInput.classList.remove("danger")
 
       if (this.mode === "rename") {
+        this.validateRenameName(name)
         await this.rename(name)
         return
       }
@@ -222,19 +222,34 @@ export class FileRename extends HTMLElement {
   }
 
   async create(name) {
-    const targetPath = this.getTargetPath(name)
+    const plan = planCreateEntry(name, this.kind)
+    const targetPath = this.getTargetPath(plan.relativePath)
     if (await pathExists(targetPath)) {
       throw new Error(`Path already exists: ${targetPath}`)
     }
 
     this.setStatus(
-      this.kind === "directory" ? "Creating folder..." : "Creating file...",
+      plan.kind === "directory" ? "Creating folder..." : "Creating file...",
       "info",
     )
 
-    if (this.kind === "directory") {
-      await callFs("create-dir", targetPath)
-    } else {
+    const revealPaths = []
+    let directoryPath = this.getLocationPath()
+    for (const segment of plan.directorySegments) {
+      directoryPath = joinPath(directoryPath, segment)
+      revealPaths.push(directoryPath)
+
+      if (await pathExists(directoryPath)) {
+        const stat = await callFs("stat", directoryPath)
+        if (stat.type !== "directory") {
+          throw new Error(`Parent path is not a folder: ${directoryPath}`)
+        }
+      } else {
+        await callFs("create-dir", directoryPath)
+      }
+    }
+
+    if (plan.kind === "regular-file") {
       await callFs("write-file", targetPath, [])
     }
 
@@ -242,9 +257,10 @@ export class FileRename extends HTMLElement {
       await runtime.call("ui.popup.close", {
         reload: true,
         mode: this.mode,
-        kind: this.kind,
+        kind: plan.kind,
         selectedPath: targetPath,
-        revealPath: this.getLocationPath(),
+        revealPath: revealPaths.at(-1) || this.getLocationPath(),
+        revealPaths,
       }),
     )
   }

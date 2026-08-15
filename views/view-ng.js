@@ -19,6 +19,7 @@ import {
     syncNgForEachBoundary,
     syncNgGroupBoundary,
 } from "/util/ng-node-graph.js"
+import { normalizeNgPresetDraft, ngPresetKind } from "/util/ng-node-preset.js"
 import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
 import "/widgets/breadcrumbs.js"
@@ -42,49 +43,6 @@ function canvasBackgroundColor(value) {
     assert(Array.isArray(value) && value.length === 4, "view-ng background must contain four numbers")
     value.forEach((channel, index) => assert(typeof channel === "number" && Number.isFinite(channel), `view-ng background[${index}] must be finite`))
     return `rgba(${Math.round(value[0] * 255)}, ${Math.round(value[1] * 255)}, ${Math.round(value[2] * 255)}, ${value[3]})`
-}
-
-function kindFromFormValue(value, fallback) {
-    if (value === "value") return NG_NODE_KINDS.VALUE
-    if (value === "goal") return NG_NODE_KINDS.GOAL
-    if (value === "group" || value === "import") return NG_NODE_KINDS.GROUP
-    if (value === "input") return NG_NODE_KINDS.GRAPH_INPUT
-    if (value === "output") return NG_NODE_KINDS.GRAPH_OUTPUT
-    if (value === "for-each") return NG_NODE_KINDS.FOR_EACH
-    if (value === "for-each-input") return NG_NODE_KINDS.FOR_EACH_INPUT
-    if (value === "iteration-control") return NG_NODE_KINDS.ITERATION_CONTROL
-    if (value === "code") return NG_NODE_KINDS.CODE
-    return fallback
-}
-
-function kindFromConfigValue(value, fallback) {
-    if (typeof value === "string") return kindFromFormValue(value.trim().toLowerCase(), fallback)
-    const kind = Number(value || fallback)
-    if (Object.values(NG_NODE_KINDS).includes(kind)) return kind
-    return fallback
-}
-
-function normalizePresetDraft(payload, fallbackKind = NG_NODE_KINDS.CODE) {
-    assert(payload && typeof payload === "object", "view-ng preset must be an object")
-    const kind = kindFromConfigValue(payload.kind, fallbackKind)
-    const inputs = Array.isArray(payload.inputs) ? payload.inputs : []
-    const outputs = Array.isArray(payload.outputs) ? payload.outputs : []
-    return {
-        kind,
-        name: String(payload.name || "").trim(),
-        ...(kind === NG_NODE_KINDS.CODE ? { codePath: String(payload.codePath || "").trim() } : {}),
-        childGraph: kind === NG_NODE_KINDS.GROUP || kind === NG_NODE_KINDS.FOR_EACH ? structuredClone(payload.childGraph || []) : undefined,
-        inputs: inputs.map((input, index) => ({
-            inputId: Number(input.inputId || input.id || index + 1),
-            name: String(input.name || "").trim(),
-            value: String(input.defaultValue || input.value || ""),
-        })),
-        outputs: outputs.map((output, index) => ({
-            outputId: Number(output.outputId || output.id || index + 1),
-            name: kind === NG_NODE_KINDS.VALUE ? "" : String(output.name || "").trim(),
-            value: String(output.value || ""),
-        })),
-    }
 }
 
 export class ViewNg extends ViewCanvasBase {
@@ -584,10 +542,13 @@ export class ViewNg extends ViewCanvasBase {
                 const prior = existing?.outputs?.find((output) => output.id === id)
                 return { id, name: kind === NG_NODE_KINDS.VALUE ? "" : String(port.name || prior?.name || "").trim(), value: port.value === null ? null : String(port.value ?? prior?.value ?? "") || null }
             }),
-            ...(kind === NG_NODE_KINDS.GROUP ? {
-                storage: structuredClone(existing?.storage || { mode: "inline" }),
-                ...(this.groupStorageMode(existing || {}) === "inline" ? { childGraph: structuredClone(existing?.childGraph || freshChildGraph(draft.childGraph || [])) } : {}),
-            } : {}),
+            ...(kind === NG_NODE_KINDS.GROUP ? (() => {
+                const storage = structuredClone(draft.storage || existing?.storage || { mode: "inline" })
+                return {
+                    storage,
+                    ...(storage.mode === "inline" ? { childGraph: structuredClone(existing?.childGraph || freshChildGraph(draft.childGraph || [])) } : {}),
+                }
+            })() : {}),
             ...(kind === NG_NODE_KINDS.FOR_EACH ? { childGraph: forEachChild } : {}),
         }
         if (kind === NG_NODE_KINDS.FOR_EACH) syncNgForEachBoundary(result)
@@ -613,24 +574,8 @@ export class ViewNg extends ViewCanvasBase {
             },
         }))
         if (!payload || payload.cancelled) return false
-        const before = this.captureSnapshot()
-        const center = this.viewportCenterWorld()
-        const raw = this.activeGraph()
-        const node = this._nodeFromDraft(this.nextNodeId(), payload.draft || {}, { x: center.x, y: center.y })
-        if (node.kind === NG_NODE_KINDS.ITERATION_CONTROL && raw.some((candidate) => candidate.kind === NG_NODE_KINDS.ITERATION_CONTROL)) {
-            this._setStatus("For Each allows only one Iteration Control", "warning")
-            return false
-        }
-        raw.push(node)
-        this.replaceActiveGraph(raw, { autoFit: false })
-        const projected = this.graphModel.node(node.id)
-        const size = this.renderer.nodeSize(projected)
-        projected.x = Math.round(center.x - size.width / 2)
-        projected.y = Math.round(center.y - size.height / 2)
-        this.setNodeSelection([node.id], node.id)
-        this.recordEdit("add node", before)
-        this.contentBounds = this.calculateContentBounds(this.graph)
-        this.draw()
+        const node = await this.createNodeFromDraftAt(payload.draft || {}, this.viewportCenterWorld(), { centerNode: true })
+        if (!node) return false
         this._setStatus(`added node #${node.id}`, "success")
         return true
     }
@@ -762,7 +707,7 @@ export class ViewNg extends ViewCanvasBase {
         return presets.map((entry) => {
             const name = String(entry?.name || "").trim()
             if (!name) return null
-            const kind = kindFromConfigValue(entry.kind, NG_NODE_KINDS.CODE)
+            const kind = ngPresetKind(entry.kind, NG_NODE_KINDS.CODE)
             const ownerKind = this.activeGroupPath.length ? this.activeGroupNode().kind : 0
             if (kind === NG_NODE_KINDS.GRAPH_INPUT && ownerKind !== NG_NODE_KINDS.GROUP) return null
             if (kind === NG_NODE_KINDS.GRAPH_OUTPUT && ![NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind)) return null
@@ -793,11 +738,11 @@ export class ViewNg extends ViewCanvasBase {
             if (!groups.has(entry.group)) groups.set(entry.group, [])
             groups.get(entry.group).push(entry)
         }
-        return [{ label: "Base", items: base.map((entry) => ({ label: entry.label, keywords: [entry.label], value: { draft: normalizePresetDraft(entry) } })) },
-            ...[...groups.entries()].map(([group, entries]) => ({ label: group, items: entries.map((entry) => ({ label: entry.name, keywords: [entry.name, group], value: { draft: normalizePresetDraft(entry.data, entry.kind) } })) }))]
+        return [{ label: "Base", items: base.map((entry) => ({ label: entry.label, keywords: [entry.label], value: { draft: normalizeNgPresetDraft(entry) } })) },
+            ...[...groups.entries()].map(([group, entries]) => ({ label: group, items: entries.map((entry) => ({ label: entry.name, keywords: [entry.name, group], value: { draft: normalizeNgPresetDraft(entry.data, entry.kind) } })) }))]
     }
 
-    async createNodeFromDraftAt(draft, worldPoint) {
+    async createNodeFromDraftAt(draft, worldPoint, { centerNode = false } = {}) {
         const before = this.captureSnapshot()
         const raw = this.activeGraph()
         const node = this._nodeFromDraft(this.nextNodeId(), draft, { x: Math.round(worldPoint.x), y: Math.round(worldPoint.y) })
@@ -805,12 +750,35 @@ export class ViewNg extends ViewCanvasBase {
             this._setStatus("For Each allows only one Iteration Control", "warning")
             return false
         }
-        raw.push(node)
-        this.replaceActiveGraph(raw, { autoFit: false })
-        this.setNodeSelection([node.id], node.id)
-        this.recordEdit("add node", before)
-        this.draw()
-        this._setStatus(`added ${node.name || "node"} #${node.id}`, "success")
+        const previousLinkedGraphs = this.linkedGraphs
+        try {
+            if (node.kind === NG_NODE_KINDS.GROUP && this.groupStorageMode(node) === "linked") {
+                const path = normalizeNgGroupPath(node.storage.path)
+                const hydrated = new Map(previousLinkedGraphs)
+                await this.loadLinkedGraphFS(path, [], hydrated)
+                this.linkedGraphs = hydrated
+                this.assertLinkAllowedInActiveDocument(path)
+                syncNgGroupBoundary(node, raw, { resolveLinked: this.linkedResolver() })
+            }
+            raw.push(node)
+            this.replaceActiveGraph(raw, { autoFit: false })
+            if (centerNode) {
+                const projected = this.graphModel.node(node.id)
+                const size = this.renderer.nodeSize(projected)
+                projected.x = Math.round(worldPoint.x - size.width / 2)
+                projected.y = Math.round(worldPoint.y - size.height / 2)
+            }
+            this.setNodeSelection([node.id], node.id)
+            this.recordEdit("add node", before)
+            this.contentBounds = this.calculateContentBounds(this.graph)
+            this.draw()
+            if (!centerNode) this._setStatus(`added ${node.name || "node"} #${node.id}`, "success")
+            return node
+        } catch (error) {
+            this.linkedGraphs = previousLinkedGraphs
+            this.restoreSnapshot(before)
+            throw error
+        }
     }
 
     clipboardPayload() {

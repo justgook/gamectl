@@ -150,8 +150,8 @@
   {
     "id": 48,
     "kind": 2,
-    "x": 2051,
-    "y": -788,
+    "x": 1562,
+    "y": -822,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -179,8 +179,8 @@
   {
     "id": 49,
     "kind": 4,
-    "x": 1816,
-    "y": -756,
+    "x": 1327,
+    "y": -790,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -194,8 +194,8 @@
   {
     "id": 74,
     "kind": 2,
-    "x": 1270,
-    "y": -1338,
+    "x": 781,
+    "y": -1372,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "inputs": [
@@ -256,16 +256,16 @@
   {
     "id": 75,
     "kind": 2,
-    "x": 1029,
-    "y": -1334,
+    "x": 540,
+    "y": -1368,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "inputs": [
       {
         "id": 1,
         "name": "images",
-        "srcNodeId": 100,
-        "srcOutputId": 1
+        "srcNodeId": 139,
+        "srcOutputId": 142
       }
     ],
     "outputs": [
@@ -279,8 +279,8 @@
   {
     "id": 76,
     "kind": 2,
-    "x": 1532,
-    "y": -1166,
+    "x": 1043,
+    "y": -1200,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
     "inputs": [
@@ -293,8 +293,8 @@
       {
         "id": 2,
         "name": "images",
-        "srcNodeId": 100,
-        "srcOutputId": 1
+        "srcNodeId": 139,
+        "srcOutputId": 142
       },
       {
         "id": 3,
@@ -318,149 +318,94 @@
     ]
   },
   {
-    "id": 79,
-    "kind": 2,
-    "x": 127,
-    "y": -1304,
-    "name": "fromArray",
-    "codePath": "ng/presets/from-array.lua",
+    "id": 139,
+    "kind": 7,
+    "x": 197,
+    "y": -1332,
+    "name": "Apply All Maps",
     "inputs": [
       {
-        "id": 1,
-        "name": "array",
+        "id": 140,
+        "name": "items",
         "srcNodeId": 36,
         "srcOutputId": 1
       }
     ],
     "outputs": [
       {
-        "id": 1,
+        "id": 142,
+        "name": "output",
+        "value": null
+      }
+    ],
+    "childGraph": [
+      {
+        "id": 140,
+        "kind": 8,
+        "x": 0,
+        "y": 0,
+        "name": "items",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Item",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "Index",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "Array",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 141,
+        "kind": 3,
+        "x": 285,
+        "y": 17,
         "name": "background",
-        "value": null
+        "inputs": [
+          {
+            "id": 17,
+            "name": "tilemap",
+            "srcNodeId": 140,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 18,
+            "name": "images",
+            "value": null
+          }
+        ],
+        "storage": {
+          "mode": "linked",
+          "path": "CYBERPUNK/missions/m01.group.ng.json"
+        }
       },
       {
-        "id": 2,
-        "name": "walls",
-        "value": null
-      },
-      {
-        "id": 3,
-        "name": "collision",
-        "value": null
+        "id": 142,
+        "kind": 6,
+        "x": 524,
+        "y": 47,
+        "name": "output",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "output",
+            "srcNodeId": 141,
+            "srcOutputId": 18
+          }
+        ],
+        "outputs": []
       }
     ]
-  },
-  {
-    "id": 100,
-    "kind": 2,
-    "x": 800,
-    "y": -1201,
-    "name": "toArray",
-    "codePath": "ng/presets/to-array.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 136,
-        "srcOutputId": 18
-      },
-      {
-        "id": 2,
-        "name": "item2",
-        "srcNodeId": 137,
-        "srcOutputId": 18
-      },
-      {
-        "id": 3,
-        "name": "item3",
-        "srcNodeId": 138,
-        "srcOutputId": 18
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 136,
-    "kind": 3,
-    "x": 450,
-    "y": -1293,
-    "name": "background",
-    "inputs": [
-      {
-        "id": 17,
-        "name": "tilemap",
-        "srcNodeId": 79,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 18,
-        "name": "images",
-        "value": null
-      }
-    ],
-    "storage": {
-      "mode": "linked",
-      "path": "CYBERPUNK/missions/m01.group.ng.json"
-    }
-  },
-  {
-    "id": 137,
-    "kind": 3,
-    "x": 464,
-    "y": -1204,
-    "name": "",
-    "inputs": [
-      {
-        "id": 17,
-        "name": "tilemap",
-        "srcNodeId": 79,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 18,
-        "name": "images",
-        "value": null
-      }
-    ],
-    "storage": {
-      "mode": "linked",
-      "path": "CYBERPUNK/missions/m01.group.ng.json"
-    }
-  },
-  {
-    "id": 138,
-    "kind": 3,
-    "x": 462,
-    "y": -1108,
-    "name": "",
-    "inputs": [
-      {
-        "id": 17,
-        "name": "tilemap",
-        "srcNodeId": 79,
-        "srcOutputId": 3
-      }
-    ],
-    "outputs": [
-      {
-        "id": 18,
-        "name": "images",
-        "value": null
-      }
-    ],
-    "storage": {
-      "mode": "linked",
-      "path": "CYBERPUNK/missions/m01.group.ng.json"
-    }
   }
 ]

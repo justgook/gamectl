@@ -1,0 +1,56 @@
+[
+  {
+    "id": 61,
+    "kind": 4,
+    "x": -301,
+    "y": 383,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/anim/c11/run/*.png\""
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "kind": 2,
+    "x": 1,
+    "y": 382,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 63,
+    "kind": 1,
+    "x": 296,
+    "y": 392,
+    "name": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "aaa",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  }
+]

@@ -789,6 +789,15 @@
         "config": {
           "presets": [
             {
+              "name": "Mission Background",
+              "kind": "group",
+              "storage": {
+                "mode": "linked",
+                "path": "CYBERPUNK/missions/m01.group.ng.json"
+              },
+              "group": "Mission"
+            },
+            {
               "name": "JSON.Encode",
               "kind": "code",
               "codePath": "ng/presets/json_encode.lua",

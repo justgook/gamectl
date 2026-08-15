@@ -856,8 +856,8 @@ export class ViewFiles extends HTMLElement {
     )
 
     if (payload?.reload) {
-      if (payload.revealPath && payload.revealPath !== this.rootPath) {
-        this.expandedPaths.add(payload.revealPath)
+      for (const revealPath of payload.revealPaths) {
+        if (revealPath !== this.rootPath) this.expandedPaths.add(revealPath)
       }
       await this.refresh()
       if (payload.selectedPath) this.selectRow(payload.selectedPath)

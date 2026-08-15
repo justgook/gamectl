@@ -1,4 +1,5 @@
 import { runtime, unwrap } from "/core/runtime.js"
+import { normalizeNgPresetDraft, ngPresetKind } from "/util/ng-node-preset.js"
 import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 const NG = {
@@ -60,13 +61,6 @@ function kindFromFormValue(value, fallback = NG.NODE_CODE) {
     return fallback
 }
 
-function kindFromConfigValue(value, fallback = NG.NODE_CODE) {
-    if (typeof value === "string") return kindFromFormValue(value.trim().toLowerCase(), fallback)
-    const kind = Number(value || fallback)
-    if (Object.values(NG).includes(kind)) return kind
-    return fallback
-}
-
 function nodeSupportsInputs(kind) {
     return kind === NG.NODE_CODE || kind === NG.NODE_GOAL || kind === NG.NODE_GRAPH_OUTPUT
 }
@@ -95,16 +89,14 @@ function createNodeDraft(kind = NG.NODE_CODE) {
 }
 
 function normalizeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
-    const rawKind = Number(payload?.kind || fallbackKind)
-    const kind =
-        Object.values(NG).includes(rawKind)
-            ? rawKind
-            : fallbackKind
-    const normalized = createNodeDraft(kind)
-    normalized.name = String(payload?.name || "").trim()
-    if (kind === NG.NODE_CODE) {
-        normalized.codePath = String(payload?.codePath || "").trim()
-        normalized.code = String(payload?.code || "")
+    const preset = normalizeNgPresetDraft(payload, fallbackKind)
+    const normalized = createNodeDraft(preset.kind)
+    normalized.name = preset.name
+    normalized.inputs = preset.inputs
+    normalized.outputs = preset.outputs
+    if (preset.kind === NG.NODE_CODE) {
+        normalized.codePath = preset.codePath
+        normalized.code = preset.code
         normalized.codeReadOnly = !normalized.codePath || Boolean(normalized.code)
         normalized.codeStatus = normalized.codePath
             ? ""
@@ -112,28 +104,8 @@ function normalizeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
               ? "Legacy inline code detected. Choose a file path and edit it in view-code."
               : "Choose a code file to edit."
     }
-
-    const inputList = Array.isArray(payload?.inputs) ? payload.inputs : []
-    const outputList = Array.isArray(payload?.outputs) ? payload.outputs : []
-
-    normalized.inputs = inputList.map((input, index) => {
-        const inputId = Number(input?.inputId || input?.id || index + 1)
-        return {
-            inputId: Number.isFinite(inputId) && inputId > 0 ? inputId : index + 1,
-            name: String(input?.name || "").trim(),
-            value: String(input?.defaultValue || input?.value || ""),
-        }
-    })
-
-    normalized.outputs = outputList.map((output, index) => {
-        const outputId = Number(output?.outputId || output?.id || index + 1)
-        return {
-            outputId: Number.isFinite(outputId) && outputId > 0 ? outputId : index + 1,
-            name: String(output?.name || "").trim(),
-            value: String(output?.value || ""),
-        }
-    })
-
+    if (preset.kind === NG.NODE_GROUP) normalized.storage = structuredClone(preset.storage)
+    if (preset.childGraph !== undefined) normalized.childGraph = structuredClone(preset.childGraph)
     return normalized
 }
 
@@ -223,7 +195,7 @@ export class ViewNgNode extends HTMLElement {
             .map((entry) => {
                 const name = String(entry?.name || "").trim()
                 if (!name) return null
-                const kind = kindFromConfigValue(entry?.kind)
+                const kind = ngPresetKind(entry?.kind, NG.NODE_CODE)
                 const ownerKind = Number(this.popupProps.childGraphOwnerKind || 0)
                 if (kind === NG.NODE_GRAPH_INPUT && ownerKind !== NG.NODE_GROUP) return null
                 if (kind === NG.NODE_GRAPH_OUTPUT && ![NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(ownerKind)) return null
@@ -708,7 +680,8 @@ export class ViewNgNode extends HTMLElement {
         this.draft.newOutputValue = ""
         this.draft.inputs = payload.inputs
         this.draft.outputs = payload.outputs
-        this.draft.childGraph = payload.kind === NG.NODE_GROUP || payload.kind === NG.NODE_FOR_EACH ? structuredClone(templateEntry.data.childGraph || []) : undefined
+        this.draft.storage = payload.kind === NG.NODE_GROUP ? structuredClone(payload.storage) : undefined
+        this.draft.childGraph = payload.childGraph === undefined ? undefined : structuredClone(payload.childGraph)
     }
 
     async chooseCodeFile() {
@@ -838,7 +811,8 @@ export class ViewNgNode extends HTMLElement {
                             codePath: String(this.draft.codePath || "").trim(),
                             code: String(this.draft.code || ""),
                         } : {}),
-                        childGraph: [NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(this.draft.kind) ? structuredClone(this.draft.childGraph || []) : undefined,
+                        ...(this.draft.kind === NG.NODE_GROUP ? { storage: structuredClone(this.draft.storage || { mode: "inline" }) } : {}),
+                        childGraph: this.draft.kind === NG.NODE_FOR_EACH || (this.draft.kind === NG.NODE_GROUP && (this.draft.storage?.mode || "inline") === "inline") ? structuredClone(this.draft.childGraph || []) : undefined,
                         inputs: this.draft.inputs.map((port, index) => ({
                             inputId: Number(port.inputId || index + 1),
                             name: String(port.name || "").trim(),
@@ -868,7 +842,8 @@ export class ViewNgNode extends HTMLElement {
                         codePath: String(this.draft.codePath || "").trim(),
                         code: String(this.draft.code || ""),
                     } : {}),
-                    childGraph: [NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(this.draft.kind) ? structuredClone(this.draft.childGraph || []) : undefined,
+                    ...(this.draft.kind === NG.NODE_GROUP ? { storage: structuredClone(this.draft.storage || { mode: "inline" }) } : {}),
+                    childGraph: this.draft.kind === NG.NODE_FOR_EACH || (this.draft.kind === NG.NODE_GROUP && (this.draft.storage?.mode || "inline") === "inline") ? structuredClone(this.draft.childGraph || []) : undefined,
                     inputs: this.draft.inputs.map((port, index) => ({
                         inputId: Number(port.inputId || index + 1),
                         name: String(port.name || "").trim(),

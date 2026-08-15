@@ -1,0 +1,803 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": 70,
+    "y": 336,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"catalog/sprites/*_player.aseprite\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "[\"idle\", \"run\", \"jump\", \"fall\",\"hang\", \"dash\", \"land\", \"hurt\", \"death\", \"climb\", \"swim\", \"swim2\", \"swim_idle\", \"swim_death\",\"swim_jump\"]"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "kind": 2,
+    "x": 724,
+    "y": 331,
+    "name": "Aseprite Animations",
+    "codePath": "ng/presets/aseprite-animation.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "file",
+        "srcNodeId": 29,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "animation_names",
+        "srcNodeId": 1,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "kind": 4,
+    "x": 1059,
+    "y": 869,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_ase_info.json\""
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "kind": 2,
+    "x": 1399,
+    "y": 890,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 27,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 68,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 29,
+    "kind": 2,
+    "x": 507,
+    "y": 294,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "kind": 4,
+    "x": 1853,
+    "y": -178,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG-anim.qoi\""
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "kind": 2,
+    "x": 2101,
+    "y": -210,
+    "name": "Write",
+    "codePath": "ng/presets/image-write.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 52,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "path",
+        "srcNodeId": 32,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "format",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 34,
+    "kind": 4,
+    "x": 2641,
+    "y": -178,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_slots.json\""
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "kind": 2,
+    "x": 2862,
+    "y": -177,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 34,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 37,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 36,
+    "kind": 2,
+    "x": 2819,
+    "y": 107,
+    "name": "Respack Save",
+    "codePath": "ng/presets/respack-save.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "slots",
+        "srcNodeId": 37,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "path_bin",
+        "srcNodeId": 38,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "path_decoder",
+        "srcNodeId": 38,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 37,
+    "kind": 2,
+    "x": 2534,
+    "y": 189,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "UV",
+        "srcNodeId": 53,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "Atlas",
+        "srcNodeId": 39,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "Animation Atlas",
+        "srcNodeId": 48,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "kind": 4,
+    "x": 2516,
+    "y": 52,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/anim.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/anim.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"game/data_anim/decoder.odin\""
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "kind": 2,
+    "x": 2214,
+    "y": 137,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 52,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "base64",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 48,
+    "kind": 2,
+    "x": 1938,
+    "y": 357,
+    "name": "Wrap Object",
+    "codePath": "ng/presets/to-object.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "frames",
+        "srcNodeId": 53,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "defs",
+        "srcNodeId": 67,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 52,
+    "kind": 2,
+    "x": 1967,
+    "y": 120,
+    "name": "Atlas",
+    "codePath": "ng/presets/image-atlas.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 53,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "srcNodeId": 59,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "srcNodeId": 53,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "srcNodeId": 53,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 53,
+    "kind": 2,
+    "x": 1482,
+    "y": 164,
+    "name": "Pack Rects",
+    "codePath": "ng/presets/pack-rects.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 63,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "width",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 3,
+        "name": "height",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 4,
+        "name": "padding",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 5,
+        "name": "autoSize",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "UV",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "value": null
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 56,
+    "kind": 4,
+    "x": 1830,
+    "y": 637,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_frames.json\""
+      }
+    ]
+  },
+  {
+    "id": 57,
+    "kind": 2,
+    "x": 2156,
+    "y": 632,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 56,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 48,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 59,
+    "kind": 2,
+    "x": 1485,
+    "y": 303,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 64,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 60,
+    "kind": 4,
+    "x": -148,
+    "y": 480,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"catalog/sprites/*_obj.aseprite\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "[\"idle\"]"
+      }
+    ]
+  },
+  {
+    "id": 61,
+    "kind": 2,
+    "x": 234,
+    "y": 469,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 60,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "kind": 2,
+    "x": 511,
+    "y": 461,
+    "name": "Aseprite Animations",
+    "codePath": "ng/presets/aseprite-animation.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "file",
+        "srcNodeId": 61,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "animation_names",
+        "srcNodeId": 60,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 63,
+    "kind": 2,
+    "x": 1081,
+    "y": 254,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 64,
+    "kind": 2,
+    "x": 1057,
+    "y": 373,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 2,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 62,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 65,
+    "kind": 2,
+    "x": 915,
+    "y": 566,
+    "name": "fromObject",
+    "codePath": "ng/presets/from-object.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "srcNodeId": 62,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "animations",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 66,
+    "kind": 2,
+    "x": 1130,
+    "y": 490,
+    "name": "fromObject",
+    "codePath": "ng/presets/from-object.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "srcNodeId": 2,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "animations",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 67,
+    "kind": 2,
+    "x": 1572,
+    "y": 538,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 66,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 68,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 68,
+    "kind": 2,
+    "x": 1180,
+    "y": 594,
+    "name": "Add Fields",
+    "codePath": "ng/presets/add-fields.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "value",
+        "srcNodeId": 65,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "fields",
+        "srcNodeId": 70,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "amount",
+        "srcNodeId": 71,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "value",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 70,
+    "kind": 4,
+    "x": 889,
+    "y": 637,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[\"rect_start\", \"frame_start\"]"
+      }
+    ]
+  },
+  {
+    "id": 71,
+    "kind": 2,
+    "x": 863,
+    "y": 737,
+    "name": "Array Length",
+    "codePath": "ng/presets/array-length.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "length",
+        "value": null
+      }
+    ]
+  }
+]
