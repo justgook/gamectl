@@ -66,6 +66,11 @@ test("linked hydration swaps the per-view working set only after every file load
   assert.match(source, /async hydrateLinkedGraphs\(rootGraph\) \{\s*const hydrated = new Map\(\)[\s\S]*?await this\.loadLinkedGraphFS\(path, \[\], hydrated\)[\s\S]*?this\.linkedGraphs = hydrated/)
 })
 
+test("pasting linked Groups hydrates their documents before committing the edit", () => {
+  assert.match(source, /async pasteNodes\(text, anchor\) \{[\s\S]*?const linkedPaths = this\.linkedPathsInGraph\(source\)[\s\S]*?await this\.loadLinkedGraphFS\(path, \[\], hydrated\)[\s\S]*?this\.linkedGraphs = hydrated[\s\S]*?this\.replaceActiveGraph\(raw/)
+  assert.match(source, /async pasteNodes\(text, anchor\) \{[\s\S]*?catch \(error\) \{\s*this\.linkedGraphs = previousLinkedGraphs\s*this\.restoreSnapshot\(before\)/)
+})
+
 test("Group Export rejects root overwrite and export-path cycles", () => {
   assert.match(source, /Group export cannot overwrite the root graph document/)
   assert.match(source, /!this\.graphLinksTo\(group\.childGraph, path\)/)

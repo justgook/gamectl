@@ -2,8 +2,8 @@
   {
     "id": 1,
     "kind": 4,
-    "x": 692,
-    "y": 482,
+    "x": 548,
+    "y": 465,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -17,8 +17,8 @@
   {
     "id": 2,
     "kind": 2,
-    "x": 1009,
-    "y": 483,
+    "x": 865,
+    "y": 466,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "inputs": [
@@ -102,8 +102,8 @@
   {
     "id": 4,
     "kind": 4,
-    "x": 921,
-    "y": 631,
+    "x": 1001,
+    "y": 650,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -132,8 +132,8 @@
   {
     "id": 5,
     "kind": 2,
-    "x": 2243,
-    "y": 563,
+    "x": 2367,
+    "y": 549,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "inputs": [
@@ -155,8 +155,8 @@
   {
     "id": 6,
     "kind": 4,
-    "x": 2010,
-    "y": 489,
+    "x": 2134,
+    "y": 475,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -170,8 +170,8 @@
   {
     "id": 7,
     "kind": 2,
-    "x": 1721,
-    "y": 651,
+    "x": 1713,
+    "y": 681,
     "name": "Copy Prop",
     "codePath": "ng/presets/copy-prop.lua",
     "inputs": [
@@ -211,8 +211,8 @@
   {
     "id": 8,
     "kind": 4,
-    "x": 1282,
-    "y": 715,
+    "x": 811,
+    "y": 850,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -231,8 +231,8 @@
   {
     "id": 9,
     "kind": 2,
-    "x": 1932,
-    "y": 675,
+    "x": 2056,
+    "y": 661,
     "name": "Reduce Tile index",
     "codePath": "ng/presets/tilemap-subtract.lua",
     "inputs": [
@@ -260,8 +260,8 @@
   {
     "id": 10,
     "kind": 4,
-    "x": 1728,
-    "y": 760,
+    "x": 1715,
+    "y": 853,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -315,8 +315,8 @@
   {
     "id": 12,
     "kind": 4,
-    "x": 1225,
-    "y": 359,
+    "x": 1333,
+    "y": 356,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -330,8 +330,8 @@
   {
     "id": 13,
     "kind": 2,
-    "x": 1487,
-    "y": 374,
+    "x": 1595,
+    "y": 371,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "inputs": [
@@ -353,8 +353,8 @@
   {
     "id": 14,
     "kind": 4,
-    "x": 994,
-    "y": 562,
+    "x": 676,
+    "y": 623,
     "name": "",
     "inputs": [],
     "outputs": [

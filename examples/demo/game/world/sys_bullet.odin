@@ -7,6 +7,7 @@ import "logic"
 import "shape"
 
 
+DELME_BULLET_ID :: 0
 Bullet_Side :: enum u8 {
 	Player,
 	Enemy,
@@ -135,7 +136,7 @@ sys_bullet :: proc(w: ^World) {
 		)
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
-		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[100]})
+		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[DELME_BULLET_ID]})
 		switch spawn.side {
 		case .Player:
 			logic.add_component(&w.player_hit, child, shape.Circle{radius = 4 * UNIT})

@@ -39,7 +39,7 @@
       "facing": 1
     },
     "platformer_anim": {
-      "atlas_base_id": 30
+      "atlas_base_id": 0
     },
     "sprite": {},
     "name": "player"

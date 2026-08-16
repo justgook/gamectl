@@ -63,8 +63,8 @@
   {
     "id": 64,
     "kind": 2,
-    "x": 857,
-    "y": -91,
+    "x": 828,
+    "y": -50,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "inputs": [
@@ -86,8 +86,8 @@
   {
     "id": 65,
     "kind": 2,
-    "x": 1132,
-    "y": -108,
+    "x": 1106,
+    "y": -98,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "inputs": [
@@ -148,8 +148,8 @@
   {
     "id": 66,
     "kind": 2,
-    "x": 1414,
-    "y": 22,
+    "x": 1437,
+    "y": 100,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
     "inputs": [
@@ -162,7 +162,7 @@
       {
         "id": 2,
         "name": "images",
-        "srcNodeId": 63,
+        "srcNodeId": 89,
         "srcOutputId": 1
       },
       {
@@ -189,8 +189,8 @@
   {
     "id": 67,
     "kind": 2,
-    "x": 1699,
-    "y": 46,
+    "x": 1674,
+    "y": 505,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -218,8 +218,8 @@
   {
     "id": 68,
     "kind": 4,
-    "x": 1386,
-    "y": 217,
+    "x": 1388,
+    "y": 620,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -227,6 +227,451 @@
         "id": 1,
         "name": "",
         "value": "\"tmp/c11/run.qoi\""
+      }
+    ]
+  },
+  {
+    "id": 69,
+    "kind": 4,
+    "x": 1949,
+    "y": -432,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_slots.json\""
+      }
+    ]
+  },
+  {
+    "id": 70,
+    "kind": 2,
+    "x": 2170,
+    "y": -431,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 69,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 84,
+        "srcOutputId": 86
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 71,
+    "kind": 2,
+    "x": 2457,
+    "y": 59,
+    "name": "Respack Save",
+    "codePath": "ng/presets/respack-save.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 73,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "slots",
+        "srcNodeId": 72,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "path_bin",
+        "srcNodeId": 73,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "path_decoder",
+        "srcNodeId": 73,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 72,
+    "kind": 2,
+    "x": 2172,
+    "y": 141,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "UV",
+        "srcNodeId": 65,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "Atlas",
+        "srcNodeId": 74,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "Animation Atlas",
+        "srcNodeId": 75,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 73,
+    "kind": 4,
+    "x": 2148,
+    "y": -13,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/anim.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/anim.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"game/data_anim/decoder.odin\""
+      }
+    ]
+  },
+  {
+    "id": 74,
+    "kind": 2,
+    "x": 1750,
+    "y": 159,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 66,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "base64",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 75,
+    "kind": 2,
+    "x": 1930,
+    "y": -75,
+    "name": "Wrap Object",
+    "codePath": "ng/presets/to-object.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "frames",
+        "srcNodeId": 84,
+        "srcOutputId": 86
+      },
+      {
+        "id": 2,
+        "name": "defs",
+        "srcNodeId": 80,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 76,
+    "kind": 2,
+    "x": 1293,
+    "y": -310,
+    "name": "toObject",
+    "codePath": "ng/presets/to-object.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "frame_start",
+        "srcNodeId": 78,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "frame_count",
+        "srcNodeId": 77,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "repeat",
+        "srcNodeId": 79,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "kind": 2,
+    "x": 869,
+    "y": -284,
+    "name": "Array Length",
+    "codePath": "ng/presets/array-length.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "length",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 78,
+    "kind": 4,
+    "x": 1001,
+    "y": -355,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "id": 79,
+    "kind": 4,
+    "x": 1030,
+    "y": -205,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "id": 80,
+    "kind": 2,
+    "x": 1544,
+    "y": -287,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "srcNodeId": 76,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "kind": 7,
+    "x": 1550,
+    "y": -112,
+    "name": "SET FRAME DURATION",
+    "inputs": [
+      {
+        "id": 85,
+        "name": "items",
+        "srcNodeId": 65,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 86,
+        "name": "output",
+        "value": null
+      }
+    ],
+    "childGraph": [
+      {
+        "id": 85,
+        "kind": 8,
+        "x": -299,
+        "y": 150,
+        "name": "items",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Item",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "Index",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "Array",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 86,
+        "kind": 6,
+        "x": 408,
+        "y": 229,
+        "name": "output",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "output",
+            "srcNodeId": 88,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": 87,
+        "kind": 4,
+        "x": -146,
+        "y": 45,
+        "name": "",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "",
+            "value": "{\"duration\":32}"
+          },
+          {
+            "id": 2,
+            "name": "",
+            "value": "\"duration\""
+          }
+        ]
+      },
+      {
+        "id": 88,
+        "kind": 2,
+        "x": 110,
+        "y": 166,
+        "name": "Copy Prop",
+        "codePath": "ng/presets/copy-prop.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "from",
+            "srcNodeId": 87,
+            "srcOutputId": 2
+          },
+          {
+            "id": 2,
+            "name": "to",
+            "srcNodeId": 87,
+            "srcOutputId": 2
+          },
+          {
+            "id": 3,
+            "name": "src",
+            "srcNodeId": 87,
+            "srcOutputId": 1
+          },
+          {
+            "id": 4,
+            "name": "target",
+            "srcNodeId": 85,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "target",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 89,
+    "kind": 2,
+    "x": 999,
+    "y": 120,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 63,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
       }
     ]
   }

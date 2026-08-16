@@ -5,6 +5,9 @@ import "../host"
 import "logic"
 import "shape"
 
+COIN_ANIM_ID :: 0
+ENEMY_ANIM_BASE :: 0
+
 Director_Config :: struct {
 	player:        director.Entity_Id,
 	spawn_x:       director.Word_Id,
@@ -191,7 +194,7 @@ director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_
 @(private = "file")
 director_spawn_coin :: proc(w: ^World, entity: logic.Entity) {
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
-	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[45]))
+	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[COIN_ANIM_ID]))
 	logic.add_component(
 		&w.director_trigger_aabb,
 		entity,
@@ -201,7 +204,7 @@ director_spawn_coin :: proc(w: ^World, entity: logic.Entity) {
 
 @(private = "file")
 director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
-	enemy_anim_base := 15
+	enemy_anim_base := ENEMY_ANIM_BASE
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
 	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[enemy_anim_base]))
 	logic.add_component(

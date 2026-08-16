@@ -845,17 +845,30 @@ export class ViewNg extends ViewCanvasBase {
             return false
         }
         const before = this.captureSnapshot()
-        const minX = Math.min(...source.map((node) => node.x))
-        const minY = Math.min(...source.map((node) => node.y))
-        const remapped = cloneNgNodesWithNewIds(source, this.nextNodeId()).nodes
-        const pasted = remapped.map((node) => ({ ...node, x: Math.round(node.x + anchor.x - minX), y: Math.round(node.y + anchor.y - minY) }))
-        raw.push(...pasted)
-        this.replaceActiveGraph(raw, { autoFit: false })
-        this.setNodeSelection(pasted.map((node) => node.id), pasted.at(-1).id)
-        this.recordEdit("paste nodes", before)
-        this.draw()
-        this._setStatus(`pasted ${pasted.length} node${pasted.length === 1 ? "" : "s"}`, "success")
-        return true
+        const previousLinkedGraphs = this.linkedGraphs
+        try {
+            const linkedPaths = this.linkedPathsInGraph(source)
+            const hydrated = new Map(previousLinkedGraphs)
+            for (const path of linkedPaths) await this.loadLinkedGraphFS(path, [], hydrated)
+            this.linkedGraphs = hydrated
+            for (const path of linkedPaths) this.assertLinkAllowedInActiveDocument(path)
+
+            const minX = Math.min(...source.map((node) => node.x))
+            const minY = Math.min(...source.map((node) => node.y))
+            const remapped = cloneNgNodesWithNewIds(source, this.nextNodeId()).nodes
+            const pasted = remapped.map((node) => ({ ...node, x: Math.round(node.x + anchor.x - minX), y: Math.round(node.y + anchor.y - minY) }))
+            raw.push(...pasted)
+            this.replaceActiveGraph(raw, { autoFit: false })
+            this.setNodeSelection(pasted.map((node) => node.id), pasted.at(-1).id)
+            this.recordEdit("paste nodes", before)
+            this.draw()
+            this._setStatus(`pasted ${pasted.length} node${pasted.length === 1 ? "" : "s"}`, "success")
+            return true
+        } catch (error) {
+            this.linkedGraphs = previousLinkedGraphs
+            this.restoreSnapshot(before)
+            throw error
+        }
     }
 
     _onCopy(event) {
