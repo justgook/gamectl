@@ -1055,6 +1055,17 @@
         display: none !important;
     }
 
+    /* Toast messages are preformatted output: preserve line breaks and use monospace. */
+    view-toast [data-element="message"] {
+        display: block;
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        font-family: var(--font-mono);
+    }
+
     /* close button */
     view-toast .toast-close {
         background: none;
