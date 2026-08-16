@@ -97,6 +97,25 @@ local function listDir(path)
 	return host.call("fs/fs::list", path)
 end
 
+local function isDirectoryEntry(path, entry, followSymbolicLink)
+	if entry.type == "directory" then
+		return true
+	end
+	if entry.type ~= "symbolic-link" or not followSymbolicLink then
+		return false
+	end
+
+	local ok, stat = pcall(host.call, "fs/fs::stat", path)
+	if not ok then
+		local message = string.gsub(tostring(stat), "^.-:%d+:%s*", "", 1)
+		error("failed to resolve symbolic link '" .. path .. "': " .. message)
+	end
+	if type(stat) ~= "table" or type(stat.type) ~= "string" then
+		error("fs/fs::stat returned invalid metadata for symbolic link '" .. path .. "'")
+	end
+	return stat.type == "directory"
+end
+
 local function addPath(paths, seen, path)
 	if seen[path] then
 		return
@@ -117,8 +136,11 @@ local function walk(dir, segments, segmentIndex, paths, seen)
 
 		local entries = listDir(dir)
 		for _, entry in ipairs(entries) do
-			if entry.type == "directory" then
-				walk(joinPath(dir, entry.name), segments, segmentIndex, paths, seen)
+			local path = joinPath(dir, entry.name)
+			-- Do not follow newly discovered symlinks during ** traversal: without
+			-- stable filesystem identities, a directory-link cycle cannot be detected.
+			if isDirectoryEntry(path, entry, false) then
+				walk(path, segments, segmentIndex, paths, seen)
 			end
 		end
 		return
@@ -131,7 +153,7 @@ local function walk(dir, segments, segmentIndex, paths, seen)
 			local path = joinPath(dir, entry.name)
 			if isLastSegment then
 				addPath(paths, seen, path)
-			elseif entry.type == "directory" then
+			elseif isDirectoryEntry(path, entry, true) then
 				walk(path, segments, segmentIndex + 1, paths, seen)
 			end
 		end

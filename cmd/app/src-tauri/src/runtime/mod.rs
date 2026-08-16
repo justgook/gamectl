@@ -3425,11 +3425,21 @@ mod tests {
 
         let repo = PathBuf::from("../../..").canonicalize().unwrap();
         let temp = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
         std::fs::copy(
             repo.join("examples/demo/ng/nine.png"),
             temp.path().join("input.png"),
         )
         .unwrap();
+        std::fs::copy(
+            repo.join("examples/demo/ng/nine.png"),
+            external.path().join("linked-input.png"),
+        )
+        .unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(external.path(), temp.path().join("linked")).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_dir(external.path(), temp.path().join("linked")).unwrap();
         std::fs::create_dir(temp.path().join("plugins")).unwrap();
         std::fs::copy(
             repo.join("build.nosync/plugins/image.comp.wasm"),
@@ -3448,6 +3458,26 @@ mod tests {
             .unwrap();
         let resource = opened.get("ok").unwrap();
         assert_eq!(resource["$resource"], serde_json::json!("gams:image/image"));
+
+        let linked_opened = runtime
+            .invoke(
+                "image/image::open",
+                serde_json::json!(["linked/linked-input.png"]),
+            )
+            .unwrap();
+        let linked_resource = linked_opened.get("ok").unwrap();
+        assert_eq!(
+            linked_resource["$resource"],
+            serde_json::json!("gams:image/image")
+        );
+        let linked_saved = runtime
+            .invoke(
+                "image/image::save",
+                serde_json::json!([linked_resource, "linked/linked-output.png", "png"]),
+            )
+            .unwrap();
+        assert!(linked_saved["ok"].as_u64().unwrap() > 0);
+        assert!(external.path().join("linked-output.png").exists());
 
         let info = runtime
             .invoke("image/image::info", serde_json::json!([resource]))

@@ -2,23 +2,23 @@
   {
     "id": 61,
     "kind": 4,
-    "x": -301,
-    "y": 383,
+    "x": 80,
+    "y": 58,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
         "name": "",
-        "value": "\"CYBERPUNK/anim/c11/run/*.png\""
+        "value": "\"anim/c11/run/*.png\""
       }
     ]
   },
   {
     "id": 62,
     "kind": 2,
-    "x": 1,
-    "y": 382,
+    "x": 320,
+    "y": 58,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "inputs": [
@@ -39,18 +39,195 @@
   },
   {
     "id": 63,
-    "kind": 1,
-    "x": 296,
-    "y": 392,
-    "name": "",
+    "kind": 2,
+    "x": 600,
+    "y": 49,
+    "name": "Open",
+    "codePath": "ng/presets/image-open.lua",
     "inputs": [
       {
         "id": 1,
-        "name": "aaa",
+        "name": "path",
         "srcNodeId": 62,
         "srcOutputId": 1
       }
     ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 64,
+    "kind": 2,
+    "x": 857,
+    "y": -91,
+    "name": "Info",
+    "codePath": "ng/presets/image-info.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "images",
+        "srcNodeId": 63,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 65,
+    "kind": 2,
+    "x": 1132,
+    "y": -108,
+    "name": "Pack Rects",
+    "codePath": "ng/presets/pack-rects.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 64,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "width",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 3,
+        "name": "height",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 4,
+        "name": "padding",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 5,
+        "name": "autoSize",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "UV",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "value": null
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 66,
+    "kind": 2,
+    "x": 1414,
+    "y": 22,
+    "name": "Atlas",
+    "codePath": "ng/presets/image-atlas.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 65,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "srcNodeId": 63,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "srcNodeId": 65,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "srcNodeId": 65,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 67,
+    "kind": 2,
+    "x": 1699,
+    "y": 46,
+    "name": "Write",
+    "codePath": "ng/presets/image-write.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 66,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "path",
+        "srcNodeId": 68,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "format",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
     "outputs": []
+  },
+  {
+    "id": 68,
+    "kind": 4,
+    "x": 1386,
+    "y": 217,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/c11/run.qoi\""
+      }
+    ]
   }
 ]

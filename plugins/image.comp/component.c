@@ -88,6 +88,27 @@ static bool string_eq_bytes(const uint8_t *ptr, size_t len, const char *literal)
   return len == literal_len && memcmp(ptr, literal, len) == 0;
 }
 
+static bool preopen_matches_path(const image_plugin_string_t *preopen_path,
+                                 const image_plugin_string_t *path,
+                                 size_t *relative_offset) {
+  if (string_eq_bytes(preopen_path->ptr, preopen_path->len, "/")) {
+    if (path->len == 0 || path->ptr[0] != '/') return false;
+    *relative_offset = 1;
+    return true;
+  }
+  if (path->len < preopen_path->len ||
+      memcmp(path->ptr, preopen_path->ptr, preopen_path->len) != 0) {
+    return false;
+  }
+  if (path->len == preopen_path->len) {
+    *relative_offset = path->len;
+    return true;
+  }
+  if (path->ptr[preopen_path->len] != '/') return false;
+  *relative_offset = preopen_path->len + 1;
+  return true;
+}
+
 static bool resolve_wasi_path(
     image_plugin_string_t *path,
     wasi_filesystem_preopens_list_tuple2_own_descriptor_string_t *preopens,
@@ -99,22 +120,50 @@ static bool resolve_wasi_path(
     set_error(err, "no wasi filesystem preopens");
     return false;
   }
+  if (path->len == 0) {
+    wasi_filesystem_preopens_list_tuple2_own_descriptor_string_free(preopens);
+    set_error(err, "invalid image path");
+    return false;
+  }
 
+  bool is_absolute = path->ptr[0] == '/';
+  bool found = false;
   size_t index = 0;
-  bool is_absolute = path->len > 0 && path->ptr[0] == '/';
+  size_t offset = 0;
+  size_t best_len = 0;
+
   for (size_t i = 0; i < preopens->len; i++) {
     image_plugin_string_t *guest = &preopens->ptr[i].f1;
-    if ((!is_absolute && string_eq_bytes(guest->ptr, guest->len, ".")) ||
-        (is_absolute && string_eq_bytes(guest->ptr, guest->len, "/"))) {
+    bool guest_is_absolute = guest->len > 0 && guest->ptr[0] == '/';
+    if (string_eq_bytes(guest->ptr, guest->len, ".") ||
+        guest_is_absolute != is_absolute) {
+      continue;
+    }
+    size_t candidate_offset = 0;
+    if (!preopen_matches_path(guest, path, &candidate_offset)) continue;
+    if (!found || guest->len > best_len) {
+      found = true;
       index = i;
-      break;
+      offset = candidate_offset;
+      best_len = guest->len;
     }
   }
 
-  size_t offset = is_absolute ? 1u : 0u;
-  if (path->len <= offset) {
+  if (!found && !is_absolute) {
+    for (size_t i = 0; i < preopens->len; i++) {
+      image_plugin_string_t *guest = &preopens->ptr[i].f1;
+      if (string_eq_bytes(guest->ptr, guest->len, ".")) {
+        found = true;
+        index = i;
+        offset = 0;
+        break;
+      }
+    }
+  }
+
+  if (!found || path->len <= offset) {
     wasi_filesystem_preopens_list_tuple2_own_descriptor_string_free(preopens);
-    set_error(err, "invalid image path");
+    set_error(err, found ? "invalid image path" : "image path is not under a WASI preopen");
     return false;
   }
 
