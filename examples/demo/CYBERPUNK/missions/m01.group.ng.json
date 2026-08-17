@@ -38,8 +38,8 @@
     {
       "id": 2,
       "kind": 2,
-      "x": 88,
-      "y": -1319,
+      "x": -77,
+      "y": -1316,
       "name": "Unique Values",
       "codePath": "ng/presets/unique-values.lua",
       "inputs": [
@@ -180,7 +180,7 @@
     {
       "id": 8,
       "kind": 2,
-      "x": 322,
+      "x": 205,
       "y": -1320,
       "name": "Filter",
       "codePath": "ng/presets/filter.lua",
@@ -209,8 +209,8 @@
     {
       "id": 9,
       "kind": 4,
-      "x": 3,
-      "y": -1101,
+      "x": -23,
+      "y": -1188,
       "name": "",
       "inputs": [],
       "outputs": [
@@ -294,8 +294,8 @@
     {
       "id": 12,
       "kind": 2,
-      "x": 406,
-      "y": -1043,
+      "x": 403,
+      "y": -1167,
       "name": "Array Length",
       "codePath": "ng/presets/array-length.lua",
       "inputs": [
@@ -331,35 +331,6 @@
           "id": 2,
           "name": "",
           "value": "1"
-        }
-      ]
-    },
-    {
-      "id": 14,
-      "kind": 2,
-      "x": 1460,
-      "y": -1277,
-      "name": "toArray",
-      "codePath": "ng/presets/to-array.lua",
-      "inputs": [
-        {
-          "id": 1,
-          "name": "item1",
-          "srcNodeId": 3,
-          "srcOutputId": 1
-        },
-        {
-          "id": 2,
-          "name": "item2",
-          "srcNodeId": 15,
-          "srcOutputId": 1
-        }
-      ],
-      "outputs": [
-        {
-          "id": 1,
-          "name": "array",
-          "value": null
         }
       ]
     },
@@ -406,22 +377,6 @@
           "value": null
         }
       ]
-    },
-    {
-      "id": 18,
-      "kind": 6,
-      "x": 1772,
-      "y": -1265,
-      "name": "images",
-      "inputs": [
-        {
-          "id": 1,
-          "name": "images",
-          "srcNodeId": 14,
-          "srcOutputId": 1
-        }
-      ],
-      "outputs": []
     },
     {
       "id": 19,

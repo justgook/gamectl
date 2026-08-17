@@ -584,7 +584,7 @@
       {
         "id": 17,
         "name": "Tilemaps",
-        "srcNodeId": 157,
+        "srcNodeId": 188,
         "srcOutputId": 1
       }
     ],
@@ -1371,259 +1371,10 @@
     ]
   },
   {
-    "id": 98,
-    "kind": 2,
-    "x": 1273,
-    "y": 1618,
-    "name": "fromObject",
-    "codePath": "ng/presets/from-object.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "srcNodeId": 161,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "components",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "entity_ids",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 110,
-    "kind": 2,
-    "x": 1318,
-    "y": 750,
-    "name": "fromArray",
-    "codePath": "ng/presets/from-array.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "srcNodeId": 148,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "lut",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "tileset",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 111,
-    "kind": 2,
-    "x": 1862,
-    "y": 867,
-    "name": "fromObject",
-    "codePath": "ng/presets/from-object.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "srcNodeId": 110,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 2,
-        "name": "uv",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 112,
-    "kind": 2,
-    "x": 2132,
-    "y": 1119,
-    "name": "toObjectEach",
-    "codePath": "ng/presets/to-object-each.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "lut_uv",
-        "srcNodeId": 111,
-        "srcOutputId": 2
-      },
-      {
-        "id": 2,
-        "name": "tile_size",
-        "srcNodeId": 132,
-        "srcOutputId": 3
-      },
-      {
-        "id": 3,
-        "name": "tileset_uv",
-        "srcNodeId": 116,
-        "srcOutputId": 1
-      },
-      {
-        "id": 4,
-        "name": "parallax",
-        "srcNodeId": 132,
-        "srcOutputId": 1
-      },
-      {
-        "id": 5,
-        "name": "repeat",
-        "srcNodeId": 132,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "objects",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 115,
-    "kind": 2,
-    "x": 1328,
-    "y": 1252,
-    "name": "fromObject",
-    "codePath": "ng/presets/from-object.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "srcNodeId": 110,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 2,
-        "name": "uv",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 116,
-    "kind": 2,
-    "x": 1785,
-    "y": 1254,
-    "name": "toArray",
-    "codePath": "ng/presets/to-array.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 124,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "item2",
-        "srcNodeId": 124,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "item3",
-        "srcNodeId": 124,
-        "srcOutputId": 1
-      },
-      {
-        "id": 4,
-        "name": "item4",
-        "srcNodeId": 124,
-        "srcOutputId": 1
-      },
-      {
-        "id": 5,
-        "name": "item5",
-        "srcNodeId": 124,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 124,
-    "kind": 2,
-    "x": 1547,
-    "y": 1262,
-    "name": "fromArray",
-    "codePath": "ng/presets/from-array.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "srcNodeId": 115,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "HARDCODE",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "first tilemap",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 132,
-    "kind": 4,
-    "x": 1778,
-    "y": 1022,
-    "name": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "[[0,0],[0,0], [0,0], [0,0],[0,0]]"
-      },
-      {
-        "id": 2,
-        "name": "",
-        "value": "[[1,1], [0,0], [0,0], [0,0],[0,0]]"
-      },
-      {
-        "id": 3,
-        "name": "",
-        "value": "[[16,16],[16,16],[16,16],[16,16],[16,16]]"
-      }
-    ]
-  },
-  {
     "id": 143,
     "kind": 4,
-    "x": -767,
-    "y": 31,
+    "x": -777,
+    "y": -38,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -1637,8 +1388,8 @@
   {
     "id": 144,
     "kind": 2,
-    "x": -60,
-    "y": -46,
+    "x": -107,
+    "y": 115,
     "name": "fromObject",
     "codePath": "ng/presets/from-object.lua",
     "inputs": [
@@ -1665,8 +1416,8 @@
   {
     "id": 146,
     "kind": 2,
-    "x": 1969,
-    "y": 511,
+    "x": 2261,
+    "y": 688,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -1694,8 +1445,8 @@
   {
     "id": 147,
     "kind": 4,
-    "x": 1734,
-    "y": 543,
+    "x": 1977,
+    "y": 707,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -1709,8 +1460,8 @@
   {
     "id": 148,
     "kind": 2,
-    "x": 1474,
-    "y": 52,
+    "x": 1049,
+    "y": 11,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "inputs": [
@@ -1771,16 +1522,16 @@
   {
     "id": 149,
     "kind": 2,
-    "x": 1183,
-    "y": 42,
+    "x": 820,
+    "y": 10,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "inputs": [
       {
         "id": 1,
         "name": "images",
-        "srcNodeId": 151,
-        "srcOutputId": 154
+        "srcNodeId": 180,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1808,8 +1559,8 @@
       {
         "id": 2,
         "name": "images",
-        "srcNodeId": 151,
-        "srcOutputId": 154
+        "srcNodeId": 180,
+        "srcOutputId": 1
       },
       {
         "id": 3,
@@ -1836,7 +1587,7 @@
     "id": 151,
     "kind": 7,
     "x": 212,
-    "y": -46,
+    "y": -47,
     "name": "Tilemaps assets",
     "inputs": [
       {
@@ -1848,18 +1599,23 @@
     ],
     "outputs": [
       {
-        "id": 154,
-        "name": "images",
-        "value": null
-      },
-      {
         "id": 155,
-        "name": "tilesets",
+        "name": "tileset_img",
         "value": null
       },
       {
         "id": 156,
-        "name": "LUts",
+        "name": "LUT_img",
+        "value": null
+      },
+      {
+        "id": 194,
+        "name": "repeat",
+        "value": null
+      },
+      {
+        "id": 195,
+        "name": "parallax",
         "value": null
       }
     ],
@@ -1893,7 +1649,7 @@
         "id": 153,
         "kind": 3,
         "x": 800,
-        "y": 57,
+        "y": 58,
         "name": "Image Creation",
         "inputs": [
           {
@@ -1911,11 +1667,6 @@
         ],
         "outputs": [
           {
-            "id": 18,
-            "name": "images",
-            "value": null
-          },
-          {
             "id": 19,
             "name": "tleset",
             "value": null
@@ -1932,33 +1683,17 @@
         }
       },
       {
-        "id": 154,
-        "kind": 6,
-        "x": 1048,
-        "y": 57,
-        "name": "images",
-        "inputs": [
-          {
-            "id": 1,
-            "name": "images",
-            "srcNodeId": 153,
-            "srcOutputId": 18
-          }
-        ],
-        "outputs": []
-      },
-      {
         "id": 155,
         "kind": 6,
-        "x": 1045,
-        "y": 139,
-        "name": "tilesets",
+        "x": 1240,
+        "y": 47,
+        "name": "tileset_img",
         "inputs": [
           {
             "id": 1,
-            "name": "tilesets",
-            "srcNodeId": 153,
-            "srcOutputId": 19
+            "name": "tileset_img",
+            "srcNodeId": 196,
+            "srcOutputId": 1
           }
         ],
         "outputs": []
@@ -1966,15 +1701,15 @@
       {
         "id": 156,
         "kind": 6,
-        "x": 1046,
-        "y": 220,
-        "name": "LUts",
+        "x": 1240,
+        "y": 159,
+        "name": "LUT_img",
         "inputs": [
           {
             "id": 1,
-            "name": "LUts",
-            "srcNodeId": 153,
-            "srcOutputId": 20
+            "name": "LUT_img",
+            "srcNodeId": 197,
+            "srcOutputId": 1
           }
         ],
         "outputs": []
@@ -1982,8 +1717,8 @@
       {
         "id": 173,
         "kind": 2,
-        "x": 558,
-        "y": -6,
+        "x": 556,
+        "y": 11,
         "name": "Read JSON",
         "codePath": "ng/presets/read-json.lua",
         "inputs": [
@@ -2044,29 +1779,92 @@
             "value": null
           }
         ]
-      }
-    ]
-  },
-  {
-    "id": 157,
-    "kind": 4,
-    "x": 2619,
-    "y": -178,
-    "name": "",
-    "inputs": [],
-    "outputs": [
+      },
       {
-        "id": 1,
-        "name": "",
-        "value": "{\"entity_ids\":[],\"components\":[]}"
+        "id": 194,
+        "kind": 6,
+        "x": 1239,
+        "y": 260,
+        "name": "repeat",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "repeat",
+            "srcNodeId": 174,
+            "srcOutputId": 3
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": 195,
+        "kind": 6,
+        "x": 1239,
+        "y": 372,
+        "name": "parallax",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "parallax",
+            "srcNodeId": 174,
+            "srcOutputId": 4
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": 196,
+        "kind": 2,
+        "x": 1018,
+        "y": 32,
+        "name": "FlipY",
+        "codePath": "ng/presets/image-flipy.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "image",
+            "srcNodeId": 153,
+            "srcOutputId": 19
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "image",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 197,
+        "kind": 2,
+        "x": 1021,
+        "y": 118,
+        "name": "FlipY",
+        "codePath": "ng/presets/image-flipy.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "image",
+            "srcNodeId": 153,
+            "srcOutputId": 20
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "image",
+            "value": null
+          }
+        ]
       }
     ]
   },
   {
     "id": 158,
     "kind": 2,
-    "x": 2328,
-    "y": -26,
+    "x": 2267,
+    "y": -95,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "inputs": [
@@ -2123,8 +1921,8 @@
   {
     "id": 162,
     "kind": 4,
-    "x": -769,
-    "y": 130,
+    "x": -792,
+    "y": 51,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -2138,8 +1936,8 @@
   {
     "id": 163,
     "kind": 4,
-    "x": -204,
-    "y": 454,
+    "x": 1920,
+    "y": 935,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -2153,8 +1951,8 @@
   {
     "id": 164,
     "kind": 2,
-    "x": 107,
-    "y": 451,
+    "x": 2231,
+    "y": 932,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "inputs": [
@@ -2167,10 +1965,316 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 161,
+        "srcNodeId": 188,
         "srcOutputId": 1
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 180,
+    "kind": 2,
+    "x": 551,
+    "y": -47,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilesets",
+        "srcNodeId": 151,
+        "srcOutputId": 155
+      },
+      {
+        "id": 2,
+        "name": "LUTs",
+        "srcNodeId": 151,
+        "srcOutputId": 156
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 182,
+    "kind": 7,
+    "x": 1667,
+    "y": 261,
+    "name": "Timemap Components",
+    "inputs": [
+      {
+        "id": 183,
+        "name": "tileset_uv",
+        "srcNodeId": 189,
+        "srcOutputId": 1
+      },
+      {
+        "id": 191,
+        "name": "repeat",
+        "srcNodeId": 151,
+        "srcOutputId": 194
+      },
+      {
+        "id": 192,
+        "name": "parallax",
+        "srcNodeId": 151,
+        "srcOutputId": 195
+      },
+      {
+        "id": 193,
+        "name": "lut_uv",
+        "srcNodeId": 189,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 187,
+        "name": "components",
+        "value": null
+      }
+    ],
+    "childGraph": [
+      {
+        "id": 183,
+        "kind": 8,
+        "x": -59,
+        "y": -20,
+        "name": "tileset_uv",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Item",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "Index",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "Array",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 185,
+        "kind": 2,
+        "x": 442,
+        "y": -45,
+        "name": "toObject",
+        "codePath": "ng/presets/to-object.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "lut_uv",
+            "srcNodeId": 193,
+            "srcOutputId": 1
+          },
+          {
+            "id": 2,
+            "name": "tile_size",
+            "srcNodeId": 190,
+            "srcOutputId": 1
+          },
+          {
+            "id": 3,
+            "name": "tileset_uv",
+            "srcNodeId": 183,
+            "srcOutputId": 1
+          },
+          {
+            "id": 4,
+            "name": "repeat",
+            "srcNodeId": 191,
+            "srcOutputId": 1
+          },
+          {
+            "id": 5,
+            "name": "parallax",
+            "srcNodeId": 192,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "objects",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 187,
+        "kind": 6,
+        "x": 740,
+        "y": -27,
+        "name": "components",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "components",
+            "srcNodeId": 185,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": 190,
+        "kind": 4,
+        "x": -59,
+        "y": -98,
+        "name": "",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "",
+            "value": "[16,16]"
+          }
+        ]
+      },
+      {
+        "id": 191,
+        "kind": 8,
+        "x": -61,
+        "y": 122,
+        "name": "repeat",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Item",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "Index",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "Array",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 192,
+        "kind": 8,
+        "x": -60,
+        "y": 265,
+        "name": "parallax",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Item",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "Index",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "Array",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 193,
+        "kind": 8,
+        "x": -57,
+        "y": -239,
+        "name": "lut_uv",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Item",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "Index",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "Array",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 188,
+    "kind": 2,
+    "x": 1940,
+    "y": 440,
+    "name": "toObject",
+    "codePath": "ng/presets/to-object.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "entity_ids",
+        "srcNodeId": 144,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "components",
+        "srcNodeId": 182,
+        "srcOutputId": 187
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 189,
+    "kind": 2,
+    "x": 1375,
+    "y": 163,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 148,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tileset_uv",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "lut_uv",
+        "value": null
+      }
+    ]
   }
 ]
