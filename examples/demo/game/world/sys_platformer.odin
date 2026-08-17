@@ -34,10 +34,12 @@ Platformer_Config :: struct {
 	dash_direction:     Dash_Direction_Proc,
 }
 
+DELME_MULT :: 2
+
 PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
-	accel_ground = 16,
+	accel_ground = 16 * DELME_MULT,
 	accel_air = 8,
-	max_run = 3 * UNIT,
+	max_run = 3 * UNIT * DELME_MULT,
 	friction_ground = 24,
 	gravity = -24,
 	max_fall = -8 * UNIT,
@@ -961,12 +963,7 @@ move_y_and_collide :: proc(
 
 		contact_y, ok := segment_y_at_support_x(floor, pos.x + collider.x)
 		if !ok && vel.y > 0 {
-			contact_y, ok = segment_y_at_aabb_x(
-				floor,
-				pos.x + bounds.x,
-				pos.x + bounds.z,
-				pos.x + collider.x,
-			)
+			contact_y, ok = segment_y_at_aabb_x(floor, pos.x + bounds.x, pos.x + bounds.z, pos.x + collider.x)
 		}
 		if !ok {
 			continue
@@ -998,12 +995,7 @@ move_y_and_collide :: proc(
 stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer, stick: i32) {
 	bounds := capsule_local_aabb(collider)
 	center_y := pos.y + collider.y
-	probe := shape.Aabb {
-		pos.x + bounds.x - stick,
-		pos.y + bounds.y,
-		pos.x + bounds.z + stick,
-		pos.y + bounds.w,
-	}
+	probe := shape.Aabb{pos.x + bounds.x - stick, pos.y + bounds.y, pos.x + bounds.z + stick, pos.y + bounds.w}
 	found := grid.query_aabb(g, &probe)
 	defer delete(found)
 
@@ -1072,12 +1064,7 @@ capsule_local_aabb :: proc(capsule: ^shape.Capsule) -> shape.Aabb {
 @(private = "file")
 platformer_world_aabb :: proc(pos: ^Position, collider: ^shape.Capsule) -> shape.Aabb {
 	bounds := capsule_local_aabb(collider)
-	return {
-		pos.x + bounds.x,
-		pos.y + bounds.y,
-		pos.x + bounds.z,
-		pos.y + bounds.w,
-	}
+	return {pos.x + bounds.x, pos.y + bounds.y, pos.x + bounds.z, pos.y + bounds.w}
 }
 
 @(private = "file")
@@ -1107,7 +1094,8 @@ segment_y_at_x :: proc(segment: ^shape.Segment, x: i32) -> (i32, bool) {
 	if segment.x == segment.z {
 		return 0, false
 	}
-	y := i64(segment.y) +
+	y :=
+		i64(segment.y) +
 		(i64(x) - i64(segment.x)) * (i64(segment.w) - i64(segment.y)) / (i64(segment.z) - i64(segment.x))
 	return i32(y), true
 }
@@ -1132,7 +1120,8 @@ segment_x_at_y :: proc(segment: ^shape.Segment, y: i32) -> (i32, bool) {
 	if segment.y == segment.w {
 		return 0, false
 	}
-	x := i64(segment.x) +
+	x :=
+		i64(segment.x) +
 		(i64(y) - i64(segment.y)) * (i64(segment.z) - i64(segment.x)) / (i64(segment.w) - i64(segment.y))
 	return i32(x), true
 }

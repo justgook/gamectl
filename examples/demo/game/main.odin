@@ -35,7 +35,7 @@ app_init :: proc() {
 	UNIT := world.UNIT
 	append(&w.segments, shape.make_segment(32 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT))
 	append(&w.segments, shape.make_segment(128 * UNIT, 16 * UNIT, 256 * UNIT, 64 * UNIT))
-	append(&w.segments, shape.make_segment(256 * UNIT, -16 * UNIT, 256 * UNIT, 128 * UNIT))
+	// append(&w.segments, shape.make_segment(256 * UNIT, -16 * UNIT, 256 * UNIT, 128 * UNIT))
 	// MOCK SEGMENTS END
 
 	ok := load_data_bullet("bullet.rspk", &state.world)
@@ -305,10 +305,10 @@ load_data_anim :: proc(filepath: string, w: ^world.World) -> bool {
 	w.uv = data_anim.read_slot_0_u_vs(game_data) or_return
 
 	w.animation_atlas = data_anim.read_slot_2_world_animation_atlas(game_data) or_return
-	for &frame in w.animation_atlas.frames {
-		frame.offset.y = 14
-		frame.offset.x = 10
-	}
+	// for &frame in w.animation_atlas.frames {
+	// 	frame.offset.y = 14
+	// 	frame.offset.x = 10
+	// }
 
 
 	return true

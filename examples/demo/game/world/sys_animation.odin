@@ -1,5 +1,6 @@
 package world
 
+import "../host"
 import "logic"
 
 // Animation playback data.
@@ -55,6 +56,7 @@ atlas_get_frames :: proc(atlas: ^Animation_Atlas, def: ^AnimDef) -> []AnimFrame 
 	if frame_start < 0 || frame_end > len(atlas.frames) {
 		return nil
 	}
+
 	return atlas.frames[frame_start:frame_end]
 }
 
@@ -154,6 +156,8 @@ sys_animation :: proc(w: ^World, dt: f64) {
 			continue
 		}
 		assert(int(anim.frame_index) < len(frames))
+
+		host.info("AAA", "offset", frames[0].offset)
 
 		previous_frame := anim.frame_index
 		anim.frame_timer += f32(dt) * anim.speed * 1000

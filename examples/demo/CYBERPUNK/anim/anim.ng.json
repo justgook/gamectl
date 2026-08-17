@@ -45,8 +45,8 @@
   {
     "id": 63,
     "kind": 2,
-    "x": 599,
-    "y": 53,
+    "x": 623,
+    "y": -52,
     "name": "Open",
     "codePath": "ng/presets/image-open.lua",
     "inputs": [
@@ -68,8 +68,8 @@
   {
     "id": 64,
     "kind": 2,
-    "x": 828,
-    "y": -50,
+    "x": 783,
+    "y": 155,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "inputs": [
@@ -91,8 +91,8 @@
   {
     "id": 65,
     "kind": 2,
-    "x": 1106,
-    "y": -98,
+    "x": 1050,
+    "y": 156,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "inputs": [
@@ -153,8 +153,8 @@
   {
     "id": 66,
     "kind": 2,
-    "x": 1437,
-    "y": 100,
+    "x": 1450,
+    "y": -71,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
     "inputs": [
@@ -195,7 +195,7 @@
     "id": 67,
     "kind": 2,
     "x": 1674,
-    "y": 505,
+    "y": -455,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -224,7 +224,7 @@
     "id": 68,
     "kind": 4,
     "x": 1388,
-    "y": 620,
+    "y": -340,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -238,8 +238,8 @@
   {
     "id": 69,
     "kind": 4,
-    "x": 1261,
-    "y": -701,
+    "x": 1110,
+    "y": 827,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -253,8 +253,8 @@
   {
     "id": 70,
     "kind": 2,
-    "x": 1482,
-    "y": -700,
+    "x": 1370,
+    "y": 911,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "inputs": [
@@ -276,8 +276,8 @@
   {
     "id": 71,
     "kind": 2,
-    "x": 2584,
-    "y": 30,
+    "x": 2597,
+    "y": -141,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "inputs": [
@@ -311,8 +311,8 @@
   {
     "id": 72,
     "kind": 2,
-    "x": 2223,
-    "y": 149,
+    "x": 2236,
+    "y": -22,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
     "inputs": [
@@ -346,8 +346,8 @@
   {
     "id": 73,
     "kind": 4,
-    "x": 2298,
-    "y": -96,
+    "x": 2234,
+    "y": 142,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -371,8 +371,8 @@
   {
     "id": 74,
     "kind": 2,
-    "x": 1750,
-    "y": 159,
+    "x": 1763,
+    "y": -12,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "inputs": [
@@ -394,8 +394,8 @@
   {
     "id": 75,
     "kind": 2,
-    "x": 1930,
-    "y": -75,
+    "x": 1889,
+    "y": 224,
     "name": "Wrap Object",
     "codePath": "ng/presets/to-object.lua",
     "inputs": [
@@ -423,9 +423,9 @@
   {
     "id": 84,
     "kind": 7,
-    "x": 1550,
-    "y": -112,
-    "name": "SET FRAME DURATION",
+    "x": 1454,
+    "y": 198,
+    "name": "SET FRAME META",
     "inputs": [
       {
         "id": 85,
@@ -470,7 +470,7 @@
       {
         "id": 86,
         "kind": 6,
-        "x": 408,
+        "x": 473,
         "y": 229,
         "name": "output",
         "inputs": [
@@ -486,28 +486,28 @@
       {
         "id": 87,
         "kind": 4,
-        "x": -146,
-        "y": 45,
+        "x": -267,
+        "y": 20,
         "name": "",
         "inputs": [],
         "outputs": [
           {
             "id": 1,
             "name": "",
-            "value": "{\"duration\":32}"
+            "value": "{\"duration\":32, \"offset\":[128,128]}"
           },
           {
             "id": 2,
             "name": "",
-            "value": "\"duration\""
+            "value": "[\"duration\", \"offset\"]"
           }
         ]
       },
       {
         "id": 88,
         "kind": 2,
-        "x": 110,
-        "y": 166,
+        "x": 164,
+        "y": 156,
         "name": "Copy Prop",
         "codePath": "ng/presets/copy-prop.lua",
         "inputs": [
@@ -549,8 +549,8 @@
   {
     "id": 89,
     "kind": 2,
-    "x": 999,
-    "y": 120,
+    "x": 1012,
+    "y": -51,
     "name": "FlipY",
     "codePath": "ng/presets/image-flipy.lua",
     "inputs": [
@@ -595,8 +595,8 @@
   {
     "id": 91,
     "kind": 2,
-    "x": 372,
-    "y": 90,
+    "x": 385,
+    "y": -81,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
     "inputs": [
@@ -624,8 +624,8 @@
   {
     "id": 92,
     "kind": 3,
-    "x": 769,
-    "y": -509,
+    "x": 353,
+    "y": 246,
     "name": "Animation Def",
     "inputs": [
       {
@@ -661,8 +661,8 @@
   {
     "id": 101,
     "kind": 4,
-    "x": 454,
-    "y": -530,
+    "x": 342,
+    "y": 151,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -676,8 +676,8 @@
   {
     "id": 110,
     "kind": 2,
-    "x": 1258,
-    "y": -360,
+    "x": 678,
+    "y": 369,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
     "inputs": [
@@ -705,8 +705,8 @@
   {
     "id": 111,
     "kind": 3,
-    "x": 789,
-    "y": -317,
+    "x": 355,
+    "y": 374,
     "name": "Animation Def",
     "inputs": [
       {

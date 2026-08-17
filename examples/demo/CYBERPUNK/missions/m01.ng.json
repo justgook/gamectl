@@ -1,25 +1,5 @@
 [
   {
-    "id": 1,
-    "kind": 4,
-    "x": -1608,
-    "y": -1448,
-    "name": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"CYBERPUNK/missions/m01.map.json\""
-      },
-      {
-        "id": 4,
-        "name": "",
-        "value": "\"CYBERPUNK/missions/m01.world.json\""
-      }
-    ]
-  },
-  {
     "id": 17,
     "kind": 4,
     "x": 802,
@@ -128,7 +108,7 @@
       {
         "id": 1,
         "name": "path",
-        "srcNodeId": 1,
+        "srcNodeId": 233,
         "srcOutputId": 1
       }
     ],
@@ -846,8 +826,8 @@
       {
         "id": 1,
         "name": "path",
-        "srcNodeId": 1,
-        "srcOutputId": 4
+        "srcNodeId": 233,
+        "srcOutputId": 2
       }
     ],
     "outputs": [
@@ -2271,6 +2251,26 @@
             "value": null
           }
         ]
+      }
+    ]
+  },
+  {
+    "id": 233,
+    "kind": 4,
+    "x": -1514,
+    "y": -1381,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"missions/m01.map.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"missions/m01.world.json\""
       }
     ]
   }

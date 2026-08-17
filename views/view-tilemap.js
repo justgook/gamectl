@@ -577,10 +577,32 @@ class TilemapState {
 
   cutCells(layerIndexes, cells) {
     const clipboard = this.copyCells(layerIndexes, cells)
+    const changed = this.clearCells(layerIndexes, cells, "Cut")
+    return { clipboard, changed }
+  }
+
+  deleteCells(layerIndexes, cells) {
+    return this.clearCells(layerIndexes, cells, "Delete")
+  }
+
+  clearCells(layerIndexes, cells, label) {
+    assert(
+      Array.isArray(layerIndexes),
+      "tilemap state clearCells layerIndexes must be array",
+    )
+    assert(Array.isArray(cells), "tilemap state clearCells cells must be array")
+    assert(
+      typeof label === "string" && label.length > 0,
+      "tilemap state clearCells label must be non-empty string",
+    )
     const changes = []
     for (const layerIndex of layerIndexes) {
       const layer = this.requireLayer(layerIndex)
       for (const cell of cells) {
+        assert(
+          Number.isInteger(cell.x) && Number.isInteger(cell.y),
+          "tilemap state clearCells cell must contain integer x/y",
+        )
         const tileIndex = cell.y * layer.width + cell.x
         if (
           cell.x < 0 ||
@@ -594,22 +616,21 @@ class TilemapState {
         changes.push({ layerIndex, tileIndex, previous, next: 0 })
       }
     }
-    if (changes.length > 0) {
-      this.executeDirtyCommand(
-        `Cut ${changes.length} tile${changes.length === 1 ? "" : "s"}`,
-        () => {
-          for (const change of changes)
-            this.requireLayer(change.layerIndex).data[change.tileIndex] =
-              change.next
-        },
-        () => {
-          for (const change of changes)
-            this.requireLayer(change.layerIndex).data[change.tileIndex] =
-              change.previous
-        },
-      )
-    }
-    return { clipboard, changed: changes.length > 0 }
+    if (changes.length === 0) return false
+    this.executeDirtyCommand(
+      `${label} ${changes.length} tile${changes.length === 1 ? "" : "s"}`,
+      () => {
+        for (const change of changes)
+          this.requireLayer(change.layerIndex).data[change.tileIndex] =
+            change.next
+      },
+      () => {
+        for (const change of changes)
+          this.requireLayer(change.layerIndex).data[change.tileIndex] =
+            change.previous
+      },
+    )
+    return true
   }
 
   sampleTile(layerIndex, cell) {
@@ -1955,6 +1976,18 @@ export class ViewTilemap extends ViewCanvasBase {
     await this.refreshSnapshot(
       result.changed ? "Selection cut" : "Selection copied",
     )
+  }
+
+  async deleteSelected() {
+    if (!this.canCopySelection()) return
+    const layers = this.copyLayerIndexes()
+    const cells = this.selectionTool.cells()
+    const changed = this.state.deleteCells(layers, cells)
+    if (!changed) {
+      this.setStatus("Nothing deleted", "info")
+      return
+    }
+    await this.refreshSnapshot("Selection deleted")
   }
 
   canCopySelection() {

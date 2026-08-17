@@ -1,5 +1,6 @@
 package world
 
+import "../host"
 import "logic"
 
 // Platformer animation controller.
@@ -82,7 +83,7 @@ platformer_anim_create_char_from_atlas :: proc(atlas: ^Animation_Atlas, base_id:
 	the_base_id := 0
 	return platformer_anim_create_char(
 		&anim[the_base_id + 0],
-		&anim[the_base_id + 0],
+		&anim[the_base_id + 1],
 		&anim[the_base_id + 0],
 		&anim[the_base_id + 0],
 		&anim[the_base_id + 0],
