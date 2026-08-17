@@ -1835,15 +1835,15 @@
   {
     "id": 151,
     "kind": 7,
-    "x": 926,
-    "y": -55,
+    "x": 212,
+    "y": -46,
     "name": "Tilemaps assets",
     "inputs": [
       {
         "id": 152,
         "name": "items",
-        "srcNodeId": 166,
-        "srcOutputId": 169
+        "srcNodeId": 144,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1892,15 +1892,21 @@
       {
         "id": 153,
         "kind": 3,
-        "x": 560,
-        "y": 58,
-        "name": "background",
+        "x": 800,
+        "y": 57,
+        "name": "Image Creation",
         "inputs": [
           {
             "id": 17,
             "name": "tilemap",
             "srcNodeId": 173,
             "srcOutputId": 1
+          },
+          {
+            "id": 21,
+            "name": "layer",
+            "srcNodeId": 174,
+            "srcOutputId": 2
           }
         ],
         "outputs": [
@@ -1928,8 +1934,8 @@
       {
         "id": 154,
         "kind": 6,
-        "x": 800,
-        "y": 58,
+        "x": 1048,
+        "y": 57,
         "name": "images",
         "inputs": [
           {
@@ -1944,8 +1950,8 @@
       {
         "id": 155,
         "kind": 6,
-        "x": 800,
-        "y": 170,
+        "x": 1045,
+        "y": 139,
         "name": "tilesets",
         "inputs": [
           {
@@ -1960,8 +1966,8 @@
       {
         "id": 156,
         "kind": 6,
-        "x": 800,
-        "y": 282,
+        "x": 1046,
+        "y": 220,
         "name": "LUts",
         "inputs": [
           {
@@ -1976,15 +1982,15 @@
       {
         "id": 173,
         "kind": 2,
-        "x": 320,
-        "y": 58,
+        "x": 558,
+        "y": -6,
         "name": "Read JSON",
         "codePath": "ng/presets/read-json.lua",
         "inputs": [
           {
             "id": 1,
             "name": "path",
-            "srcNodeId": 152,
+            "srcNodeId": 174,
             "srcOutputId": 1
           }
         ],
@@ -1997,6 +2003,44 @@
           {
             "id": 2,
             "name": "error",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 174,
+        "kind": 2,
+        "x": 320,
+        "y": 58,
+        "name": "fromArray",
+        "codePath": "ng/presets/from-array.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "array",
+            "srcNodeId": 152,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "tilemap",
+            "value": null
+          },
+          {
+            "id": 2,
+            "name": "layer",
+            "value": null
+          },
+          {
+            "id": 3,
+            "name": "repeat",
+            "value": null
+          },
+          {
+            "id": 4,
+            "name": "parallax",
             "value": null
           }
         ]
@@ -2128,171 +2172,5 @@
       }
     ],
     "outputs": []
-  },
-  {
-    "id": 166,
-    "kind": 7,
-    "x": 291,
-    "y": -33,
-    "name": "Filter Fields",
-    "inputs": [
-      {
-        "id": 167,
-        "name": "items",
-        "srcNodeId": 144,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 169,
-        "name": "tlemap",
-        "value": null
-      },
-      {
-        "id": 170,
-        "name": "layer",
-        "value": null
-      },
-      {
-        "id": 171,
-        "name": "repeat",
-        "value": null
-      },
-      {
-        "id": 172,
-        "name": "parallax",
-        "value": null
-      }
-    ],
-    "childGraph": [
-      {
-        "id": 167,
-        "kind": 8,
-        "x": 0,
-        "y": 0,
-        "name": "items",
-        "inputs": [],
-        "outputs": [
-          {
-            "id": 1,
-            "name": "Item",
-            "value": null
-          },
-          {
-            "id": 2,
-            "name": "Index",
-            "value": null
-          },
-          {
-            "id": 3,
-            "name": "Array",
-            "value": null
-          }
-        ]
-      },
-      {
-        "id": 168,
-        "kind": 2,
-        "x": 298,
-        "y": -35,
-        "name": "fromArray",
-        "codePath": "ng/presets/from-array.lua",
-        "inputs": [
-          {
-            "id": 1,
-            "name": "array",
-            "srcNodeId": 167,
-            "srcOutputId": 1
-          }
-        ],
-        "outputs": [
-          {
-            "id": 1,
-            "name": "tilemap",
-            "value": null
-          },
-          {
-            "id": 2,
-            "name": "layer",
-            "value": null
-          },
-          {
-            "id": 3,
-            "name": "repeat",
-            "value": null
-          },
-          {
-            "id": 4,
-            "name": "parallax",
-            "value": null
-          }
-        ]
-      },
-      {
-        "id": 169,
-        "kind": 6,
-        "x": 634,
-        "y": -30,
-        "name": "tlemap",
-        "inputs": [
-          {
-            "id": 1,
-            "name": "tlemap",
-            "srcNodeId": 168,
-            "srcOutputId": 1
-          }
-        ],
-        "outputs": []
-      },
-      {
-        "id": 170,
-        "kind": 6,
-        "x": 633,
-        "y": 56,
-        "name": "layer",
-        "inputs": [
-          {
-            "id": 1,
-            "name": "layer",
-            "srcNodeId": 168,
-            "srcOutputId": 2
-          }
-        ],
-        "outputs": []
-      },
-      {
-        "id": 171,
-        "kind": 6,
-        "x": 633,
-        "y": 134,
-        "name": "repeat",
-        "inputs": [
-          {
-            "id": 1,
-            "name": "repeat",
-            "srcNodeId": 168,
-            "srcOutputId": 3
-          }
-        ],
-        "outputs": []
-      },
-      {
-        "id": 172,
-        "kind": 6,
-        "x": 633,
-        "y": 218,
-        "name": "parallax",
-        "inputs": [
-          {
-            "id": 1,
-            "name": "parallax",
-            "srcNodeId": 168,
-            "srcOutputId": 4
-          }
-        ],
-        "outputs": []
-      }
-    ]
   }
 ]

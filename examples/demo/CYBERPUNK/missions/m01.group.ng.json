@@ -5,8 +5,8 @@
     {
       "id": 1,
       "kind": 2,
-      "x": -481,
-      "y": -1216,
+      "x": -751,
+      "y": -1183,
       "name": "fromObject",
       "codePath": "ng/presets/from-object.lua",
       "inputs": [
@@ -46,7 +46,7 @@
         {
           "id": 1,
           "name": "values",
-          "srcNodeId": 16,
+          "srcNodeId": 22,
           "srcOutputId": 1
         }
       ],
@@ -267,7 +267,7 @@
         {
           "id": 1,
           "name": "value",
-          "srcNodeId": 1,
+          "srcNodeId": 22,
           "srcOutputId": 1
         },
         {
@@ -380,8 +380,8 @@
         {
           "id": 2,
           "name": "width",
-          "srcNodeId": 1,
-          "srcOutputId": 3
+          "srcNodeId": 23,
+          "srcOutputId": 1
         }
       ],
       "outputs": [
@@ -393,32 +393,9 @@
       ]
     },
     {
-      "id": 16,
-      "kind": 2,
-      "x": -149,
-      "y": -1318,
-      "name": "mergeArrays",
-      "codePath": "ng/presets/merge-arrays.lua",
-      "inputs": [
-        {
-          "id": 1,
-          "name": "arrays",
-          "srcNodeId": 1,
-          "srcOutputId": 1
-        }
-      ],
-      "outputs": [
-        {
-          "id": 1,
-          "name": "array",
-          "value": null
-        }
-      ]
-    },
-    {
       "id": 17,
       "kind": 5,
-      "x": -773,
+      "x": -1019,
       "y": -1202,
       "name": "tilemap",
       "inputs": [],
@@ -477,6 +454,79 @@
         }
       ],
       "outputs": []
+    },
+    {
+      "id": 21,
+      "kind": 5,
+      "x": -1000,
+      "y": -1307,
+      "name": "layer",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "layer",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "kind": 2,
+      "x": -339,
+      "y": -1238,
+      "name": "Array At",
+      "codePath": "ng/presets/array-at.lua",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "array",
+          "srcNodeId": 1,
+          "srcOutputId": 1
+        },
+        {
+          "id": 2,
+          "name": "index",
+          "srcNodeId": 21,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "item",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "kind": 2,
+      "x": -341,
+      "y": -1123,
+      "name": "Array At",
+      "codePath": "ng/presets/array-at.lua",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "array",
+          "srcNodeId": 1,
+          "srcOutputId": 3
+        },
+        {
+          "id": 2,
+          "name": "index",
+          "srcNodeId": 21,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "item",
+          "value": null
+        }
+      ]
     }
   ]
 }
