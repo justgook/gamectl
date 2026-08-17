@@ -1680,6 +1680,12 @@ export class ViewWorld extends ViewCanvasBase {
       this.rendererRegistry instanceof WorldObjectRendererRegistry,
       "view-world draw requires initialized renderers",
     )
+    const viewport = {
+      minX: -this.offsetX / this.scale,
+      minY: -this.offsetY / this.scale,
+      maxX: (this.canvas.width - this.offsetX) / this.scale,
+      maxY: (this.canvas.height - this.offsetY) / this.scale,
+    }
     snapshot.objects.forEach((object, index) => {
       const anchor = this.projectToCanvasPoint(object)
       ctx.save()
@@ -1688,6 +1694,12 @@ export class ViewWorld extends ViewCanvasBase {
         this.rendererRegistry.draw(ctx, object, {
           scale: this.scale,
           label: objectDisplayName(object, index),
+          viewport: {
+            minX: viewport.minX - anchor.x,
+            minY: viewport.minY - anchor.y,
+            maxX: viewport.maxX - anchor.x,
+            maxY: viewport.maxY - anchor.y,
+          },
         })
       } finally {
         ctx.restore()

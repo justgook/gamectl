@@ -552,13 +552,25 @@ export class TilemapRasterizer {
   }
 }
 
-export async function loadTilemapRaster(path) {
+export async function loadTilemapRaster(path, { layer } = {}) {
   assert(
     typeof path === "string" && path.length > 0,
     "tilemap raster path must be non-empty string",
   )
+  assert(
+    layer === undefined || (Number.isInteger(layer) && layer > 0),
+    "tilemap raster layer must be a positive integer",
+  )
   const data = unwrap(await runtime.invoke("fs/fs::read-text", path))
-  const tilemap = parseTilemapData(data)
+  const parsedTilemap = parseTilemapData(data)
+  assert(
+    layer === undefined || layer <= parsedTilemap.layers.length,
+    `tilemap raster layer ${layer} exceeds ${parsedTilemap.layers.length} layers`,
+  )
+  const tilemap =
+    layer === undefined
+      ? parsedTilemap
+      : { ...parsedTilemap, layers: [parsedTilemap.layers[layer - 1]] }
   const tilesets = await createTilemapTilesets(tilemap)
   const tileSize = tileSizeForTilemap(tilemap)
   const rasterizer = new TilemapRasterizer({

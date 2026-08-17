@@ -99,7 +99,7 @@ The demo Project also registers a tilemap renderer matched by:
 }
 ```
 
-A matching object requires a non-empty `tilemap` property containing a project-relative tilemap path. Shared tilemap utilities validate the document, load its tilesets, and rasterize visible layers to an offscreen canvas. The World Object Renderer caches that raster by tilemap path and draws it at the object's world position.
+A matching object requires a non-empty `tilemap` property containing a project-relative tilemap path. Its optional positive integer `layer` property selects one tilemap layer using one-based indexing; omitting `layer` renders every layer. Its optional `repeat` property is a pair of integer flags `[x, y]`: `1` repeats the tilemap infinitely across the visible viewport on that axis, while `0` does not repeat it. Omitting `repeat` is equivalent to `[0, 0]`. Shared tilemap utilities validate the document and selected layer, load its tilesets, and rasterize visible layers to an offscreen canvas. The World Object Renderer caches each raster by tilemap path and layer selection and draws enough copies to cover the viewport on enabled axes.
 
 Tilemap storage parsing, tileset loading, generated fallback tiles, and layer rasterization live in `packages/util/tilemap-render.js`. The Tilemap Editor reuses that lower-level functionality while retaining editor-only background, grid, layer emphasis, bounds, selection, and editing behavior.
 
@@ -111,8 +111,11 @@ Tilemap storage parsing, tileset loading, generated fallback tiles, and layer ra
 - A sprite object without `url` renders its configured rectangle.
 - Demo renderer origins offset drawing, bounds, hit testing, selection, and fit-to-content while preserving the World Object's stored position.
 - Sprite resources are cached by URL and released when no matching object uses them or when the renderer is disposed.
-- A tilemap object renders all stored tilemap layers through an offscreen canvas at its world position.
-- Tilemap rasters are cached by tilemap path and discarded when unused or disposed.
+- A tilemap object without `layer` renders all stored tilemap layers through an offscreen canvas at its world position.
+- A tilemap object with `layer` renders only that one-based tilemap layer and rejects invalid or out-of-range values.
+- A tilemap object's `repeat: [x, y]` uses `0`/`1` flags to disable or infinitely repeat each axis across the visible viewport and defaults to `[0, 0]`.
+- Infinite repetition retains one tilemap copy as the finite editor bounds used for selection, hit testing, and fit-to-content.
+- Tilemap rasters are cached by tilemap path and layer selection and discarded when unused or disposed.
 - The Tilemap Editor and tilemap World Object Renderer share storage parsing, tileset loading, and tile-layer rasterization.
 - Fit-to-content includes custom renderer bounds.
 - Hovering any unlocked point, rectangle, sprite, or tilemap object shows no more than ten property rows through `ui.tooltip`.

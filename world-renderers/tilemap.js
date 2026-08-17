@@ -20,13 +20,34 @@ function parseOrigin(config) {
   return [...origin]
 }
 
-function tilemapPath(object) {
+function parseRepeat(object) {
+  const repeat = object.props.repeat
+  if (repeat === undefined) return [0, 0]
+  assert(
+    Array.isArray(repeat) && repeat.length === 2,
+    "tilemap renderer repeat must be [x, y]",
+  )
+  for (const [index, value] of repeat.entries()) {
+    assert(
+      value === 0 || value === 1,
+      `tilemap renderer repeat[${index}] must be 0 or 1`,
+    )
+  }
+  return repeat
+}
+
+function tilemapSource(object) {
   const path = object.props.tilemap
   assert(
     typeof path === "string" && path.length > 0,
     "tilemap renderer requires non-empty tilemap property",
   )
-  return path
+  const layer = object.props.layer
+  assert(
+    layer === undefined || (Number.isInteger(layer) && layer > 0),
+    "tilemap renderer layer must be a positive integer",
+  )
+  return { path, layer, key: JSON.stringify([path, layer ?? null]) }
 }
 
 export function createWorldObjectRenderer({ config }) {
@@ -40,15 +61,26 @@ export function createWorldObjectRenderer({ config }) {
   return {
     async prepare(objects) {
       assert(Array.isArray(objects), "tilemap renderer objects must be array")
-      const requiredPaths = new Set(objects.map(tilemapPath))
+      const requiredSources = new Map(
+        objects.map((object) => {
+          const source = tilemapSource(object)
+          parseRepeat(object)
+          return [source.key, source]
+        }),
+      )
       const loaded = new Map()
-      for (const path of requiredPaths) {
-        if (!rasters.has(path)) loaded.set(path, await loadTilemapRaster(path))
+      for (const [key, source] of requiredSources) {
+        if (!rasters.has(key)) {
+          loaded.set(
+            key,
+            await loadTilemapRaster(source.path, { layer: source.layer }),
+          )
+        }
       }
-      for (const path of rasters.keys()) {
-        if (!requiredPaths.has(path)) rasters.delete(path)
+      for (const key of rasters.keys()) {
+        if (!requiredSources.has(key)) rasters.delete(key)
       }
-      for (const [path, raster] of loaded) rasters.set(path, raster)
+      for (const [key, raster] of loaded) rasters.set(key, raster)
     },
 
     draw(ctx, object, frame) {
@@ -60,21 +92,52 @@ export function createWorldObjectRenderer({ config }) {
         frame && Number.isFinite(frame.scale) && frame.scale > 0,
         "tilemap renderer frame.scale must be positive",
       )
-      const path = tilemapPath(object)
-      const raster = rasters.get(path)
-      assert(raster, `tilemap renderer raster not prepared: ${path}`)
-      ctx.imageSmoothingEnabled = false
-      ctx.drawImage(
-        raster.canvas,
-        -raster.width * origin[0],
-        -raster.height * origin[1],
+      const source = tilemapSource(object)
+      const raster = rasters.get(source.key)
+      assert(raster, `tilemap renderer raster not prepared: ${source.path}`)
+      const repeat = parseRepeat(object)
+      const minX = -raster.width * origin[0]
+      const minY = -raster.height * origin[1]
+      const viewport = frame.viewport
+      assert(
+        viewport && typeof viewport === "object" && !Array.isArray(viewport),
+        "tilemap renderer frame.viewport must be an object",
       )
+      for (const field of ["minX", "minY", "maxX", "maxY"]) {
+        assert(
+          Number.isFinite(viewport[field]),
+          `tilemap renderer frame.viewport.${field} must be finite`,
+        )
+      }
+      const firstX = repeat[0]
+        ? Math.floor((viewport.minX - minX) / raster.width)
+        : 0
+      const lastX = repeat[0]
+        ? Math.floor((viewport.maxX - minX) / raster.width)
+        : 0
+      const firstY = repeat[1]
+        ? Math.floor((viewport.minY - minY) / raster.height)
+        : 0
+      const lastY = repeat[1]
+        ? Math.floor((viewport.maxY - minY) / raster.height)
+        : 0
+      ctx.imageSmoothingEnabled = false
+      for (let y = firstY; y <= lastY; y++) {
+        for (let x = firstX; x <= lastX; x++) {
+          ctx.drawImage(
+            raster.canvas,
+            minX + x * raster.width,
+            minY + y * raster.height,
+          )
+        }
+      }
     },
 
     bounds(object) {
-      const path = tilemapPath(object)
-      const raster = rasters.get(path)
-      assert(raster, `tilemap renderer raster not prepared: ${path}`)
+      const source = tilemapSource(object)
+      const raster = rasters.get(source.key)
+      assert(raster, `tilemap renderer raster not prepared: ${source.path}`)
+      parseRepeat(object)
       const minX = -raster.width * origin[0]
       const minY = -raster.height * origin[1]
       return {
