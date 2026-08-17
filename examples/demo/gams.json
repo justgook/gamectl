@@ -1043,6 +1043,10 @@
                 {
                   "name": "fields",
                   "defaultValue": "[\"x\", \"y\"]"
+                },
+                {
+                  "name": "defaults",
+                  "defaultValue": "{}"
                 }
               ],
               "outputs": [

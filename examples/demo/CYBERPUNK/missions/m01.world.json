@@ -80,6 +80,7 @@
     "tilemap": "CYBERPUNK/missions/m01.map.json",
     "name": "t_collision",
     "render": "tilemap",
-    "lock": true
+    "lock": true,
+    "layer": 1
   }
 ]

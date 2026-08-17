@@ -5,13 +5,27 @@
 -- Inputs:
 --   objects: dense array of objects
 --   fields:
---     - non-empty array of direct field names: every object becomes an array component
---       whose values follow the requested field order
+--     - non-empty array of direct field names: objects containing every required field
+--       become array components whose values follow the requested field order
 --     - non-empty direct field name: objects containing that field become components
 --       whose values are the field values themselves
+--   defaults: optional object keyed by field name. In array mode, a missing field uses
+--     its default; fields without defaults remain required.
 --
 -- Output:
 --   storage: { entity_ids = { ... }, components = { ... } }
+
+local function deep_copy(value)
+	if type(value) ~= "table" then
+		return value
+	end
+
+	local copied = {}
+	for key, item in pairs(value) do
+		copied[deep_copy(key)] = deep_copy(item)
+	end
+	return copied
+end
 
 local function dense_array_length(value, label)
 	if type(value) ~= "table" then
@@ -48,6 +62,7 @@ if not inputs.active[2] then
 end
 local fields = inputs[2]
 local property = nil
+local seen_fields = {}
 if type(fields) == "string" then
 	if fields == "" then
 		error("fields must be a non-empty field name or array of field names")
@@ -59,7 +74,6 @@ elseif type(fields) == "table" then
 		error("fields must contain at least one field name")
 	end
 
-	local seen_fields = {}
 	for field_index, field in ipairs(fields) do
 		if type(field) ~= "string" or field == "" then
 			error("fields item '" .. tostring(field_index) .. "' must be a non-empty string")
@@ -71,6 +85,27 @@ elseif type(fields) == "table" then
 	end
 else
 	error("fields must be a non-empty field name or array of field names")
+end
+
+local defaults = {}
+if inputs.active[3] then
+	defaults = inputs[3]
+	if type(defaults) ~= "table" then
+		error("defaults must be an object")
+	end
+
+	if property ~= nil and next(defaults) ~= nil then
+		error("defaults can only be used when fields is an array")
+	end
+
+	for field, _ in pairs(defaults) do
+		if type(field) ~= "string" or field == "" then
+			error("defaults must contain only non-empty field-name keys")
+		end
+		if not seen_fields[field] then
+			error("defaults contains field '" .. field .. "' not listed in fields")
+		end
+	end
 end
 
 local storage = {
@@ -92,16 +127,24 @@ for object_index = 1, object_count do
 		end
 	else
 		local component = {}
+		local matches = true
 		for field_index, field in ipairs(fields) do
 			local field_value = object[field]
 			if field_value == nil then
-				error("objects item '" .. tostring(object_index) .. "' field '" .. field .. "' is nil")
+				local default_value = defaults[field]
+				if default_value == nil then
+					matches = false
+					break
+				end
+				field_value = deep_copy(default_value)
 			end
 			component[field_index] = field_value
 		end
 
-		storage.entity_ids[#storage.entity_ids + 1] = object_index - 1
-		storage.components[#storage.components + 1] = component
+		if matches then
+			storage.entity_ids[#storage.entity_ids + 1] = object_index - 1
+			storage.components[#storage.components + 1] = component
+		end
 	end
 end
 
