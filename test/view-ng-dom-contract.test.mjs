@@ -76,6 +76,13 @@ test("Group Export rejects root overwrite and export-path cycles", () => {
   assert.match(source, /!this\.graphLinksTo\(group\.childGraph, path\)/)
 })
 
+test("view-ng always shows a completion toast after a pipeline run", () => {
+  assert.match(
+    source,
+    /this\._setStatus\("graph run completed", "success"\)[\s\S]*?await runtime\.call\("ui\.toast\.success", \{ message: `Pipeline '\$\{this\.graphName\}' completed\$\{goalResult\}` \}\)/,
+  )
+})
+
 test("New and Save As cannot overwrite a loaded linked Group document", () => {
   assert.match(source, /assertRootSavePathAvailable\(path\)/)
   assert.match(source, /root graph path conflicts with linked Group document/)

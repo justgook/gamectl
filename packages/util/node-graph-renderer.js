@@ -251,9 +251,6 @@ export class NodeGraphRenderer {
     ctx.roundRect(rect.x, rect.y, rect.width, rect.height, nodeConfig.radius)
     ctx.fillStyle = cssColor(fill)
     ctx.fill()
-    ctx.lineWidth = nodeConfig.borderWidth
-    ctx.strokeStyle = cssColor(theme.nodeBorder)
-    ctx.stroke()
     ctx.beginPath()
     ctx.roundRect(rect.x, rect.y, rect.width, nodeConfig.headerHeight, [nodeConfig.radius, nodeConfig.radius, 0, 0])
     ctx.fillStyle = cssColor(this.executionColor(state.execState, state.required ? theme.requiredHeader : theme.header))
@@ -262,6 +259,11 @@ export class NodeGraphRenderer {
     ctx.font = this.textFont("600")
     ctx.textBaseline = "middle"
     ctx.fillText(String(node.name), rect.x + nodeConfig.padding, rect.y + nodeConfig.headerHeight / 2, rect.width - nodeConfig.padding * 2)
+    ctx.beginPath()
+    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, nodeConfig.radius)
+    ctx.lineWidth = state.selected ? Math.max(nodeConfig.borderWidth, this.config.edge.selectedWidth) : nodeConfig.borderWidth
+    ctx.strokeStyle = cssColor(state.selected ? theme.edgeSelected : theme.nodeBorder)
+    ctx.stroke()
     for (const direction of ["input", "output"]) {
       const ports = this.ports(node, direction)
       ports.forEach((port, index) => {

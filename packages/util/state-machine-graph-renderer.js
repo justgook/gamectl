@@ -386,8 +386,8 @@ export class StateMachineGraphRenderer {
       ctx.fillStyle = cssColor(fill)
     }
     ctx.fill()
-    ctx.lineWidth = nodeConfig.borderWidth
-    ctx.strokeStyle = cssColor(theme.nodeBorder)
+    ctx.lineWidth = state.selected ? Math.max(nodeConfig.borderWidth, this.config.edge.selectedWidth) : nodeConfig.borderWidth
+    ctx.strokeStyle = cssColor(state.selected ? theme.edgeSelected : theme.nodeBorder)
     ctx.stroke()
 
     if (hasTransitionRegion) {

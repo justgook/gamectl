@@ -1,0 +1,170 @@
+{
+  "format": "gams-group-graph",
+  "version": 1,
+  "nodes": [
+    {
+      "id": 93,
+      "kind": 5,
+      "x": 719,
+      "y": -315,
+      "name": "images",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "images",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "kind": 6,
+      "x": 1730,
+      "y": -314,
+      "name": "output",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "output",
+          "srcNodeId": 95,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "id": 95,
+      "kind": 2,
+      "x": 1480,
+      "y": -347,
+      "name": "toObject",
+      "codePath": "ng/presets/to-object.lua",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "frame_start",
+          "srcNodeId": 99,
+          "srcOutputId": 1
+        },
+        {
+          "id": 2,
+          "name": "frame_count",
+          "srcNodeId": 96,
+          "srcOutputId": 1
+        },
+        {
+          "id": 3,
+          "name": "repeat",
+          "srcNodeId": 98,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "object",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": 96,
+      "kind": 2,
+      "x": 999,
+      "y": -331,
+      "name": "Array Length",
+      "codePath": "ng/presets/array-length.lua",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "array",
+          "srcNodeId": 93,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "length",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": 98,
+      "kind": 4,
+      "x": 1232,
+      "y": -246,
+      "name": "",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": 99,
+      "kind": 5,
+      "x": 718,
+      "y": -146,
+      "name": "last_id",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "last_id",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": 100,
+      "kind": 6,
+      "x": 1623,
+      "y": -86,
+      "name": "last_id",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "last_id",
+          "srcNodeId": 101,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "id": 101,
+      "kind": 2,
+      "x": 1228,
+      "y": -4,
+      "name": "Sum",
+      "codePath": "ng/presets/sum.lua",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "left",
+          "srcNodeId": 96,
+          "srcOutputId": 1
+        },
+        {
+          "id": 2,
+          "name": "right",
+          "srcNodeId": 99,
+          "srcOutputId": 1
+        }
+      ],
+      "outputs": [
+        {
+          "id": 1,
+          "name": "value",
+          "value": null
+        }
+      ]
+    }
+  ]
+}

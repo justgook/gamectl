@@ -18,6 +18,7 @@ import {
     serializeNgNodeGraph,
     syncNgForEachBoundary,
     syncNgGroupBoundary,
+    visibleNgExecutionNodeId,
 } from "/util/ng-node-graph.js"
 import { normalizeNgPresetDraft, ngPresetKind } from "/util/ng-node-preset.js"
 import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
@@ -1129,7 +1130,7 @@ export class ViewNg extends ViewCanvasBase {
         assert(nodeId > 0, `view-ng progress ${method} missing nodeId`)
         const location = this.currentExecutionLocations.get(nodeId)
         assert(location, `view-ng progress references missing execution node ${nodeId}`)
-        const visibleNodeId = JSON.stringify(location.groupPath) === JSON.stringify(this.activeGroupPath) ? location.sourceNodeId : null
+        const visibleNodeId = visibleNgExecutionNodeId(location, this.activeGroupPath)
         const node = visibleNodeId === null ? null : this.graph.nodes.find((candidate) => candidate.id === visibleNodeId)
         if (!node) return okResult()
         const starting = method === "nodeStart" || method === "goalStart"
@@ -1159,7 +1160,8 @@ export class ViewNg extends ViewCanvasBase {
         const resultText = unwrap(await runtime.invoke("lua/lua::run", generatedSource))
         if (this.currentRunId !== runId) return false
         this._setStatus("graph run completed", "success")
-        if (graph.some((node) => node.kind === NG_NODE_KINDS.GOAL)) await runtime.call("ui.toast.success", { message: resultText })
+        const goalResult = graph.some((node) => node.kind === NG_NODE_KINDS.GOAL) ? `: ${resultText}` : ""
+        await runtime.call("ui.toast.success", { message: `Pipeline '${this.graphName}' completed${goalResult}` })
         return true
     }
 

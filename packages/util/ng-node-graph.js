@@ -485,6 +485,16 @@ export function flattenNgGraphWithLocations(graph, options = {}) {
   return { nodes: materialize(rootRecords), locations }
 }
 
+export function visibleNgExecutionNodeId(location, activeGroupPath) {
+  assert(location && typeof location === "object", "view-ng execution location is required")
+  assert(Array.isArray(location.groupPath), "view-ng execution location groupPath must be an array")
+  assert(Array.isArray(activeGroupPath), "view-ng active Group path must be an array")
+  if (!activeGroupPath.every((groupId, index) => location.groupPath[index] === groupId)) return null
+  return activeGroupPath.length < location.groupPath.length
+    ? location.groupPath[activeGroupPath.length]
+    : location.sourceNodeId
+}
+
 export function flattenNgGraph(graph, options = {}) {
   return flattenNgGraphWithLocations(graph, options).nodes
 }

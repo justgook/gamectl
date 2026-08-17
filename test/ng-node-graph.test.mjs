@@ -17,6 +17,7 @@ import {
   serializeNgNodeGraph,
   syncNgForEachBoundary,
   syncNgGroupBoundary,
+  visibleNgExecutionNodeId,
 } from "../packages/util/ng-node-graph.js"
 
 function rawGraph() {
@@ -251,6 +252,13 @@ test("repeated linked sources flatten as independent execution occurrences", () 
   assert.equal(nodes.find((node) => node.id === 13).inputs[0].srcNodeId, occurrences[1].id)
   assert.deepEqual(locations.get(occurrences[0].id), { executionNodeId: occurrences[0].id, sourceNodeId: 101, documentPath: "graphs/transform.json", groupPath: [10] })
   assert.deepEqual(locations.get(occurrences[1].id).groupPath, [11])
+})
+
+test("nested execution progress surfaces through the nearest visible Group", () => {
+  const location = { executionNodeId: 115, sourceNodeId: 101, documentPath: "graphs/transform.json", groupPath: [92] }
+  assert.equal(visibleNgExecutionNodeId(location, []), 92)
+  assert.equal(visibleNgExecutionNodeId(location, [92]), 101)
+  assert.equal(visibleNgExecutionNodeId(location, [111]), null)
 })
 
 test("linked document alias cycles are detected across nested documents", () => {

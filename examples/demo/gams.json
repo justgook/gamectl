@@ -1985,6 +1985,25 @@
               "group": "Math"
             },
             {
+              "name": "Sum",
+              "kind": "code",
+              "codePath": "ng/presets/sum.lua",
+              "inputs": [
+                {
+                  "name": "left"
+                },
+                {
+                  "name": "right"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
+                }
+              ],
+              "group": "Math"
+            },
+            {
               "name": "Scale",
               "kind": "code",
               "codePath": "ng/presets/scale.lua",

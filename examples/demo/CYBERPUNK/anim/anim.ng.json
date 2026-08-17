@@ -2,13 +2,18 @@
   {
     "id": 61,
     "kind": 4,
-    "x": 80,
-    "y": 58,
+    "x": -243,
+    "y": -43,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
+        "name": "",
+        "value": "\"anim/c11/idle/*.png\""
+      },
+      {
+        "id": 2,
         "name": "",
         "value": "\"anim/c11/run/*.png\""
       }
@@ -17,8 +22,8 @@
   {
     "id": 62,
     "kind": 2,
-    "x": 320,
-    "y": 58,
+    "x": -15,
+    "y": 28,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "inputs": [
@@ -26,7 +31,7 @@
         "id": 1,
         "name": "pattern",
         "srcNodeId": 61,
-        "srcOutputId": 1
+        "srcOutputId": 2
       }
     ],
     "outputs": [
@@ -40,15 +45,15 @@
   {
     "id": 63,
     "kind": 2,
-    "x": 600,
-    "y": 49,
+    "x": 599,
+    "y": 53,
     "name": "Open",
     "codePath": "ng/presets/image-open.lua",
     "inputs": [
       {
         "id": 1,
         "name": "path",
-        "srcNodeId": 62,
+        "srcNodeId": 91,
         "srcOutputId": 1
       }
     ],
@@ -233,23 +238,23 @@
   {
     "id": 69,
     "kind": 4,
-    "x": 1949,
-    "y": -432,
+    "x": 1261,
+    "y": -701,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/DEBUG_slots.json\""
+        "value": "\"tmp/DEBUG_ANIM.json\""
       }
     ]
   },
   {
     "id": 70,
     "kind": 2,
-    "x": 2170,
-    "y": -431,
+    "x": 1482,
+    "y": -700,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "inputs": [
@@ -262,8 +267,8 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 84,
-        "srcOutputId": 86
+        "srcNodeId": 110,
+        "srcOutputId": 1
       }
     ],
     "outputs": []
@@ -271,8 +276,8 @@
   {
     "id": 71,
     "kind": 2,
-    "x": 2457,
-    "y": 59,
+    "x": 2584,
+    "y": 30,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "inputs": [
@@ -306,8 +311,8 @@
   {
     "id": 72,
     "kind": 2,
-    "x": 2172,
-    "y": 141,
+    "x": 2223,
+    "y": 149,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
     "inputs": [
@@ -341,8 +346,8 @@
   {
     "id": 73,
     "kind": 4,
-    "x": 2148,
-    "y": -13,
+    "x": 2298,
+    "y": -96,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -403,7 +408,7 @@
       {
         "id": 2,
         "name": "defs",
-        "srcNodeId": 80,
+        "srcNodeId": 110,
         "srcOutputId": 1
       }
     ],
@@ -411,117 +416,6 @@
       {
         "id": 1,
         "name": "object",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 76,
-    "kind": 2,
-    "x": 1293,
-    "y": -310,
-    "name": "toObject",
-    "codePath": "ng/presets/to-object.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "frame_start",
-        "srcNodeId": 78,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "frame_count",
-        "srcNodeId": 77,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "repeat",
-        "srcNodeId": 79,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 77,
-    "kind": 2,
-    "x": 869,
-    "y": -284,
-    "name": "Array Length",
-    "codePath": "ng/presets/array-length.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "srcNodeId": 62,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "length",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 78,
-    "kind": 4,
-    "x": 1001,
-    "y": -355,
-    "name": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "0"
-      }
-    ]
-  },
-  {
-    "id": 79,
-    "kind": 4,
-    "x": 1030,
-    "y": -205,
-    "name": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "0"
-      }
-    ]
-  },
-  {
-    "id": 80,
-    "kind": 2,
-    "x": 1544,
-    "y": -287,
-    "name": "toArray",
-    "codePath": "ng/presets/to-array.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 76,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
         "value": null
       }
     ]
@@ -674,5 +568,175 @@
         "value": null
       }
     ]
+  },
+  {
+    "id": 90,
+    "kind": 2,
+    "x": -15,
+    "y": -61,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 91,
+    "kind": 2,
+    "x": 372,
+    "y": 90,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 90,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 92,
+    "kind": 3,
+    "x": 769,
+    "y": -509,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 90,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 101,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
+  },
+  {
+    "id": 101,
+    "kind": 4,
+    "x": 454,
+    "y": -530,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "id": 110,
+    "kind": 2,
+    "x": 1258,
+    "y": -360,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "srcNodeId": 92,
+        "srcOutputId": 94
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "srcNodeId": 111,
+        "srcOutputId": 94
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 111,
+    "kind": 3,
+    "x": 789,
+    "y": -317,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 92,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
   }
 ]
