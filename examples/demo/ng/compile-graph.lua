@@ -739,7 +739,7 @@ local function emitForEachNode(node)
 	for _, childNode in ipairs(child) do emitOutputDeclarations(childNode) end
 	emit(("local __ng_each_arrays_%d = {}"):format(node.id))
 	emit(("local __ng_each_lengths_%d = {}"):format(node.id))
-	emit(("local __ng_each_count_%d = 0"):format(node.id))
+	emit(("local __ng_each_count_%d = nil"):format(node.id))
 	for _, boundary in ipairs(boundaries) do
 		local parentInput = nil
 		for _, inputPort in ipairs(getInputs(node)) do if inputPort.id == boundary.id then parentInput = inputPort end end
@@ -759,7 +759,13 @@ local function emitForEachNode(node)
 		emit(("  error(%s)"):format(validationResult))
 		emit("end")
 		emit(("__ng_each_lengths_%d[%d] = %s"):format(node.id, boundary.id, validationResult))
-		emit(("if __ng_each_lengths_%d[%d] > __ng_each_count_%d then __ng_each_count_%d = __ng_each_lengths_%d[%d] end"):format(node.id, boundary.id, node.id, node.id, node.id, boundary.id))
+		emit(("if __ng_each_count_%d == nil then"):format(node.id))
+		emit(("  __ng_each_count_%d = __ng_each_lengths_%d[%d]"):format(node.id, node.id, boundary.id))
+		emit(("elseif __ng_each_lengths_%d[%d] ~= __ng_each_count_%d then"):format(node.id, boundary.id, node.id))
+		emit(("  local __ng_each_length_error_%d = %s .. ' has length ' .. tostring(__ng_each_lengths_%d[%d]) .. ', expected ' .. tostring(__ng_each_count_%d) .. '; For Each inputs must have equal lengths'"):format(node.id, luaString(portLabel(node, parentInput, "input")), node.id, boundary.id, node.id))
+		emit(("  __ng_node_error(%d, __ng_each_length_error_%d)"):format(node.id, node.id))
+		emit(("  error(__ng_each_length_error_%d)"):format(node.id))
+		emit("end")
 	end
 	for _, outputPort in ipairs(getOutputs(node)) do
 		emit(("%s = json.array()"):format(luaVar(node.id, outputPort.id)))
@@ -767,17 +773,10 @@ local function emitForEachNode(node)
 	end
 	emit(("for __ng_each_index_%d = 1, __ng_each_count_%d do"):format(node.id, node.id))
 	for _, boundary in ipairs(boundaries) do
-		emit(("  if __ng_each_index_%d <= __ng_each_lengths_%d[%d] then"):format(node.id, node.id, boundary.id))
-		emit(("    %s = __ng_each_arrays_%d[%d][__ng_each_index_%d]"):format(luaVar(boundary.id, 1), node.id, boundary.id, node.id))
-		emit(("    %s = true"):format(luaActiveVar(boundary.id, 1)))
-		emit(("    %s = __ng_each_index_%d"):format(luaVar(boundary.id, 2), node.id))
-		emit(("    %s = true"):format(luaActiveVar(boundary.id, 2)))
-		emit("  else")
-		emit(("    %s = nil"):format(luaVar(boundary.id, 1)))
-		emit(("    %s = false"):format(luaActiveVar(boundary.id, 1)))
-		emit(("    %s = nil"):format(luaVar(boundary.id, 2)))
-		emit(("    %s = false"):format(luaActiveVar(boundary.id, 2)))
-		emit("  end")
+		emit(("  %s = __ng_each_arrays_%d[%d][__ng_each_index_%d]"):format(luaVar(boundary.id, 1), node.id, boundary.id, node.id))
+		emit(("  %s = true"):format(luaActiveVar(boundary.id, 1)))
+		emit(("  %s = __ng_each_index_%d"):format(luaVar(boundary.id, 2), node.id))
+		emit(("  %s = true"):format(luaActiveVar(boundary.id, 2)))
 		emit(("  %s = __ng_each_arrays_%d[%d]"):format(luaVar(boundary.id, 3), node.id, boundary.id))
 		emit(("  %s = true"):format(luaActiveVar(boundary.id, 3)))
 	end

@@ -57,19 +57,18 @@ local graph = {
 
 json.decode = function(_) return graph end
 fs = { read_text = function(path)
-  if path == "sources.lua" then return "outputs[1] = {1, 2, 3, 4}\noutputs[2] = {10}" end
+  if path == "sources.lua" then return "outputs[1] = {1, 2, 3, 4}\noutputs[2] = {10, 10, 10, 10}" end
   if path == "double.lua" then return [[
-if inputs[1] > 1 then
-  assert(inputs[2] == nil)
-  assert(inputs[3] == nil)
-  assert(#inputs[4] == 1)
-end
+assert(inputs[2] == 10)
+assert(inputs[3] >= 1 and inputs[3] <= 4)
+assert(#inputs[4] == 4)
 outputs[1] = inputs[1] * 2
 ]] end
   if path == "nested-double.lua" then return "outputs[1] = inputs[1] * 2" end
   if path == "control.lua" then return "outputs[1] = inputs[1] == 4\noutputs[2] = inputs[1] == 8" end
   if path == "side-source.lua" then return "outputs[1] = {1, 2, 3}" end
   if path == "side-effect.lua" then return "_G.sideEffectCount = (_G.sideEffectCount or 0) + 1" end
+  if path == "unequal-sources.lua" then return "outputs[1] = {1, 2}\noutputs[2] = {10}" end
   error("unexpected code path " .. tostring(path))
 end }
 
@@ -82,10 +81,12 @@ if not generatedChunk then error(syntaxError .. "\n" .. generatedSource) end
 generatedChunk()
 local result = main()
 assert(#result.Result.inputs.values == 2)
-assert(#result.Result.inputs.values[1] == 1)
-assert(#result.Result.inputs.values[2] == 1)
+assert(#result.Result.inputs.values[1] == 4)
+assert(#result.Result.inputs.values[2] == 4)
 assert(result.Result.inputs.values[1][1] == 20)
+assert(result.Result.inputs.values[1][4] == 20)
 assert(result.Result.inputs.values[2][1] == 20)
+assert(result.Result.inputs.values[2][4] == 20)
 
 graph = {
   { id = 1, kind = 2, name = "Source", codePath = "side-source.lua", inputs = {}, outputs = { { id = 1, name = "items" } } },
@@ -110,3 +111,30 @@ generatedChunk()
 sideEffectCount = 0
 main()
 assert(sideEffectCount == 3)
+
+graph = {
+  { id = 1, kind = 2, name = "Unequal Sources", codePath = "unequal-sources.lua", inputs = {}, outputs = {
+    { id = 1, name = "left" }, { id = 2, name = "right" },
+  } },
+  { id = 10, kind = 7, name = "Zip", inputs = {
+    { id = 20, name = "left", srcNodeId = 1, srcOutputId = 1 },
+    { id = 21, name = "right", srcNodeId = 1, srcOutputId = 2 },
+  }, outputs = {}, childGraph = {
+    { id = 20, kind = 8, name = "left", inputs = {}, outputs = {
+      { id = 1, name = "Item" }, { id = 2, name = "Index" }, { id = 3, name = "Array" },
+    } },
+    { id = 21, kind = 8, name = "right", inputs = {}, outputs = {
+      { id = 1, name = "Item" }, { id = 2, name = "Index" }, { id = 3, name = "Array" },
+    } },
+  } },
+}
+
+dofile("examples/demo/ng/compile-graph.lua")
+compile = main
+generatedSource = compile()
+generatedChunk, syntaxError = loadstring(generatedSource)
+if not generatedChunk then error(syntaxError .. "\n" .. generatedSource) end
+generatedChunk()
+local ok, unequalError = pcall(main)
+assert(not ok)
+assert(tostring(unequalError):find("For Each inputs must have equal lengths", 1, true))

@@ -729,7 +729,7 @@ export class ViewNg extends ViewCanvasBase {
             ...(ownerKind === NG_NODE_KINDS.GROUP ? [{ label: "input", kind: NG_NODE_KINDS.GRAPH_INPUT, name: "input" }] : []),
             ...([NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind) ? [{ label: "output", kind: NG_NODE_KINDS.GRAPH_OUTPUT, name: "output" }] : []),
             ...(ownerKind === NG_NODE_KINDS.FOR_EACH ? [
-                { label: "for each input", kind: NG_NODE_KINDS.FOR_EACH_INPUT, name: "items" },
+                { label: "input", kind: NG_NODE_KINDS.FOR_EACH_INPUT, name: "items" },
                 { label: "iteration control", kind: NG_NODE_KINDS.ITERATION_CONTROL, name: "Iteration Control" },
             ] : []),
         ]

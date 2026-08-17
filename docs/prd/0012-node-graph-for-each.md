@@ -58,11 +58,8 @@ Node Graph Group Nodes compose a child graph but execute it only once. Authors n
 - Every parent input must be connected and active when the For Each executes.
 - Every input value must be a dense array. Scalars, objects, sparse arrays, nil values, and inactive inputs fail execution.
 - Empty arrays are valid.
-- Iteration count is the length of the longest input array.
-- For an input exhausted before the longest array:
-  - `Item` is nil and inactive;
-  - `Index` is nil and inactive;
-  - `Array` remains the original array and active.
+- All input arrays must have equal lengths; unequal lengths fail execution.
+- Iteration count is the shared input-array length.
 
 ### Execution and collection
 
@@ -96,7 +93,7 @@ Node Graph Group Nodes compose a child graph but execute it only once. Authors n
 
 - For Each and For Each Input schemas.
 - Inline child-graph editing and navigation.
-- Longest-array sequential execution.
+- Equal-length input validation and sequential execution.
 - Strict array validation and Graph Output collection.
 - Multiple inputs and outputs, nesting, and zero-output run targets.
 
@@ -108,7 +105,7 @@ Node Graph Group Nodes compose a child graph but execute it only once. Authors n
 
 ## Acceptance criteria
 
-- A two-input For Each runs to the longer array and exposes nil Item and Index for the exhausted input while preserving its Array output.
+- A two-input For Each behaves like a strict zip: equal-length arrays iterate together, while unequal lengths fail loudly.
 - Nested For Each Nodes execute and collect in deterministic order.
 - Skip can implement filtering and omits the iteration from every output.
 - Break omits its iteration and prevents later iterations.

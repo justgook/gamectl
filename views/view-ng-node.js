@@ -304,7 +304,7 @@ export class ViewNgNode extends HTMLElement {
         <option value="for-each" ${selected === "for-each" ? "selected" : ""}>for each</option>
         ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_GROUP ? `<option value="input" ${selected === "input" ? "selected" : ""}>input</option>` : ""}
         ${[NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(Number(this.popupProps.childGraphOwnerKind || 0)) ? `<option value="output" ${selected === "output" ? "selected" : ""}>output</option>` : ""}
-        ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_FOR_EACH ? `<option value="for-each-input" ${selected === "for-each-input" ? "selected" : ""}>for each input</option><option value="iteration-control" ${selected === "iteration-control" ? "selected" : ""}>iteration control</option>` : ""}
+        ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_FOR_EACH ? `<option value="for-each-input" ${selected === "for-each-input" ? "selected" : ""}>input</option><option value="iteration-control" ${selected === "iteration-control" ? "selected" : ""}>iteration control</option>` : ""}
       </optgroup>
       ${templateOptions}
     `
