@@ -12,6 +12,7 @@ layout(binding=0) uniform vs_params {
     vec2 light_pos;
     vec4 light_color;
     float light_radius;
+    float light_height;
     float direction_radians;
     float inner_fov_radians;
     float outer_fov_radians;
@@ -22,7 +23,9 @@ in vec2 pos;
 out vec2 frag_screen_pos;
 out vec2 light_screen_pos;
 out vec4 color;
+out vec2 viewport;
 out float radius;
+out float height;
 out float direction;
 out float inner_fov;
 out float outer_fov;
@@ -41,7 +44,9 @@ void main() {
     gl_Position = vec4(vertex_ndc, 0.0, 1.0);
 
     color = light_color;
+    viewport = viewport_size;
     radius = light_radius;
+    height = light_height;
     direction = direction_radians;
     inner_fov = inner_fov_radians;
     outer_fov = outer_fov_radians;
@@ -49,11 +54,15 @@ void main() {
 @end
 
 @fs fs_light_base
+layout(binding=0) uniform texture2D normal_tex;
+layout(binding=0) uniform sampler normal_smp;
 
 in vec2 frag_screen_pos;
 in vec2 light_screen_pos;
 in vec4 color;
+in vec2 viewport;
 in float radius;
+in float height;
 in float direction;
 in float inner_fov;
 in float outer_fov;
@@ -81,7 +90,13 @@ void main() {
         );
     }
 
-    float strength = radial_strength * angular_strength;
+    vec2 normal_uv = gl_FragCoord.xy / viewport;
+    vec3 surface_normal = normalize(
+        texture(sampler2D(normal_tex, normal_smp), normal_uv).rgb * 2.0 - 1.0
+    );
+    vec3 surface_to_light = normalize(vec3(-light_to_fragment, height));
+    float diffuse_strength = max(dot(surface_normal, surface_to_light), 0.0);
+    float strength = radial_strength * angular_strength * diffuse_strength;
 
     // RGB is accumulated into the light canvas. Alpha is zero so the
     // blend state resets the current light's shadow mask.

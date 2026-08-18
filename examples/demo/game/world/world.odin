@@ -219,7 +219,7 @@ init :: proc(w: ^World) {
 	w.tilemap_normal_pipe = tilemap_normal_init(w.normal_atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
 	w.text_pipe = text_init(w.ui_atlas)
-	w.light_pipe = light_init(w.color_canvas.texture, w.light_canvas.texture)
+	w.light_pipe = light_init(w.color_canvas.texture, w.light_canvas.texture, w.normal_canvas.texture)
 
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.ui_atlas)

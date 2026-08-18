@@ -11,7 +11,7 @@ import "logic"
 // - [ ] 1. Add per-light intensity and an HDR light target, then apply exposure/tone mapping in the composite pass.
 // - [x] 2. Load the 1:1 normal atlas and render tilemaps through their dedicated normal-map system/shader.
 // - [x] 3. Add the normal canvas to the render graph and expose it in the four-canvas debug display.
-// - [ ] 4. Add light height and sample the normal canvas for diffuse normal-mapped tile lighting.
+// - [x] 4. Add light height and sample the normal canvas for diffuse normal-mapped tile lighting.
 // - [ ] 5. Make opaque sprites without authored normal maps write a neutral normal, without covering transparent pixels.
 // - [ ] 6. Read specular strength from the normal atlas alpha channel and add view-dependent highlights.
 // - [ ] 7. After the lighting model is stable, evaluate bloom and tile-edge lighting as separate post effects.
@@ -23,28 +23,32 @@ Light :: struct {
 	pos:               [2]f32,
 	color:             [4]f32,
 	radius:            f32,
+	height:            f32,
 	direction_radians: f32,
 	inner_fov_radians: f32,
 	outer_fov_radians: f32,
 	shadow_softness:   f32,
 }
 
-light_point :: proc(pos: [2]f32, color: [4]f32, radius: f32, shadow_softness: f32 = 0) -> Light {
+light_point :: proc(pos: [2]f32, color: [4]f32, radius, height: f32, shadow_softness: f32 = 0) -> Light {
 	assert(radius > 0)
+	assert(height > 0)
 	assert(shadow_softness >= 0 && shadow_softness <= 1)
-	return {pos = pos, color = color, radius = radius, shadow_softness = shadow_softness}
+	return {pos = pos, color = color, radius = radius, height = height, shadow_softness = shadow_softness}
 }
 
 light_spot :: proc(
 	pos: [2]f32,
 	color: [4]f32,
 	radius: f32,
+	height: f32,
 	direction_radians: f32,
 	inner_fov_radians: f32,
 	outer_fov_radians: f32,
 	shadow_softness: f32 = 0,
 ) -> Light {
 	assert(radius > 0)
+	assert(height > 0)
 	assert(shadow_softness >= 0 && shadow_softness <= 1)
 	assert(inner_fov_radians > 0)
 	assert(inner_fov_radians < outer_fov_radians)
@@ -53,6 +57,7 @@ light_spot :: proc(
 		pos = pos,
 		color = color,
 		radius = radius,
+		height = height,
 		direction_radians = direction_radians,
 		inner_fov_radians = inner_fov_radians,
 		outer_fov_radians = outer_fov_radians,
@@ -86,7 +91,7 @@ Shadow_Pipe :: struct {
 
 mock_light :: proc(w: ^World) {
 	mouseLight := create_entity(w)
-	logic.add_component(&w.light, mouseLight, light_spot({}, {1, 1, 1, 1}, 128, 0, math.PI / 3, math.PI / 2, 0.2))
+	logic.add_component(&w.light, mouseLight, light_spot({}, {1, 1, 1, 1}, 128, 64, 0, math.PI / 3, math.PI / 2, 0.2))
 	logic.add_component(&w.position, mouseLight, Position{})
 
 	// Shadow casters
@@ -105,6 +110,7 @@ sys_light :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 			screen_to_world(&w.cam, window_to_screen({w.mouse.x, w.mouse.y}), w.cam.viewport),
 			{1, 1, 1, 1},
 			128,
+			64,
 		)
 
 		logic.add_component(&w.light, mouseLight, light)
@@ -145,9 +151,9 @@ LIGHT_BASE_VERTICES := [?][2]f32{{-.5, -.5}, {-.5, .5}, {.5, -.5}, {.5, .5}}
 @(private = "file")
 LIGHT_BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
-light_init :: proc(color_texture, light_texture: sg.View) -> ^Light_Pipe {
+light_init :: proc(color_texture, light_texture, normal_texture: sg.View) -> ^Light_Pipe {
 	pipe := new(Light_Pipe)
-	pipe.light = light_draw_pipe_init()
+	pipe.light = light_draw_pipe_init(normal_texture)
 	pipe.shadow = shadow_pipe_init()
 	light_composite_init(pipe, color_texture, light_texture)
 	pipe.ambient = 0.01
@@ -159,6 +165,7 @@ light_cleanup :: proc(pipe: ^Light_Pipe) {
 	sg.destroy_sampler(pipe.composite_bind.samplers[SMP_light_composite_canvas_smp])
 
 	sg.destroy_pipeline(pipe.light.pip)
+	sg.destroy_sampler(pipe.light.bind.samplers[SMP_light_normal_smp])
 	sg.destroy_buffer(pipe.light.bind.vertex_buffers[0])
 	sg.destroy_buffer(pipe.light.bind.index_buffer)
 
@@ -220,9 +227,13 @@ shadow_pipe_init :: proc() -> ^Shadow_Pipe {
 }
 
 @(private = "file")
-light_draw_pipe_init :: proc() -> ^Light_Draw_Pipe {
+light_draw_pipe_init :: proc(normal_texture: sg.View) -> ^Light_Draw_Pipe {
 	pipe := new(Light_Draw_Pipe)
 
+	pipe.bind.views[VIEW_light_normal_tex] = normal_texture
+	pipe.bind.samplers[SMP_light_normal_smp] = sg.make_sampler(
+		{min_filter = .NEAREST, mag_filter = .NEAREST, wrap_u = .CLAMP_TO_EDGE, wrap_v = .CLAMP_TO_EDGE},
+	)
 	pipe.bind.vertex_buffers[0] = sg.make_buffer(
 		{
 			usage = {vertex_buffer = true, immutable = true},
@@ -299,6 +310,7 @@ lighting_draw :: proc(
 	for light_index in 0 ..< light_count {
 		light := lights[light_index]
 		assert(light.radius > 0)
+		assert(light.height > 0)
 		assert(light.shadow_softness >= 0 && light.shadow_softness <= 1)
 		point_light := light.inner_fov_radians == 0 && light.outer_fov_radians == 0
 		spot_light :=
@@ -338,6 +350,7 @@ lighting_draw :: proc(
 			light_pos         = light.pos,
 			light_color       = light.color,
 			light_radius      = light.radius,
+			light_height      = light.height,
 			direction_radians = light.direction_radians,
 			inner_fov_radians = light.inner_fov_radians,
 			outer_fov_radians = light.outer_fov_radians,

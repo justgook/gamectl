@@ -10,12 +10,12 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"anim/c11/idle/*.png\""
+        "value": "\"anim/c11/Idle/*.png\""
       },
       {
         "id": 2,
         "name": "",
-        "value": "\"anim/c11/run/*.png\""
+        "value": "\"anim/c11/Sprint/*.png\""
       }
     ]
   },
