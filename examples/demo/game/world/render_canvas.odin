@@ -11,7 +11,11 @@ Render_Canvas :: struct {
 	pass:             sg.Pass,
 }
 
-render_canvas_init :: proc(clear_color: [4]f32, with_depth: bool) -> Render_Canvas {
+render_canvas_init :: proc(
+	clear_color: [4]f32,
+	with_depth: bool,
+	pixel_format: sg.Pixel_Format = .DEFAULT,
+) -> Render_Canvas {
 	canvas: Render_Canvas
 	canvas.image = sg.make_image(
 		{
@@ -19,6 +23,7 @@ render_canvas_init :: proc(clear_color: [4]f32, with_depth: bool) -> Render_Canv
 			width = GAME_RESOLUTION_WIDTH,
 			height = GAME_RESOLUTION_HEIGHT,
 			sample_count = OFFSCREEN_SAMPLE_COUNT,
+			pixel_format = pixel_format,
 		},
 	)
 	canvas.color_attachment = sg.make_view({color_attachment = {image = canvas.image}})

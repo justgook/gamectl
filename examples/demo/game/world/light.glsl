@@ -13,6 +13,7 @@ layout(binding=0) uniform vs_params {
     vec4 light_color;
     float light_radius;
     float light_height;
+    float light_intensity;
     float direction_radians;
     float inner_fov_radians;
     float outer_fov_radians;
@@ -26,6 +27,7 @@ out vec4 color;
 out vec2 viewport;
 out float radius;
 out float height;
+out float intensity;
 out float direction;
 out float inner_fov;
 out float outer_fov;
@@ -47,6 +49,7 @@ void main() {
     viewport = viewport_size;
     radius = light_radius;
     height = light_height;
+    intensity = light_intensity;
     direction = direction_radians;
     inner_fov = inner_fov_radians;
     outer_fov = outer_fov_radians;
@@ -55,7 +58,8 @@ void main() {
 
 @fs fs_light_base
 layout(binding=0) uniform texture2D normal_tex;
-layout(binding=0) uniform sampler normal_smp;
+layout(binding=1) uniform texture2D color_tex;
+layout(binding=0) uniform sampler canvas_smp;
 
 in vec2 frag_screen_pos;
 in vec2 light_screen_pos;
@@ -63,6 +67,7 @@ in vec4 color;
 in vec2 viewport;
 in float radius;
 in float height;
+in float intensity;
 in float direction;
 in float inner_fov;
 in float outer_fov;
@@ -90,17 +95,32 @@ void main() {
         );
     }
 
-    vec2 normal_uv = gl_FragCoord.xy / viewport;
-    vec3 surface_normal = normalize(
-        texture(sampler2D(normal_tex, normal_smp), normal_uv).rgb * 2.0 - 1.0
-    );
+    vec2 canvas_uv = gl_FragCoord.xy / viewport;
+    vec4 normal_material = texture(sampler2D(normal_tex, canvas_smp), canvas_uv);
+    vec3 surface_normal = normalize(normal_material.rgb * 2.0 - 1.0);
+    vec3 albedo = texture(sampler2D(color_tex, canvas_smp), canvas_uv).rgb;
     vec3 surface_to_light = normalize(vec3(-light_to_fragment, height));
-    float diffuse_strength = max(dot(surface_normal, surface_to_light), 0.0);
-    float strength = radial_strength * angular_strength * diffuse_strength;
+    // Wrapped diffuse avoids the hard Lambert terminator that otherwise cuts
+    // holes out of a 2D point light when a normal faces away from it.
+    float normal_alignment = dot(surface_normal, surface_to_light);
+    float diffuse_strength = clamp(normal_alignment * 0.5 + 0.5, 0.0, 1.0);
 
-    // RGB is accumulated into the light canvas. Alpha is zero so the
-    // blend state resets the current light's shadow mask.
-    frag_color = vec4(color.rgb * strength, 0.0);
+    // Orthographic 2D rendering views every surface along its tangent-space Z
+    // axis. Normal alpha is the authored material's specular strength.
+    vec3 view_direction = vec3(0.0, 0.0, 1.0);
+    vec3 half_direction = normalize(surface_to_light + view_direction);
+    float specular_strength = pow(
+        max(dot(surface_normal, half_direction), 0.0),
+        32.0
+    ) * normal_material.a;
+
+    float attenuation = radial_strength * angular_strength;
+    vec3 direct_light = color.rgb * intensity * attenuation *
+        (albedo * diffuse_strength + vec3(specular_strength));
+
+    // RGB accumulates already-shaded direct light, allowing specular light to
+    // be added independently of albedo. Alpha resets the temporary shadow mask.
+    frag_color = vec4(direct_light, 0.0);
 }
 @end
 

@@ -19,12 +19,15 @@ import "logic"
 //
 
 sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
-	view: logic.View2(Position, Sprite) = logic.view(&w.position, &w.sprite)
-	for id, pos, s in logic.each(&view) {
-		s.pos = to_pixelf(pos^)
-	}
-
+	sprite_instances_update(w)
 	sprites_draw(w.sprite_pipe, w.sprite.count, &w.sprite.components, ortho)
+}
+
+sprite_instances_update :: proc(w: ^World) {
+	view: logic.View2(Position, Sprite) = logic.view(&w.position, &w.sprite)
+	for _, pos, sprite in logic.each(&view) {
+		sprite.pos = to_pixelf(pos^)
+	}
 }
 
 sprites_draw :: proc(pipe: ^Sprite_Pipe, count: int, sprites: ^[SPRITE_RENDER_MAX]Sprite, ortho: ^linalg.Matrix4f32) {

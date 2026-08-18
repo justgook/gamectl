@@ -43,6 +43,7 @@ World :: struct {
 	light_shadow:           Light_Shadow_Component_Storage,
 	// MAKE SIMPLER end
 	sprite_pipe:            ^Sprite_Pipe,
+	sprite_normal_pipe:     ^Sprite_Normal_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
 	tilemap_normal_pipe:    ^Tilemap_Normal_Pipe,
 	nine_patch_pipe:        ^Nine_Patch_Pipe,
@@ -148,18 +149,20 @@ frame :: proc(w: ^World, dt: f64) {
 	// tilemap's transforms and UVs exactly.
 	sg.begin_pass(w.normal_canvas.pass)
 	sys_tilemap_normal(w, &w.cam.ortho)
+	sys_sprite_normal(w, &w.cam.ortho)
 	sg.end_pass()
 
-	// The light canvas stores additive light in RGB and the current light's
-	// temporary shadow mask in alpha.
-	sg.begin_pass(w.light_canvas.pass)
-	sys_light(w, &w.cam.ortho)
-	sg.end_pass()
-
-	// The color canvas contains the unlit world render.
+	// The color canvas contains the unlit world render. It must be complete
+	// before direct lighting so specular light can be added independently of albedo.
 	sg.begin_pass(w.color_canvas.pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
+	sg.end_pass()
+
+	// The light canvas stores additive, already-shaded direct light in RGB and
+	// the current light's temporary shadow mask in alpha.
+	sg.begin_pass(w.light_canvas.pass)
+	sys_light(w, &w.cam.ortho)
 	sg.end_pass()
 
 	// The final canvas combines color and light, then adds unlit UI and debug overlays.
@@ -189,10 +192,16 @@ init :: proc(w: ^World) {
 	_ = display_cleanup
 	_ = display_init
 
-	w.light_canvas = render_canvas_init({0, 0, 0, 0}, false)
+	hdr_format := sg.query_pixelformat(.RGBA16F)
+	assert(hdr_format.render)
+	assert(hdr_format.blend)
+	assert(hdr_format.sample)
+	assert(hdr_format.filter)
+	w.light_canvas = render_canvas_init({0, 0, 0, 0}, false, .RGBA16F)
 	w.normal_canvas = render_canvas_init({0.5, 0.5, 1.0, 0}, true)
 	w.color_canvas = render_canvas_init({0, 0, 0, 1}, true)
 	w.final_canvas = render_canvas_init({0, 0, 0, 1}, true)
+	assert(sg.query_image_desc(w.light_canvas.image).pixel_format == .RGBA16F)
 	w.display_pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
@@ -211,6 +220,7 @@ init :: proc(w: ^World) {
 	w.mouse_btn.up = true
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
+	w.sprite_normal_pipe = sprite_normal_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
 	level_atlas_desc := sg.query_image_desc(w.level_atlas)
 	normal_atlas_desc := sg.query_image_desc(w.normal_atlas)
@@ -331,6 +341,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
 	sprites_cleanup(w.sprite_pipe)
+	sprite_normal_cleanup(w.sprite_normal_pipe)
 	logic.destroy_storage(&w.sprite)
 	tilemap_cleanup(w.tilemap_pipe)
 	tilemap_normal_cleanup(w.tilemap_normal_pipe)
