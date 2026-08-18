@@ -63,7 +63,9 @@ display_debug_cleanup :: proc(pipe: ^Display_Debug_Pipe) {
 	free(pipe)
 }
 
-display_debug_init :: proc(light_texture, color_texture, final_texture: sg.View) -> ^Display_Debug_Pipe {
+display_debug_init :: proc(
+	light_texture, color_texture, normal_texture, final_texture: sg.View,
+) -> ^Display_Debug_Pipe {
 	pipe := new(Display_Debug_Pipe)
 	pipe.sampler = sg.make_sampler({})
 
@@ -88,12 +90,15 @@ display_debug_init :: proc(light_texture, color_texture, final_texture: sg.View)
 
 	light_slot := int(Debug_Canvas_Slot.Light)
 	color_slot := int(Debug_Canvas_Slot.Color)
+	normal_slot := int(Debug_Canvas_Slot.Normal)
 	final_slot := int(Debug_Canvas_Slot.Final)
 	pipe.bind[light_slot].views[VIEW_display_tex0] = light_texture
 	pipe.bind[color_slot].views[VIEW_display_tex0] = color_texture
+	pipe.bind[normal_slot].views[VIEW_display_tex0] = normal_texture
 	pipe.bind[final_slot].views[VIEW_display_tex0] = final_texture
 	pipe.active[light_slot] = true
 	pipe.active[color_slot] = true
+	pipe.active[normal_slot] = true
 	pipe.active[final_slot] = true
 
 	pipe.pip = sg.make_pipeline(

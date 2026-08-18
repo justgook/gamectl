@@ -7,6 +7,15 @@ import "core:math"
 import "core:math/linalg"
 import "logic"
 
+// TODO(light, Part 5 roadmap):
+// - [ ] 1. Add per-light intensity and an HDR light target, then apply exposure/tone mapping in the composite pass.
+// - [x] 2. Load the 1:1 normal atlas and render tilemaps through their dedicated normal-map system/shader.
+// - [x] 3. Add the normal canvas to the render graph and expose it in the four-canvas debug display.
+// - [ ] 4. Add light height and sample the normal canvas for diffuse normal-mapped tile lighting.
+// - [ ] 5. Make opaque sprites without authored normal maps write a neutral normal, without covering transparent pixels.
+// - [ ] 6. Read specular strength from the normal atlas alpha channel and add view-dependent highlights.
+// - [ ] 7. After the lighting model is stable, evaluate bloom and tile-edge lighting as separate post effects.
+
 Light_Component_Storage :: logic.Component_Storage_Fixed(Light, LIGHT_RENDER_MAX)
 Light_Shadow_Component_Storage :: logic.Component_Storage_Fixed(Light_Shadow_Caster, LIGHT_SHADOW_RENDER_MAX)
 

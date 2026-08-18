@@ -24,6 +24,7 @@ state: State
 lut_pixels: [1024 * 1024 * 4]u8
 ui_atlas_pixels: [1024 * 1024 * 4]u8
 level_atlas_pixels: [1024 * 1024 * 4]u8
+normal_atlas_pixels: [1024 * 1024 * 4]u8
 atlas_pixels: [2048 * 2048 * 4]u8
 
 app_init :: proc() {
@@ -174,6 +175,8 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 
 	atlas_bytes := data_level.read_slot_0_atlas(game_data) or_return
 	w.level_atlas = create_image(atlas_bytes, level_atlas_pixels[:]) or_return
+	normal_atlas_bytes := data_level.read_slot_17_normal_atlas(game_data) or_return
+	w.normal_atlas = create_image(normal_atlas_bytes, normal_atlas_pixels[:]) or_return
 	w.lut = w.level_atlas
 
 	positions := data_level.read_slot_3_positions(game_data) or_return

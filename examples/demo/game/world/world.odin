@@ -31,6 +31,7 @@ World :: struct {
 	accumulator:            f64,
 	ui_atlas:               sg.Image,
 	level_atlas:            sg.Image,
+	normal_atlas:           sg.Image,
 	atlas:                  sg.Image,
 	lut:                    sg.Image,
 	cam:                    Camera,
@@ -43,6 +44,7 @@ World :: struct {
 	// MAKE SIMPLER end
 	sprite_pipe:            ^Sprite_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
+	tilemap_normal_pipe:    ^Tilemap_Normal_Pipe,
 	nine_patch_pipe:        ^Nine_Patch_Pipe,
 	text_pipe:              ^Text_Pipe,
 	uv:                     []UV,
@@ -63,6 +65,7 @@ World :: struct {
 	platformer_anim:        logic.Component_Storage(Platformer_Anim),
 	// Rendering
 	light_canvas:           Render_Canvas,
+	normal_canvas:          Render_Canvas,
 	color_canvas:           Render_Canvas,
 	final_canvas:           Render_Canvas,
 	display_pass_action:    sg.Pass_Action,
@@ -141,6 +144,12 @@ frame :: proc(w: ^World, dt: f64) {
 		linalg.matrix_ortho3d_f32(-virtual_half_w, virtual_half_w, -virtual_half_h, virtual_half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-virtual_half_w, -virtual_half_h, 0})
 
+	// Normal-mapped tilemaps use a dedicated renderer, but preserve the color
+	// tilemap's transforms and UVs exactly.
+	sg.begin_pass(w.normal_canvas.pass)
+	sys_tilemap_normal(w, &w.cam.ortho)
+	sg.end_pass()
+
 	// The light canvas stores additive light in RGB and the current light's
 	// temporary shadow mask in alpha.
 	sg.begin_pass(w.light_canvas.pass)
@@ -181,6 +190,7 @@ init :: proc(w: ^World) {
 	_ = display_init
 
 	w.light_canvas = render_canvas_init({0, 0, 0, 0}, false)
+	w.normal_canvas = render_canvas_init({0.5, 0.5, 1.0, 0}, true)
 	w.color_canvas = render_canvas_init({0, 0, 0, 1}, true)
 	w.final_canvas = render_canvas_init({0, 0, 0, 1}, true)
 	w.display_pass_action = {
@@ -190,13 +200,23 @@ init :: proc(w: ^World) {
 
 	// Original display system is intentionally not initialized during canvas debugging.
 	// w.display_pipe = display_init(w.final_canvas.image)
-	w.display_debug_pipe = display_debug_init(w.light_canvas.texture, w.color_canvas.texture, w.final_canvas.texture)
+	w.display_debug_pipe = display_debug_init(
+		w.light_canvas.texture,
+		w.color_canvas.texture,
+		w.normal_canvas.texture,
+		w.final_canvas.texture,
+	)
 	w.free_entity_ids_lookup = make(map[logic.Entity]bool)
 	w.sim_frame_length = 1.0 / 60.0
 	w.mouse_btn.up = true
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
+	level_atlas_desc := sg.query_image_desc(w.level_atlas)
+	normal_atlas_desc := sg.query_image_desc(w.normal_atlas)
+	assert(level_atlas_desc.width == normal_atlas_desc.width)
+	assert(level_atlas_desc.height == normal_atlas_desc.height)
+	w.tilemap_normal_pipe = tilemap_normal_init(w.normal_atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
 	w.text_pipe = text_init(w.ui_atlas)
 	w.light_pipe = light_init(w.color_canvas.texture, w.light_canvas.texture)
@@ -301,6 +321,7 @@ cleanup :: proc(w: ^World) {
 	// Original display system is not initialized while canvas debugging is active.
 	// display_cleanup(w.display_pipe)
 	render_canvas_cleanup(&w.light_canvas)
+	render_canvas_cleanup(&w.normal_canvas)
 	render_canvas_cleanup(&w.color_canvas)
 	render_canvas_cleanup(&w.final_canvas)
 
@@ -312,6 +333,7 @@ cleanup :: proc(w: ^World) {
 	sprites_cleanup(w.sprite_pipe)
 	logic.destroy_storage(&w.sprite)
 	tilemap_cleanup(w.tilemap_pipe)
+	tilemap_normal_cleanup(w.tilemap_normal_pipe)
 	logic.destroy_storage(&w.tilemap)
 	nine_patch_cleanup(w.nine_patch_pipe)
 	logic.destroy_storage(&w.nine_patch)
