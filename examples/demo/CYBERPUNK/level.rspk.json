@@ -25,7 +25,8 @@
     "Sprites",
     "Platformer_Anim_Refs",
     "Bullet_Refs",
-    "Tilemaps"
+    "Tilemaps",
+    "Normal_Atlas"
   ],
   "types": {
     "Next_Entity_Id": "u32",
@@ -247,6 +248,9 @@
       }
     },
     "Atlas": {
+      "type": "bytes"
+    },
+    "Normal_Atlas": {
       "type": "bytes"
     },
     "world.Platformer_Zone_Kind": {

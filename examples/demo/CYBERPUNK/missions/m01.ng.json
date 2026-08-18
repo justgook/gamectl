@@ -146,44 +146,6 @@
     ]
   },
   {
-    "id": 39,
-    "kind": 4,
-    "x": 784,
-    "y": -2395,
-    "name": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"tmp/DEBUG_ladder.json\""
-      }
-    ]
-  },
-  {
-    "id": 40,
-    "kind": 2,
-    "x": 1095,
-    "y": -2398,
-    "name": "Write File",
-    "codePath": "ng/presets/write-file.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 39,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "text",
-        "srcNodeId": 51,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": []
-  },
-  {
     "id": 42,
     "kind": 2,
     "x": 231,
@@ -566,6 +528,12 @@
         "name": "Tilemaps",
         "srcNodeId": 198,
         "srcOutputId": 200
+      },
+      {
+        "id": 18,
+        "name": "Normal_Atlas",
+        "srcNodeId": 242,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1368,7 +1336,7 @@
   {
     "id": 158,
     "kind": 2,
-    "x": 145,
+    "x": 334,
     "y": 47,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
@@ -1461,6 +1429,11 @@
       {
         "id": 201,
         "name": "Atlas",
+        "value": null
+      },
+      {
+        "id": 237,
+        "name": "Normal_Atlas",
         "value": null
       }
     ],
@@ -1703,6 +1676,11 @@
             "id": 216,
             "name": "parallax",
             "value": null
+          },
+          {
+            "id": 235,
+            "name": "normal_img",
+            "value": null
           }
         ],
         "childGraph": [
@@ -1749,6 +1727,12 @@
                 "name": "layer",
                 "srcNodeId": 214,
                 "srcOutputId": 2
+              },
+              {
+                "id": 28,
+                "name": "tilesize",
+                "srcNodeId": 234,
+                "srcOutputId": 1
               }
             ],
             "outputs": [
@@ -1761,6 +1745,11 @@
                 "id": 20,
                 "name": "LUTs",
                 "value": null
+              },
+              {
+                "id": 29,
+                "name": "normal",
+                "value": null
               }
             ],
             "storage": {
@@ -1771,8 +1760,8 @@
           {
             "id": 211,
             "kind": 6,
-            "x": 1240,
-            "y": 47,
+            "x": 1301,
+            "y": 3,
             "name": "tileset_img",
             "inputs": [
               {
@@ -1787,8 +1776,8 @@
           {
             "id": 212,
             "kind": 6,
-            "x": 1240,
-            "y": 159,
+            "x": 1301,
+            "y": 115,
             "name": "LUT_img",
             "inputs": [
               {
@@ -1869,8 +1858,8 @@
           {
             "id": 215,
             "kind": 6,
-            "x": 1239,
-            "y": 260,
+            "x": 1231,
+            "y": 349,
             "name": "repeat",
             "inputs": [
               {
@@ -1885,8 +1874,8 @@
           {
             "id": 216,
             "kind": 6,
-            "x": 1239,
-            "y": 372,
+            "x": 1231,
+            "y": 461,
             "name": "parallax",
             "inputs": [
               {
@@ -1901,8 +1890,8 @@
           {
             "id": 217,
             "kind": 2,
-            "x": 1018,
-            "y": 32,
+            "x": 1079,
+            "y": -12,
             "name": "FlipY",
             "codePath": "ng/presets/image-flipy.lua",
             "inputs": [
@@ -1924,8 +1913,8 @@
           {
             "id": 218,
             "kind": 2,
-            "x": 1021,
-            "y": 118,
+            "x": 1082,
+            "y": 74,
             "name": "FlipY",
             "codePath": "ng/presets/image-flipy.lua",
             "inputs": [
@@ -1934,6 +1923,60 @@
                 "name": "image",
                 "srcNodeId": 210,
                 "srcOutputId": 20
+              }
+            ],
+            "outputs": [
+              {
+                "id": 1,
+                "name": "image",
+                "value": null
+              }
+            ]
+          },
+          {
+            "id": 234,
+            "kind": 4,
+            "x": 433,
+            "y": 295,
+            "name": "",
+            "inputs": [],
+            "outputs": [
+              {
+                "id": 1,
+                "name": "",
+                "value": "16"
+              }
+            ]
+          },
+          {
+            "id": 235,
+            "kind": 6,
+            "x": 1304,
+            "y": 235,
+            "name": "normal_img",
+            "inputs": [
+              {
+                "id": 1,
+                "name": "normal_img",
+                "srcNodeId": 236,
+                "srcOutputId": 1
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "id": 236,
+            "kind": 2,
+            "x": 1026,
+            "y": 183,
+            "name": "FlipY",
+            "codePath": "ng/presets/image-flipy.lua",
+            "inputs": [
+              {
+                "id": 1,
+                "name": "image",
+                "srcNodeId": 210,
+                "srcOutputId": 29
               }
             ],
             "outputs": [
@@ -2251,6 +2294,92 @@
             "value": null
           }
         ]
+      },
+      {
+        "id": 237,
+        "kind": 6,
+        "x": 4465,
+        "y": -202,
+        "name": "Normal_Atlas",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "Normal_Atlas",
+            "srcNodeId": 238,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": 238,
+        "kind": 2,
+        "x": 3918,
+        "y": -237,
+        "name": "Atlas",
+        "codePath": "ng/presets/image-atlas.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "rects",
+            "srcNodeId": 205,
+            "srcOutputId": 1
+          },
+          {
+            "id": 2,
+            "name": "images",
+            "srcNodeId": 239,
+            "srcOutputId": 1
+          },
+          {
+            "id": 3,
+            "name": "width",
+            "srcNodeId": 205,
+            "srcOutputId": 3
+          },
+          {
+            "id": 4,
+            "name": "height",
+            "srcNodeId": 205,
+            "srcOutputId": 4
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "image",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 239,
+        "kind": 2,
+        "x": 2534,
+        "y": -160,
+        "name": "toArray",
+        "codePath": "ng/presets/to-array.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "tilesets",
+            "srcNodeId": 208,
+            "srcOutputId": 235
+          },
+          {
+            "id": 2,
+            "name": "LUTs",
+            "srcNodeId": 208,
+            "srcOutputId": 212
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "array",
+            "value": null
+          }
+        ]
       }
     ]
   },
@@ -2271,6 +2400,73 @@
         "id": 2,
         "name": "",
         "value": "\"missions/m01.world.json\""
+      }
+    ]
+  },
+  {
+    "id": 240,
+    "kind": 4,
+    "x": -215,
+    "y": 372,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_NORMAL.qoi\""
+      }
+    ]
+  },
+  {
+    "id": 241,
+    "kind": 2,
+    "x": 80,
+    "y": 453,
+    "name": "Write",
+    "codePath": "ng/presets/image-write.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 198,
+        "srcOutputId": 237
+      },
+      {
+        "id": 2,
+        "name": "path",
+        "srcNodeId": 240,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "format",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 242,
+    "kind": 2,
+    "x": 336,
+    "y": 126,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 198,
+        "srcOutputId": 237
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "base64",
+        "value": null
       }
     ]
   }

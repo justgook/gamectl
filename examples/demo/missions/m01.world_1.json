@@ -2,7 +2,7 @@
   {
     "x": 0,
     "y": 0,
-    "tilemap": "missions/m01.bg.map.json",
+    "tilemap": "CYBERPUNK/missions/m01.tilemaps_01.ng.json",
     "name": "t_bg",
     "render": "tilemap",
     "lock": true,
@@ -45,16 +45,8 @@
     "name": "player"
   },
   {
-    "x": 0,
-    "y": 0,
-    "name": "Collision",
-    "tilemap": "missions/m01.map.json",
-    "render": "tilemap",
-    "layer": 1
-  },
-  {
-    "x": 342,
-    "y": 85,
+    "x": 271,
+    "y": 680,
     "director_trigger_aabb": {
       "bounds": [
         -8,
@@ -73,5 +65,22 @@
     "height": 16,
     "render": "rectangle",
     "color": "#FF0000"
+  },
+  {
+    "x": -8,
+    "y": -8,
+    "tilemap": "tmp/m01.layer1.map.json",
+    "name": "t_walls",
+    "render": "tilemap",
+    "lock": true
+  },
+  {
+    "x": 0,
+    "y": 0,
+    "tilemap": "missions/m01.map.json",
+    "name": "t_collision",
+    "render": "tilemap",
+    "lock": true,
+    "layer": 1
   }
 ]

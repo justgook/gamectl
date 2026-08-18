@@ -15,20 +15,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [17]u32,
-	lengths: [17]u32,
+	offsets: [18]u32,
+	lengths: [18]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 17 {return Package{}, false}
-	if len(data) < 144 {return Package{}, false}
+	if int(read_u16(data, 6)) != 18 {return Package{}, false}
+	if len(data) < 152 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 17 {
+	for i in 0 ..< 18 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -38,7 +38,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 17 {return Reader{}, false}
+	if slot < 0 || slot >= 18 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -178,6 +178,8 @@ Director_Entities :: struct {
 
 Atlas :: []u8
 
+Normal_Atlas :: []u8
+
 Platformer_Zones :: []world.Platformer_Zone
 
 Tilemaps :: struct {
@@ -223,6 +225,8 @@ DecodedSlots :: struct {
 	slot_15:     Bullet_Refs,
 	has_slot_16: bool,
 	slot_16:     Tilemaps,
+	has_slot_17: bool,
+	slot_17:     Normal_Atlas,
 }
 
 @(private = "file")
@@ -992,6 +996,20 @@ decode_atlas :: proc(r: ^Reader, out: ^Atlas) -> bool {
 }
 
 @(private = "file")
+decode_normal_atlas :: proc(r: ^Reader, out: ^Normal_Atlas) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		start := r.pos
+		end := start + int(count)
+		if end > len(r.data) {return false}
+		r.pos = end
+		out^ = r.data[start:end]
+	}
+	return true
+}
+
+@(private = "file")
 decode_world_platformer_zone_kind :: proc(r: ^Reader, out: ^world.Platformer_Zone_Kind) -> bool {
 	{
 		v, ok := read_u32_reader(r)
@@ -1271,5 +1289,13 @@ read_slot_16_tilemaps :: proc(pkg: Package) -> (Tilemaps, bool) {
 	if !ok {return Tilemaps{}, false}
 	value: Tilemaps
 	if !decode_tilemaps(&r, &value) {return Tilemaps{}, false}
+	return value, true
+}
+
+read_slot_17_normal_atlas :: proc(pkg: Package) -> (Normal_Atlas, bool) {
+	r, ok := slot_reader(pkg, 17)
+	if !ok {return nil, false}
+	value: Normal_Atlas
+	if !decode_normal_atlas(&r, &value) {return nil, false}
 	return value, true
 }

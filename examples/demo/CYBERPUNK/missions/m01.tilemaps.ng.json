@@ -132,7 +132,7 @@
   {
     "id": 5,
     "kind": 2,
-    "x": 2367,
+    "x": 2597,
     "y": 549,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
@@ -155,7 +155,7 @@
   {
     "id": 6,
     "kind": 4,
-    "x": 2134,
+    "x": 2364,
     "y": 475,
     "name": "",
     "inputs": [],
@@ -225,13 +225,23 @@
         "id": 2,
         "name": "",
         "value": "\"props.tilesets\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "{\"props\":{\"normals\":\"[{\\\"file\\\":\\\"CYBERPUNK/missions/b01_normal.qoi\\\"}]\"}}"
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "\"props.normals\""
       }
     ]
   },
   {
     "id": 9,
     "kind": 2,
-    "x": 2056,
+    "x": 2286,
     "y": 661,
     "name": "Reduce Tile index",
     "codePath": "ng/presets/tilemap-subtract.lua",
@@ -239,7 +249,7 @@
       {
         "id": 1,
         "name": "tilemap",
-        "srcNodeId": 7,
+        "srcNodeId": 15,
         "srcOutputId": 1
       },
       {
@@ -260,8 +270,8 @@
   {
     "id": 10,
     "kind": 4,
-    "x": 1715,
-    "y": 853,
+    "x": 1997,
+    "y": 678,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -362,6 +372,47 @@
         "id": 1,
         "name": "",
         "value": "[1]"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "kind": 2,
+    "x": 1998,
+    "y": 841,
+    "name": "Copy Prop",
+    "codePath": "ng/presets/copy-prop.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "from",
+        "srcNodeId": 8,
+        "srcOutputId": 4
+      },
+      {
+        "id": 2,
+        "name": "to",
+        "srcNodeId": 8,
+        "srcOutputId": 4
+      },
+      {
+        "id": 3,
+        "name": "src",
+        "srcNodeId": 8,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "target",
+        "srcNodeId": 7,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "target",
+        "value": null
       }
     ]
   }
