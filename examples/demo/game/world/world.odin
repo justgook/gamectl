@@ -39,6 +39,7 @@ World :: struct {
 	player1:                ^Input,
 	// TODO MAKE SIMPLER: combine to single field (maybe) after all is done so all become just simple render
 	light_pipe:             ^Light_Pipe,
+	bloom_pipe:             ^Bloom_Pipe,
 	light:                  Light_Component_Storage,
 	light_shadow:           Light_Shadow_Component_Storage,
 	// MAKE SIMPLER end
@@ -66,6 +67,7 @@ World :: struct {
 	platformer_anim:        logic.Component_Storage(Platformer_Anim),
 	// Rendering
 	light_canvas:           Render_Canvas,
+	bloom_canvas:           Render_Canvas,
 	normal_canvas:          Render_Canvas,
 	color_canvas:           Render_Canvas,
 	final_canvas:           Render_Canvas,
@@ -165,6 +167,11 @@ frame :: proc(w: ^World, dt: f64) {
 	sys_light(w, &w.cam.ortho)
 	sg.end_pass()
 
+	// Bloom remains an isolated HDR post effect over the direct-light buffer.
+	sg.begin_pass(w.bloom_canvas.pass)
+	sys_bloom(w.bloom_pipe)
+	sg.end_pass()
+
 	// The final canvas combines color and light, then adds unlit UI and debug overlays.
 	sg.begin_pass(w.final_canvas.pass)
 	lighting_composite(w.light_pipe)
@@ -198,10 +205,12 @@ init :: proc(w: ^World) {
 	assert(hdr_format.sample)
 	assert(hdr_format.filter)
 	w.light_canvas = render_canvas_init({0, 0, 0, 0}, false, .RGBA16F)
+	w.bloom_canvas = render_canvas_init({0, 0, 0, 0}, false, .RGBA16F)
 	w.normal_canvas = render_canvas_init({0.5, 0.5, 1.0, 0}, true)
 	w.color_canvas = render_canvas_init({0, 0, 0, 1}, true)
 	w.final_canvas = render_canvas_init({0, 0, 0, 1}, true)
 	assert(sg.query_image_desc(w.light_canvas.image).pixel_format == .RGBA16F)
+	assert(sg.query_image_desc(w.bloom_canvas.image).pixel_format == .RGBA16F)
 	w.display_pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
@@ -229,7 +238,13 @@ init :: proc(w: ^World) {
 	w.tilemap_normal_pipe = tilemap_normal_init(w.normal_atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
 	w.text_pipe = text_init(w.ui_atlas)
-	w.light_pipe = light_init(w.color_canvas.texture, w.light_canvas.texture, w.normal_canvas.texture)
+	w.bloom_pipe = bloom_init(w.light_canvas.texture)
+	w.light_pipe = light_init(
+		w.color_canvas.texture,
+		w.light_canvas.texture,
+		w.normal_canvas.texture,
+		w.bloom_canvas.texture,
+	)
 
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.ui_atlas)
@@ -327,10 +342,12 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 
 cleanup :: proc(w: ^World) {
 	light_cleanup(w.light_pipe)
+	bloom_cleanup(w.bloom_pipe)
 	display_debug_cleanup(w.display_debug_pipe)
 	// Original display system is not initialized while canvas debugging is active.
 	// display_cleanup(w.display_pipe)
 	render_canvas_cleanup(&w.light_canvas)
+	render_canvas_cleanup(&w.bloom_canvas)
 	render_canvas_cleanup(&w.normal_canvas)
 	render_canvas_cleanup(&w.color_canvas)
 	render_canvas_cleanup(&w.final_canvas)

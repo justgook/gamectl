@@ -15,6 +15,8 @@ import "logic"
 // - [x] 5. Make opaque sprites without authored normal maps write a neutral normal, without covering transparent pixels.
 // - [x] 6. Read specular strength from the normal atlas alpha channel and add view-dependent highlights.
 // - [ ] 7. After the lighting model is stable, evaluate bloom and tile-edge lighting as separate post effects.
+//   - [x] Bloom is an isolated HDR post-effect pass.
+//   - [ ] Tile-edge lighting remains to be evaluated separately.
 
 Light_Component_Storage :: logic.Component_Storage_Fixed(Light, LIGHT_RENDER_MAX)
 Light_Shadow_Component_Storage :: logic.Component_Storage_Fixed(Light_Shadow_Caster, LIGHT_SHADOW_RENDER_MAX)
@@ -88,6 +90,7 @@ Light_Pipe :: struct {
 	composite_bind: sg.Bindings,
 	ambient:        f32,
 	exposure:       f32,
+	bloom_strength: f32,
 }
 
 @(private = "file")
@@ -175,13 +178,14 @@ LIGHT_BASE_VERTICES := [?][2]f32{{-.5, -.5}, {-.5, .5}, {.5, -.5}, {.5, .5}}
 @(private = "file")
 LIGHT_BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
-light_init :: proc(color_texture, light_texture, normal_texture: sg.View) -> ^Light_Pipe {
+light_init :: proc(color_texture, light_texture, normal_texture, bloom_texture: sg.View) -> ^Light_Pipe {
 	pipe := new(Light_Pipe)
 	pipe.light = light_draw_pipe_init(normal_texture, color_texture)
 	pipe.shadow = shadow_pipe_init()
-	light_composite_init(pipe, color_texture, light_texture)
+	light_composite_init(pipe, color_texture, light_texture, bloom_texture)
 	pipe.ambient = 0.01
 	pipe.exposure = 1.0
+	pipe.bloom_strength = 0.35
 	return pipe
 }
 
@@ -296,11 +300,12 @@ light_draw_pipe_init :: proc(normal_texture, color_texture: sg.View) -> ^Light_D
 }
 
 @(private = "file")
-light_composite_init :: proc(pipe: ^Light_Pipe, color_texture, light_texture: sg.View) {
+light_composite_init :: proc(pipe: ^Light_Pipe, color_texture, light_texture, bloom_texture: sg.View) {
 	pipe.composite_bind.vertex_buffers[0] = pipe.light.bind.vertex_buffers[0]
 	pipe.composite_bind.index_buffer = pipe.light.bind.index_buffer
 	pipe.composite_bind.views[VIEW_light_composite_color_tex] = color_texture
 	pipe.composite_bind.views[VIEW_light_composite_light_tex] = light_texture
+	pipe.composite_bind.views[VIEW_light_composite_bloom_tex] = bloom_texture
 	pipe.composite_bind.samplers[SMP_light_composite_canvas_smp] = sg.make_sampler({})
 
 	pipeline_desc: sg.Pipeline_Desc = {
@@ -394,8 +399,9 @@ lighting_draw :: proc(
 
 lighting_composite :: proc(pipe: ^Light_Pipe) {
 	params := Light_Composite_Fs_Params {
-		ambient  = pipe.ambient,
-		exposure = pipe.exposure,
+		ambient        = pipe.ambient,
+		exposure       = pipe.exposure,
+		bloom_strength = pipe.bloom_strength,
 	}
 	sg.apply_pipeline(pipe.composite_pip)
 	sg.apply_bindings(pipe.composite_bind)

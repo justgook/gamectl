@@ -17,10 +17,12 @@ void main() {
 @fs fs_light_composite
 layout(binding=0) uniform texture2D color_tex;
 layout(binding=1) uniform texture2D light_tex;
+layout(binding=2) uniform texture2D bloom_tex;
 layout(binding=0) uniform sampler canvas_smp;
 layout(binding=0) uniform fs_params {
     float ambient;
     float exposure;
+    float bloom_strength;
 };
 
 in vec2 uv;
@@ -42,8 +44,9 @@ vec3 tone_map_aces(vec3 color) {
 void main() {
     vec4 color = texture(sampler2D(color_tex, canvas_smp), uv);
     vec3 direct_light = texture(sampler2D(light_tex, canvas_smp), uv).rgb;
+    vec3 bloom = texture(sampler2D(bloom_tex, canvas_smp), uv).rgb;
     vec3 ambient_light = color.rgb * ambient;
-    vec3 hdr_color = (ambient_light + direct_light) * exposure;
+    vec3 hdr_color = (ambient_light + direct_light + bloom * bloom_strength) * exposure;
     frag_color = vec4(tone_map_aces(hdr_color), color.a);
 }
 @end
