@@ -185,7 +185,7 @@ light_init :: proc(
 	pipe.light = light_draw_pipe_init(normal_texture, color_texture)
 	pipe.shadow = shadow_pipe_init()
 	light_composite_init(pipe, color_texture, light_texture, bloom_texture, tile_edge_texture)
-	pipe.ambient = 0.55
+	pipe.ambient = 0.15
 	pipe.exposure = 1.0
 	pipe.bloom_strength = 0.35
 	pipe.tile_edge_strength = 0.2

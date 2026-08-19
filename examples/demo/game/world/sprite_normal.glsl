@@ -21,6 +21,7 @@ in ivec2 inst_offset;
 
 out vec2 frag_uv;
 out float opacity;
+out vec4 normal_transform;
 
 const mat2 FLIP_MATRICES[8] = mat2[](
     mat2(1, 0, 0, 1),
@@ -39,8 +40,10 @@ void main() {
     gl_Position = ortho * vec4(pos_in_px, inst_z, 1.0);
     opacity = inst_opacity;
 
-    vec2 transformed_uv = FLIP_MATRICES[inst_flip_flags] * pos;
+    mat2 flip_matrix = FLIP_MATRICES[inst_flip_flags];
+    vec2 transformed_uv = flip_matrix * pos;
     frag_uv = inst_uv.xy + (transformed_uv + vec2(0.5)) * (inst_uv.zw - inst_uv.xy);
+    normal_transform = vec4(flip_matrix[0], flip_matrix[1]);
 }
 @end
 
@@ -51,6 +54,7 @@ layout(binding=0) uniform sampler atlas_smp;
 
 in vec2 frag_uv;
 in float opacity;
+in vec4 normal_transform;
 
 out vec4 frag_color;
 
@@ -62,7 +66,15 @@ void main() {
 
     // Coverage comes from the color atlas so normal alpha remains available
     // for authored material/specular strength.
-    frag_color = texture(sampler2D(normal_tex, atlas_smp), frag_uv);
+    vec4 normal_material = texture(sampler2D(normal_tex, atlas_smp), frag_uv);
+    vec2 tangent_normal = normal_material.xy * 2.0 - 1.0;
+
+    // UVs map screen coordinates back into the source sprite with M, so the
+    // sampled tangent-space vector must use the inverse transform M^-1 = M^T.
+    mat2 flip_matrix = mat2(normal_transform.xy, normal_transform.zw);
+    tangent_normal = transpose(flip_matrix) * tangent_normal;
+
+    frag_color = vec4(tangent_normal * 0.5 + 0.5, normal_material.zw);
 }
 @end
 
