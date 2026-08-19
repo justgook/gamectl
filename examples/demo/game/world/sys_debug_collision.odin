@@ -124,6 +124,15 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	debug_collision_add_capsule_storage(&w.position, &w.enemy_hurt, {0.75, 0.2, 1.0, 1.0})
 	debug_collision_add_circle_storage(&w.position, &w.enemy_hit, {1.0, 0.1, 0.1, 1.0})
 
+	// World-space targeting points produced from second-stick input.
+	target_view := logic.view(&w.position, &w.target)
+	for _, pos, target in logic.each(&target_view) {
+		start := [2]f32{to_pixelf(pos.x), to_pixelf(pos.y)}
+		end := [2]f32{to_pixelf(target.x), to_pixelf(target.y)}
+		debug_collision_add_line(start, end, {0.2, 1.0, 0.85, 0.9})
+		debug_collision_add_circle(end, 2.5, {0.2, 1.0, 0.85, 1.0})
+	}
+
 	// Platformer contact normals.
 	platformer_view := logic.view(&w.position, &w.platformer)
 	for entity, pos, platformer in logic.each(&platformer_view) {

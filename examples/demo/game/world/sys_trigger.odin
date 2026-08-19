@@ -227,6 +227,9 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 	logic.add_component(&w.velocity, entity, Velocity{})
 	logic.add_component(&w.input, entity, Input{.East})
 	logic.add_component(&w.platformer, entity, Platformer{facing = 1})
+	position, has_position := logic.get_component(&w.position, entity)
+	assert(has_position)
+	logic.add_component(&w.target, entity, target_component(position^, 1))
 }
 
 @(private = "file")

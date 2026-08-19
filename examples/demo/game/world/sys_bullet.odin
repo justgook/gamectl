@@ -52,15 +52,6 @@ bullet_destroy_state_storage :: proc(storage: ^logic.Component_Storage(Bullet)) 
 }
 
 sys_bullet :: proc(w: ^World) {
-	ctx := bullet.Tick_Context {
-		// BulletML variables.
-		rank          = 0.5,
-		rand          = 0.3,
-
-		// Caller-provided aiming direction for `aim` directions.
-		aim_direction = 10,
-	}
-
 	spawns := make([dynamic]Bullet_Spawn)
 	defer delete(spawns)
 	deletes := make([dynamic]logic.Entity)
@@ -69,6 +60,14 @@ sys_bullet :: proc(w: ^World) {
 	view := logic.view(&w.bullet, &w.position, &w.velocity)
 	for entity, pew, pos, vel in logic.each(&view) {
 		delete_entity := false
+		ctx := bullet.Tick_Context {
+			rank          = 0.5,
+			rand          = 0.3,
+			aim_direction = 10,
+		}
+		if target, has_target := logic.get_component(&w.target, entity); has_target {
+			ctx.aim_direction = bullet_aim_direction(pos, target)
+		}
 
 		cmds := bullet.tick(&pew.state, ctx)
 		for &cmd in cmds {
@@ -146,6 +145,14 @@ sys_bullet :: proc(w: ^World) {
 	}
 }
 
+
+bullet_aim_direction :: proc(pos: ^Position, target: ^Target) -> f64 {
+	dx := f64(target.x - pos.x)
+	dy := f64(target.y - pos.y)
+	assert(dx != 0 || dy != 0)
+	// BulletML uses 0 degrees as up and rotates clockwise.
+	return math.atan2(dx, dy) * 180.0 / math.PI
+}
 
 @(private = "file")
 Bullet_Spawn :: struct {

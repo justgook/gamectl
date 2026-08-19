@@ -62,6 +62,7 @@ World :: struct {
 	enemy_vision:           logic.Component_Storage(Enemy_Vision),
 	enemy_attack_area:      logic.Component_Storage(Enemy_Attack_Area),
 	input:                  logic.Component_Storage(Input),
+	target:                 logic.Component_Storage(Target),
 	timer:                  logic.Component_Storage(Timer),
 	// animations
 	animation_atlas:        Animation_Atlas,
@@ -120,6 +121,7 @@ frame :: proc(w: ^World, dt: f64) {
 		switch w.input_mode {
 		case .Gameplay:
 			sys_brain(w)
+			sys_target(w)
 			sys_weapon(w)
 			sys_bullet(w)
 			sys_platformer(w)
@@ -291,6 +293,17 @@ init :: proc(w: ^World) {
 	assert(has_player_input)
 	w.player1 = player_input
 
+	// Armed actors own a world-space target driven by their second-stick input.
+	target_view := logic.view(&w.bullet, &w.position, &w.input)
+	for entity, _, pos, _ in logic.each(&target_view) {
+		facing := i32(1)
+		if platformer, has_platformer := logic.get_component(&w.platformer, entity); has_platformer {
+			assert(platformer.facing == -1 || platformer.facing == 1)
+			facing = platformer.facing
+		}
+		logic.add_component(&w.target, entity, target_component(pos^, facing))
+	}
+
 	mock_light(w)
 
 }
@@ -331,6 +344,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.enemy_vision, entity_id)
 	logic.delete_component(&w.enemy_attack_area, entity_id)
 	logic.delete_component(&w.input, entity_id)
+	logic.delete_component(&w.target, entity_id)
 	logic.delete_component(&w.platformer, entity_id)
 	logic.delete_component(&w.timer, entity_id)
 	logic.delete_component(&w.animation, entity_id)
@@ -385,6 +399,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.enemy_vision)
 	logic.destroy_storage(&w.enemy_attack_area)
 	logic.destroy_storage(&w.input)
+	logic.destroy_storage(&w.target)
 	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.timer)
 	logic.destroy_storage(&w.animation)

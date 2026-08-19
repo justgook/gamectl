@@ -40,20 +40,38 @@ InputSet :: enum {
 	Action2,
 	Action3,
 	Action4,
+	TargetNorth,
+	TargetEast,
+	TargetSouth,
+	TargetWest,
 }
 
 InputSet_Vectors :: [InputSet][2]int {
-	.North   = {0, -1},
-	.East    = {+1, 0},
-	.South   = {0, +1},
-	.West    = {-1, 0},
-	.Action1 = {0, 0},
-	.Action2 = {0, 0},
-	.Action3 = {0, 0},
-	.Action4 = {0, 0},
+	.North       = {0, -1},
+	.East        = {+1, 0},
+	.South       = {0, +1},
+	.West        = {-1, 0},
+	.Action1     = {0, 0},
+	.Action2     = {0, 0},
+	.Action3     = {0, 0},
+	.Action4     = {0, 0},
+	.TargetNorth = {0, +1},
+	.TargetEast  = {+1, 0},
+	.TargetSouth = {0, -1},
+	.TargetWest  = {-1, 0},
 }
 
-Input :: bit_set[InputSet;u8]
+Input :: bit_set[InputSet;u16]
+
+input_from_legacy_bits :: proc(value: u8) -> Input {
+	input: Input
+	for bit in 0 ..< 8 {
+		if value & (u8(1) << u8(bit)) != 0 {
+			input += {InputSet(bit)}
+		}
+	}
+	return input
+}
 
 sys_enemy_vision :: proc(w: ^World) {
 	player_pos, has_player_pos := logic.get_component(&w.position, w.player1_id)

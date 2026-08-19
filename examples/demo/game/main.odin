@@ -82,10 +82,10 @@ app_event :: proc(event: host.Event) {
 
 
 	case .Action_Down:
-		assert(event.action_code >= 1 && event.action_code <= 8)
+		assert(event.action_code >= 1 && event.action_code <= 12)
 		world.input_action_down(&state.world, world.InputSet(event.action_code - 1))
 	case .Action_Up:
-		assert(event.action_code >= 1 && event.action_code <= 8)
+		assert(event.action_code >= 1 && event.action_code <= 12)
 		world.input_action_up(&state.world, world.InputSet(event.action_code - 1))
 	case .Mouse_Move:
 		state.world.mouse.x = event.mouse_x
@@ -208,7 +208,7 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	inputs := data_level.read_slot_8_inputs(game_data) or_return
 	assert(len(inputs.components) == len(inputs.entity_ids))
 	for input, index in inputs.components {
-		logic.add_component(&w.input, inputs.entity_ids[index], transmute(world.Input)input)
+		logic.add_component(&w.input, inputs.entity_ids[index], world.input_from_legacy_bits(input))
 	}
 
 	velocities := data_level.read_slot_9_velocities(game_data) or_return

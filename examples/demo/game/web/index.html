@@ -74,6 +74,10 @@
     const ACTION_2 = 6
     const ACTION_3 = 7
     const ACTION_4 = 8
+    const TARGET_UP = 9
+    const TARGET_RIGHT = 10
+    const TARGET_DOWN = 11
+    const TARGET_LEFT = 12
     const DEFAULT_ASSETS = new Map([
       ["level.rspk", "./level.rspk"],
       ["ui.rspk", "./ui.rspk"],
@@ -101,13 +105,13 @@
 
     const KEY_TO_ACTION = new Map([
       ['KeyA', ACTION_LEFT],
-      ['ArrowLeft', ACTION_LEFT],
       ['KeyD', ACTION_RIGHT],
-      ['ArrowRight', ACTION_RIGHT],
       ['KeyW', ACTION_UP],
-      ['ArrowUp', ACTION_UP],
       ['KeyS', ACTION_DOWN],
-      ['ArrowDown', ACTION_DOWN],
+      ['ArrowUp', TARGET_UP],
+      ['ArrowRight', TARGET_RIGHT],
+      ['ArrowDown', TARGET_DOWN],
+      ['ArrowLeft', TARGET_LEFT],
       ['KeyJ', ACTION_1],
       ['KeyZ', ACTION_1],
       ['KeyK', ACTION_2],
