@@ -45,7 +45,11 @@ local function open(value, label)
 		if value == "" then
 			fail(label .. " is required")
 		end
-		return host.call("image/image::open", value)
+		local ok, image = pcall(host.call, "image/image::open", value)
+		if not ok then
+			fail(label .. " " .. string.format("%q", value) .. ": " .. tostring(image))
+		end
+		return image
 	end
 
 	local length = arrayLength(value, label)

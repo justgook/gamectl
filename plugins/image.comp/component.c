@@ -707,20 +707,19 @@ bool exports_gams_image_image_transform(exports_gams_image_image_borrow_image_t 
   return return_image(out, ret, err);
 }
 
-bool exports_gams_image_image_blit(exports_gams_image_image_borrow_image_t dst, exports_gams_image_image_borrow_image_t src, exports_gams_image_image_point_t *at, exports_gams_image_image_own_image_t *ret, image_plugin_string_t *err) {
-  exports_gams_image_image_image_t *out = clone_image(dst, err);
-  if (!out) return false;
-
+static void blit_image(exports_gams_image_image_image_t *dst,
+                       exports_gams_image_image_borrow_image_t src,
+                       const exports_gams_image_image_point_t *at) {
   for (uint32_t sy = 0; sy < src->height; sy++) {
     int32_t dy = at->y + (int32_t)sy;
-    if (dy < 0 || dy >= (int32_t)out->height) continue;
+    if (dy < 0 || dy >= (int32_t)dst->height) continue;
     for (uint32_t sx = 0; sx < src->width; sx++) {
       int32_t dx = at->x + (int32_t)sx;
-      if (dx < 0 || dx >= (int32_t)out->width) continue;
+      if (dx < 0 || dx >= (int32_t)dst->width) continue;
       exports_gams_image_image_rgba8_t s;
       exports_gams_image_image_rgba8_t d;
       load_pixel(src, sx, sy, &s);
-      load_pixel(out, (uint32_t)dx, (uint32_t)dy, &d);
+      load_pixel(dst, (uint32_t)dx, (uint32_t)dy, &d);
       uint32_t inv_a = 255u - s.a;
       exports_gams_image_image_rgba8_t blended = {
           .r = (uint8_t)((s.r * s.a + d.r * inv_a) / 255u),
@@ -728,8 +727,24 @@ bool exports_gams_image_image_blit(exports_gams_image_image_borrow_image_t dst, 
           .b = (uint8_t)((s.b * s.a + d.b * inv_a) / 255u),
           .a = (uint8_t)(s.a + (d.a * inv_a) / 255u),
       };
-      store_pixel(out, (uint32_t)dx, (uint32_t)dy, &blended);
+      store_pixel(dst, (uint32_t)dx, (uint32_t)dy, &blended);
     }
+  }
+}
+
+bool exports_gams_image_image_blit(exports_gams_image_image_borrow_image_t dst, exports_gams_image_image_borrow_image_t src, exports_gams_image_image_point_t *at, exports_gams_image_image_own_image_t *ret, image_plugin_string_t *err) {
+  exports_gams_image_image_image_t *out = clone_image(dst, err);
+  if (!out) return false;
+  blit_image(out, src, at);
+  return return_image(out, ret, err);
+}
+
+bool exports_gams_image_image_blit_many(exports_gams_image_image_borrow_image_t dst, exports_gams_image_image_list_blit_operation_t *operations, exports_gams_image_image_own_image_t *ret, image_plugin_string_t *err) {
+  exports_gams_image_image_image_t *out = clone_image(dst, err);
+  if (!out) return false;
+  for (size_t index = 0; index < operations->len; index++) {
+    exports_gams_image_image_blit_operation_t *operation = &operations->ptr[index];
+    blit_image(out, operation->src, &operation->at);
   }
   return return_image(out, ret, err);
 }

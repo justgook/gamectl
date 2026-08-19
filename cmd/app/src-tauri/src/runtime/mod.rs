@@ -3190,6 +3190,71 @@ mod tests {
     }
 
     #[test]
+    fn image_component_blits_many_images_in_one_call() {
+        let image = "../../../build.nosync/plugins/image.comp.wasm";
+        if !std::path::Path::new(image).exists() {
+            eprintln!(
+                "skipping image blit-many test; build it with `make build.nosync/plugins/image.comp.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/image.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let destination = runtime
+            .invoke(
+                "image/image::create",
+                serde_json::json!([2, 1, { "r": 0, "g": 0, "b": 0, "a": 0 }]),
+            )
+            .unwrap()["ok"]
+            .clone();
+        let red = runtime
+            .invoke(
+                "image/image::create",
+                serde_json::json!([1, 1, { "r": 200, "g": 0, "b": 0, "a": 255 }]),
+            )
+            .unwrap()["ok"]
+            .clone();
+        let blue = runtime
+            .invoke(
+                "image/image::create",
+                serde_json::json!([1, 1, { "r": 0, "g": 0, "b": 150, "a": 255 }]),
+            )
+            .unwrap()["ok"]
+            .clone();
+
+        let result = runtime
+            .invoke(
+                "image/image::blit-many",
+                serde_json::json!([
+                    destination,
+                    [
+                        { "src": red, "at": { "x": 0, "y": 0 } },
+                        { "src": blue, "at": { "x": 1, "y": 0 } }
+                    ]
+                ]),
+            )
+            .unwrap();
+        let pixels = runtime
+            .invoke(
+                "image/image::read-pixels",
+                serde_json::json!([result["ok"]]),
+            )
+            .unwrap();
+
+        assert_eq!(
+            pixels,
+            serde_json::json!({ "ok": [200, 0, 0, 255, 0, 0, 150, 255] })
+        );
+    }
+
+    #[test]
     fn markov_junior_basic_brick_wall_session_step_one_finishes_like_run() {
         let plugin = "../../../build.nosync/plugins/markov-junior.comp.wasm";
         if !std::path::Path::new(plugin).exists() {

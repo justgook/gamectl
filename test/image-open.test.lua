@@ -1,6 +1,9 @@
 host = {
 	call = function(plugin, path)
 		assert(plugin == "image/image::open")
+		if path == "broken.png" then
+			error("failed to decode png image", 0)
+		end
 		return { path = path }
 	end,
 }
@@ -37,6 +40,8 @@ local function assertFails(value, expected)
 end
 
 assertFails(nil, "path is required")
+assertFails("broken.png", 'path "broken.png": failed to decode png image')
+assertFails({ "one.png", { "broken.png" } }, 'path[2][1] "broken.png": failed to decode png image')
 assertFails({ "one.png", 2 }, "path[2] must be a string")
 assertFails({ [1] = "one.png", [3] = "three.png" }, "must be a dense array")
 assertFails({ [1] = "one.png", name = "two.png" }, "must not mix array and object keys")

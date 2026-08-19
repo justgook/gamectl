@@ -58,6 +58,11 @@ interface image {
         y: s32,
     }
 
+    record blit-operation {
+        src: borrow<image>,
+        at: point,
+    }
+
     open: func(path: string) -> result<image, string>;
 
     create: func(width: u32, height: u32, fill: option<rgba8>) -> result<image, string>;
@@ -73,6 +78,9 @@ interface image {
     transform: func(src: borrow<image>, flip: transform-flags) -> result<image, string>;
 
     blit: func(dst: borrow<image>, src: borrow<image>, at: point) -> result<image, string>;
+
+    /// Applies all operations to one cloned destination, in input order.
+    blit-many: func(dst: borrow<image>, operations: list<blit-operation>) -> result<image, string>;
 
     write-pixel: func(src: borrow<image>, at: point, color: rgba8) -> result<image, string>;
 

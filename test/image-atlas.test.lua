@@ -6,9 +6,11 @@ host = {
 		if plugin == "image/image::create" then
 			return { width = args[1], height = args[2], sources = {} }
 		end
-		if plugin == "image/image::blit" then
+		if plugin == "image/image::blit-many" then
 			local atlas = args[1]
-			atlas.sources[#atlas.sources + 1] = args[2]
+			for _, operation in ipairs(args[2]) do
+				atlas.sources[#atlas.sources + 1] = operation.src
+			end
 			return atlas
 		end
 		error("unexpected plugin call: " .. plugin)

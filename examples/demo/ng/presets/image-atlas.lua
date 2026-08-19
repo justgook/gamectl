@@ -106,16 +106,21 @@ for _, leaf in ipairs(leaves) do
 	atlasHeight = math.max(atlasHeight, leaf.rect.y + leaf.rect.height)
 end
 
-local atlas = host.call("image/image::create", atlasWidth, atlasHeight, json.null)
+local operations = {}
 for index, leaf in ipairs(leaves) do
-	local blitted = host.call("image/image::blit", atlas, leaf.image, {
-		x = math.floor(leaf.rect.x),
-		y = math.floor(leaf.rect.y),
-	})
-	if blitted == nil then
-		fail("image.blit failed for image " .. tostring(index))
-	end
-	atlas = blitted
+	operations[index] = {
+		src = leaf.image,
+		at = {
+			x = math.floor(leaf.rect.x),
+			y = math.floor(leaf.rect.y),
+		},
+	}
 end
 
-outputs[1] = atlas
+local atlas = host.call("image/image::create", atlasWidth, atlasHeight, json.null)
+local blitted = host.call("image/image::blit-many", atlas, operations)
+if blitted == nil then
+	fail("image.blit-many failed")
+end
+
+outputs[1] = blitted
