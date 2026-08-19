@@ -72,6 +72,5 @@ if type(slots) == "string" then
 else
 	slots_json = json.encode(slots)
 end
-local byte_data = host.call("respack/respack::build", schema, slots_json)
 ensureParentDirs(path_bin)
-host.call("fs/fs::write-file", path_bin, byte_data)
+host.call("respack/respack::build-to-file", schema, slots_json, path_bin)

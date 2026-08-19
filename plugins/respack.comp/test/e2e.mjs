@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
@@ -87,6 +87,18 @@ assert.match(odin.ok, /read_slot_3_animation/)
 const packed = invokeRespack('respack/respack::build', [schema, slotsJson])
 assert.equal(packed.err, undefined, `respack.build failed for restored gams2 example data: ${packed.err}`)
 assert.ok(Array.isArray(packed.ok), 'build should return byte array')
+
+const outputRelativePath = 'tmp/respack-build-to-file-e2e.rspk'
+const outputPath = join(repoRoot, 'examples/demo', outputRelativePath)
+rmSync(outputPath, { force: true })
+try {
+  const written = invokeRespack('respack/respack::build-to-file', [schema, slotsJson, outputRelativePath])
+  assert.equal(written.err, undefined, `respack.build-to-file failed: ${written.err}`)
+  assert.equal(written.ok, packed.ok.length, 'build-to-file should report bytes written')
+  assert.deepEqual([...readFileSync(outputPath)], packed.ok, 'build-to-file output should match build output')
+} finally {
+  rmSync(outputPath, { force: true })
+}
 
 const dump = inspectDump(packed.ok)
 assert.equal(dump.version, 1)

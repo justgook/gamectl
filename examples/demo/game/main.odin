@@ -25,7 +25,7 @@ lut_pixels: [1024 * 1024 * 4]u8
 ui_atlas_pixels: [1024 * 1024 * 4]u8
 level_atlas_pixels: [1024 * 1024 * 4]u8
 normal_atlas_pixels: [1024 * 1024 * 4]u8
-atlas_pixels: [2048 * 2048 * 4]u8
+atlas_pixels: [4096 * 4096 * 4]u8
 
 app_init :: proc() {
 	host.setup_graphics()

@@ -2,28 +2,58 @@
   {
     "id": 61,
     "kind": 4,
-    "x": -243,
-    "y": -43,
+    "x": -1048,
+    "y": 267,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
         "name": "",
-        "value": "\"anim/c11/Idle/*.png\""
+        "value": "\"tmp/anim/c11/Idle/*.png\""
       },
       {
         "id": 2,
         "name": "",
-        "value": "\"anim/c11/Sprint/*.png\""
+        "value": "\"tmp/anim/c11/Sprint/*.png\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"tmp/anim/c11/Slide_Start/*.png\""
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "\"tmp/anim/c11/Slide/*.png\""
+      },
+      {
+        "id": 5,
+        "name": "",
+        "value": "\"tmp/anim/c11/Slide_Exit/*.png\""
+      },
+      {
+        "id": 6,
+        "name": "",
+        "value": "\"tmp/anim/c11/Jump_Start/*.png\""
+      },
+      {
+        "id": 7,
+        "name": "",
+        "value": "\"tmp/anim/c11/Jump/*.png\""
+      },
+      {
+        "id": 8,
+        "name": "",
+        "value": "\"tmp/anim/c11/Jump_Land/*.png\""
       }
     ]
   },
   {
     "id": 62,
     "kind": 2,
-    "x": -15,
-    "y": 28,
+    "x": -547,
+    "y": 152,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "inputs": [
@@ -194,8 +224,8 @@
   {
     "id": 67,
     "kind": 2,
-    "x": 2468,
-    "y": -584,
+    "x": 2182,
+    "y": -790,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -223,61 +253,23 @@
   {
     "id": 68,
     "kind": 4,
-    "x": 2182,
-    "y": -469,
+    "x": 1918,
+    "y": -773,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/c11/run.qoi\""
+        "value": "\"tmp/c11/anim.qoi\""
       }
     ]
-  },
-  {
-    "id": 69,
-    "kind": 4,
-    "x": 1042,
-    "y": 589,
-    "name": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"tmp/DEBUG_ANIM.json\""
-      }
-    ]
-  },
-  {
-    "id": 70,
-    "kind": 2,
-    "x": 1302,
-    "y": 673,
-    "name": "Write File",
-    "codePath": "ng/presets/write-file.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 69,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "text",
-        "srcNodeId": 110,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": []
   },
   {
     "id": 71,
     "kind": 2,
     "x": 2597,
-    "y": -141,
+    "y": -138,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "inputs": [
@@ -378,7 +370,7 @@
     "id": 74,
     "kind": 2,
     "x": 1763,
-    "y": -12,
+    "y": -54,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "inputs": [
@@ -414,7 +406,7 @@
       {
         "id": 2,
         "name": "defs",
-        "srcNodeId": 110,
+        "srcNodeId": 129,
         "srcOutputId": 1
       }
     ],
@@ -578,8 +570,8 @@
   {
     "id": 90,
     "kind": 2,
-    "x": -15,
-    "y": -61,
+    "x": -547,
+    "y": 63,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "inputs": [
@@ -601,8 +593,8 @@
   {
     "id": 91,
     "kind": 2,
-    "x": 385,
-    "y": -81,
+    "x": -29,
+    "y": -50,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
     "inputs": [
@@ -617,6 +609,42 @@
         "name": "array2",
         "srcNodeId": 62,
         "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "array3",
+        "srcNodeId": 127,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "array4",
+        "srcNodeId": 126,
+        "srcOutputId": 1
+      },
+      {
+        "id": 5,
+        "name": "array5",
+        "srcNodeId": 124,
+        "srcOutputId": 1
+      },
+      {
+        "id": 7,
+        "name": "array6",
+        "srcNodeId": 138,
+        "srcOutputId": 1
+      },
+      {
+        "id": 8,
+        "name": "array7",
+        "srcNodeId": 137,
+        "srcOutputId": 1
+      },
+      {
+        "id": 9,
+        "name": "array8",
+        "srcNodeId": 136,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -630,8 +658,8 @@
   {
     "id": 92,
     "kind": 3,
-    "x": 353,
-    "y": 246,
+    "x": -29,
+    "y": 371,
     "name": "Animation Def",
     "inputs": [
       {
@@ -667,8 +695,8 @@
   {
     "id": 101,
     "kind": 4,
-    "x": 342,
-    "y": 151,
+    "x": -38,
+    "y": 278,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -680,39 +708,10 @@
     ]
   },
   {
-    "id": 110,
-    "kind": 2,
-    "x": 678,
-    "y": 369,
-    "name": "toArray",
-    "codePath": "ng/presets/to-array.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 92,
-        "srcOutputId": 94
-      },
-      {
-        "id": 2,
-        "name": "item2",
-        "srcNodeId": 111,
-        "srcOutputId": 94
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "value": null
-      }
-    ]
-  },
-  {
     "id": 111,
     "kind": 3,
-    "x": 355,
-    "y": 374,
+    "x": -27,
+    "y": 499,
     "name": "Animation Def",
     "inputs": [
       {
@@ -748,28 +747,58 @@
   {
     "id": 112,
     "kind": 4,
-    "x": -272,
-    "y": -251,
+    "x": -1061,
+    "y": -465,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
         "name": "",
-        "value": "\"anim/c11/Idle_normal/*.png\""
+        "value": "\"tmp/anim/c11/Idle_normal/*.png\""
       },
       {
         "id": 2,
         "name": "",
-        "value": "\"anim/c11/Sprint_normal/*.png\""
+        "value": "\"tmp/anim/c11/Sprint_normal/*.png\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"tmp/anim/c11/Slide_Start_normal/*.png\""
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "\"tmp/anim/c11/Slide_normal/*.png\""
+      },
+      {
+        "id": 5,
+        "name": "",
+        "value": "\"tmp/anim/c11/Slide_Exit_normal/*.png\""
+      },
+      {
+        "id": 6,
+        "name": "",
+        "value": "\"tmp/anim/c11/Jump_Start_normal/*.png\""
+      },
+      {
+        "id": 7,
+        "name": "",
+        "value": "\"tmp/anim/c11/Jump_normal/*.png\""
+      },
+      {
+        "id": 8,
+        "name": "",
+        "value": "\"tmp/anim/c11/Jump_Land_normal/*.png\""
       }
     ]
   },
   {
     "id": 113,
     "kind": 2,
-    "x": -12,
-    "y": -180,
+    "x": -538,
+    "y": -589,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "inputs": [
@@ -791,8 +820,8 @@
   {
     "id": 114,
     "kind": 2,
-    "x": -12,
-    "y": -269,
+    "x": -538,
+    "y": -678,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "inputs": [
@@ -822,7 +851,7 @@
       {
         "id": 1,
         "name": "path",
-        "srcNodeId": 118,
+        "srcNodeId": 128,
         "srcOutputId": 1
       }
     ],
@@ -899,39 +928,10 @@
     ]
   },
   {
-    "id": 118,
-    "kind": 2,
-    "x": 370,
-    "y": -251,
-    "name": "mergeArrays",
-    "codePath": "ng/presets/merge-arrays.lua",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "array1",
-        "srcNodeId": 114,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "array2",
-        "srcNodeId": 113,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "value": null
-      }
-    ]
-  },
-  {
     "id": 119,
     "kind": 2,
-    "x": 1914,
-    "y": -522,
+    "x": 1628,
+    "y": -728,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -959,15 +959,15 @@
   {
     "id": 120,
     "kind": 4,
-    "x": 1628,
-    "y": -407,
+    "x": 1299,
+    "y": -754,
     "name": "",
     "inputs": [],
     "outputs": [
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/c11/run_normal.qoi\""
+        "value": "\"tmp/c11/anim_normal.qoi\""
       }
     ]
   },
@@ -975,7 +975,7 @@
     "id": 121,
     "kind": 2,
     "x": 1767,
-    "y": -134,
+    "y": -229,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "inputs": [
@@ -993,5 +993,633 @@
         "value": null
       }
     ]
+  },
+  {
+    "id": 122,
+    "kind": 2,
+    "x": -539,
+    "y": -420,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 123,
+    "kind": 2,
+    "x": -539,
+    "y": -509,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 124,
+    "kind": 2,
+    "x": -550,
+    "y": 432,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 5
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 125,
+    "kind": 2,
+    "x": -542,
+    "y": -335,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 5
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 126,
+    "kind": 2,
+    "x": -558,
+    "y": 335,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 127,
+    "kind": 2,
+    "x": -562,
+    "y": 246,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 128,
+    "kind": 2,
+    "x": -65,
+    "y": -493,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 114,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 113,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "array3",
+        "srcNodeId": 123,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "array4",
+        "srcNodeId": 122,
+        "srcOutputId": 1
+      },
+      {
+        "id": 5,
+        "name": "array5",
+        "srcNodeId": 125,
+        "srcOutputId": 1
+      },
+      {
+        "id": 6,
+        "name": "array6",
+        "srcNodeId": 134,
+        "srcOutputId": 1
+      },
+      {
+        "id": 7,
+        "name": "array7",
+        "srcNodeId": 133,
+        "srcOutputId": 1
+      },
+      {
+        "id": 8,
+        "name": "array8",
+        "srcNodeId": 135,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 129,
+    "kind": 2,
+    "x": 310,
+    "y": 468,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 92,
+        "srcOutputId": 94
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 111,
+        "srcOutputId": 94
+      },
+      {
+        "id": 3,
+        "name": "array3",
+        "srcNodeId": 131,
+        "srcOutputId": 94
+      },
+      {
+        "id": 4,
+        "name": "array4",
+        "srcNodeId": 130,
+        "srcOutputId": 94
+      },
+      {
+        "id": 5,
+        "name": "array5",
+        "srcNodeId": 132,
+        "srcOutputId": 94
+      },
+      {
+        "id": 6,
+        "name": "array6",
+        "srcNodeId": 140,
+        "srcOutputId": 94
+      },
+      {
+        "id": 7,
+        "name": "array7",
+        "srcNodeId": 139,
+        "srcOutputId": 94
+      },
+      {
+        "id": 8,
+        "name": "array8",
+        "srcNodeId": 141,
+        "srcOutputId": 94
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 130,
+    "kind": 3,
+    "x": -23,
+    "y": 733,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 126,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 131,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
+  },
+  {
+    "id": 131,
+    "kind": 3,
+    "x": -30,
+    "y": 611,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 127,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 111,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
+  },
+  {
+    "id": 132,
+    "kind": 3,
+    "x": -30,
+    "y": 869,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 124,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 130,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
+  },
+  {
+    "id": 133,
+    "kind": 2,
+    "x": -542,
+    "y": -152,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 7
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 134,
+    "kind": 2,
+    "x": -542,
+    "y": -241,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 6
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 135,
+    "kind": 2,
+    "x": -545,
+    "y": -67,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 8
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 136,
+    "kind": 2,
+    "x": -536,
+    "y": 726,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 8
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 137,
+    "kind": 2,
+    "x": -544,
+    "y": 629,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 7
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 138,
+    "kind": 2,
+    "x": -544,
+    "y": 540,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 61,
+        "srcOutputId": 6
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 139,
+    "kind": 3,
+    "x": -20,
+    "y": 1115,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 137,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 140,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
+  },
+  {
+    "id": 140,
+    "kind": 3,
+    "x": -27,
+    "y": 993,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 138,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 132,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
+  },
+  {
+    "id": 141,
+    "kind": 3,
+    "x": -27,
+    "y": 1251,
+    "name": "Animation Def",
+    "inputs": [
+      {
+        "id": 93,
+        "name": "images",
+        "srcNodeId": 136,
+        "srcOutputId": 1
+      },
+      {
+        "id": 99,
+        "name": "last_id",
+        "srcNodeId": 139,
+        "srcOutputId": 100
+      }
+    ],
+    "outputs": [
+      {
+        "id": 94,
+        "name": "output",
+        "value": null
+      },
+      {
+        "id": 100,
+        "name": "last_id",
+        "value": null
+      }
+    ],
+    "storage": {
+      "mode": "linked",
+      "path": "CYBERPUNK/anim/anim_def.g.ng.json"
+    }
   }
 ]
