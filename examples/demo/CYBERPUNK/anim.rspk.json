@@ -6,9 +6,12 @@
       "world": "../world"
     }
   },
-  "data": ["UVs", "Atlas", "world.Animation_Atlas"],
+  "data": ["UVs", "Atlas", "world.Animation_Atlas", "Normal_Atlas"],
   "types": {
     "Atlas": {
+      "type": "bytes"
+    },
+    "Normal_Atlas": {
       "type": "bytes"
     },
     "UV": {

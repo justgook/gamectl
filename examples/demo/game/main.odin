@@ -305,6 +305,8 @@ load_data_anim :: proc(filepath: string, w: ^world.World) -> bool {
 
 	atlas_bytes := data_anim.read_slot_1_atlas(game_data) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
+	normal_atlas_bytes := data_anim.read_slot_3_normal_atlas(game_data) or_return
+	w.sprite_normal_atlas = create_image(normal_atlas_bytes, atlas_pixels[:]) or_return
 	w.uv = data_anim.read_slot_0_u_vs(game_data) or_return
 
 	w.animation_atlas = data_anim.read_slot_2_world_animation_atlas(game_data) or_return

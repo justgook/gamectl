@@ -194,8 +194,8 @@
   {
     "id": 67,
     "kind": 2,
-    "x": 1674,
-    "y": -455,
+    "x": 2468,
+    "y": -584,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "inputs": [
@@ -223,8 +223,8 @@
   {
     "id": 68,
     "kind": 4,
-    "x": 1388,
-    "y": -340,
+    "x": 2182,
+    "y": -469,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -238,8 +238,8 @@
   {
     "id": 69,
     "kind": 4,
-    "x": 1110,
-    "y": 827,
+    "x": 1042,
+    "y": 589,
     "name": "",
     "inputs": [],
     "outputs": [
@@ -253,8 +253,8 @@
   {
     "id": 70,
     "kind": 2,
-    "x": 1370,
-    "y": 911,
+    "x": 1302,
+    "y": 673,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "inputs": [
@@ -332,6 +332,12 @@
         "id": 3,
         "name": "Animation Atlas",
         "srcNodeId": 75,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "Normal_Atlas",
+        "srcNodeId": 121,
         "srcOutputId": 1
       }
     ],
@@ -738,5 +744,254 @@
       "mode": "linked",
       "path": "CYBERPUNK/anim/anim_def.g.ng.json"
     }
+  },
+  {
+    "id": 112,
+    "kind": 4,
+    "x": -272,
+    "y": -251,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"anim/c11/Idle_normal/*.png\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"anim/c11/Sprint_normal/*.png\""
+      }
+    ]
+  },
+  {
+    "id": 113,
+    "kind": 2,
+    "x": -12,
+    "y": -180,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 114,
+    "kind": 2,
+    "x": -12,
+    "y": -269,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 112,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 115,
+    "kind": 2,
+    "x": 608,
+    "y": -222,
+    "name": "Open",
+    "codePath": "ng/presets/image-open.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 118,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 116,
+    "kind": 2,
+    "x": 1435,
+    "y": -241,
+    "name": "Atlas",
+    "codePath": "ng/presets/image-atlas.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 65,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "srcNodeId": 117,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "srcNodeId": 65,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "srcNodeId": 65,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 117,
+    "kind": 2,
+    "x": 997,
+    "y": -221,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 115,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 118,
+    "kind": 2,
+    "x": 370,
+    "y": -251,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 114,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 113,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 119,
+    "kind": 2,
+    "x": 1914,
+    "y": -522,
+    "name": "Write",
+    "codePath": "ng/presets/image-write.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 116,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "path",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "format",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 120,
+    "kind": 4,
+    "x": 1628,
+    "y": -407,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/c11/run_normal.qoi\""
+      }
+    ]
+  },
+  {
+    "id": 121,
+    "kind": 2,
+    "x": 1767,
+    "y": -134,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 116,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "base64",
+        "value": null
+      }
+    ]
   }
 ]

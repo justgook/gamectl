@@ -38,13 +38,17 @@ sprites_normal_draw :: proc(
 	sg.draw(0, 6, count)
 }
 
-sprite_normal_init :: proc(color_atlas: sg.Image) -> ^Sprite_Normal_Pipe {
+sprite_normal_init :: proc(color_atlas, normal_atlas: sg.Image) -> ^Sprite_Normal_Pipe {
 	pipe := new(Sprite_Normal_Pipe)
-	atlas_desc := sg.query_image_desc(color_atlas)
-	pipe.atlas_size = {f32(atlas_desc.width), f32(atlas_desc.height)}
-	pipe.bind.samplers[SMP_sprite_normal_color_smp] = sg.make_sampler(
+	color_desc := sg.query_image_desc(color_atlas)
+	normal_desc := sg.query_image_desc(normal_atlas)
+	assert(color_desc.width == normal_desc.width)
+	assert(color_desc.height == normal_desc.height)
+	pipe.atlas_size = {f32(color_desc.width), f32(color_desc.height)}
+	pipe.bind.samplers[SMP_sprite_normal_atlas_smp] = sg.make_sampler(
 		{min_filter = .NEAREST, mag_filter = .NEAREST, wrap_u = .CLAMP_TO_EDGE, wrap_v = .CLAMP_TO_EDGE},
 	)
+	pipe.bind.views[VIEW_sprite_normal_normal_tex] = sg.make_view({texture = {image = normal_atlas}})
 	pipe.bind.views[VIEW_sprite_normal_color_tex] = sg.make_view({texture = {image = color_atlas}})
 
 	pipe.bind.vertex_buffers[0] = sg.make_buffer(
@@ -89,7 +93,8 @@ sprite_normal_init :: proc(color_atlas: sg.Image) -> ^Sprite_Normal_Pipe {
 
 sprite_normal_cleanup :: proc(pipe: ^Sprite_Normal_Pipe) {
 	sg.destroy_pipeline(pipe.pip)
-	sg.destroy_sampler(pipe.bind.samplers[SMP_sprite_normal_color_smp])
+	sg.destroy_sampler(pipe.bind.samplers[SMP_sprite_normal_atlas_smp])
+	sg.destroy_view(pipe.bind.views[VIEW_sprite_normal_normal_tex])
 	sg.destroy_view(pipe.bind.views[VIEW_sprite_normal_color_tex])
 	sg.destroy_buffer(pipe.bind.vertex_buffers[0])
 	sg.destroy_buffer(pipe.bind.vertex_buffers[1])

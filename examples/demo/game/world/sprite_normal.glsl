@@ -45,8 +45,9 @@ void main() {
 @end
 
 @fs fs_sprite_normal
-layout(binding=0) uniform texture2D color_tex;
-layout(binding=0) uniform sampler color_smp;
+layout(binding=0) uniform texture2D normal_tex;
+layout(binding=1) uniform texture2D color_tex;
+layout(binding=0) uniform sampler atlas_smp;
 
 in vec2 frag_uv;
 in float opacity;
@@ -54,14 +55,14 @@ in float opacity;
 out vec4 frag_color;
 
 void main() {
-    float coverage = texture(sampler2D(color_tex, color_smp), frag_uv).a * opacity;
+    float coverage = texture(sampler2D(color_tex, atlas_smp), frag_uv).a * opacity;
     if (coverage < 0.001) {
         discard;
     }
 
-    // RGB is a neutral tangent-space normal. Alpha remains available for
-    // material/specular strength rather than representing coverage.
-    frag_color = vec4(0.5, 0.5, 1.0, 0.0);
+    // Coverage comes from the color atlas so normal alpha remains available
+    // for authored material/specular strength.
+    frag_color = texture(sampler2D(normal_tex, atlas_smp), frag_uv);
 }
 @end
 

@@ -109,7 +109,8 @@ mock_light :: proc(w: ^World) {
 	logic.add_component(
 		&w.light,
 		mouseLight,
-		light_spot({}, {1, 1, 1, 1}, 128, 64, 2.0, 0, math.PI / 3, math.PI / 2, 0.2),
+		// light_spot({}, {1, 1, 1, 1}, 128, 64, 2.0, 0, math.PI / 3, math.PI / 2, 0.2),
+		light_point({}, {1, 1, 1, 1}, 128, 64, 2.0, 0),
 	)
 	logic.add_component(&w.position, mouseLight, Position{})
 
@@ -184,7 +185,7 @@ light_init :: proc(
 	pipe.light = light_draw_pipe_init(normal_texture, color_texture)
 	pipe.shadow = shadow_pipe_init()
 	light_composite_init(pipe, color_texture, light_texture, bloom_texture, tile_edge_texture)
-	pipe.ambient = 0.01
+	pipe.ambient = 0.55
 	pipe.exposure = 1.0
 	pipe.bloom_strength = 0.35
 	pipe.tile_edge_strength = 0.2

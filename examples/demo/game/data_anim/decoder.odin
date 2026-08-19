@@ -13,20 +13,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [3]u32,
-	lengths: [3]u32,
+	offsets: [4]u32,
+	lengths: [4]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 3 {return Package{}, false}
-	if len(data) < 32 {return Package{}, false}
+	if int(read_u16(data, 6)) != 4 {return Package{}, false}
+	if len(data) < 40 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 3 {
+	for i in 0 ..< 4 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -36,7 +36,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 3 {return Reader{}, false}
+	if slot < 0 || slot >= 4 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -104,6 +104,8 @@ read_string_reader :: proc(r: ^Reader) -> (string, bool) {
 
 Atlas :: []u8
 
+Normal_Atlas :: []u8
+
 Uv :: [4]f32
 
 U_Vs :: []Uv
@@ -116,6 +118,8 @@ DecodedSlots :: struct {
 	slot_1:     Atlas,
 	has_slot_2: bool,
 	slot_2:     world.Animation_Atlas,
+	has_slot_3: bool,
+	slot_3:     Normal_Atlas,
 }
 
 @(private = "file")
@@ -267,6 +271,20 @@ decode_atlas :: proc(r: ^Reader, out: ^Atlas) -> bool {
 }
 
 @(private = "file")
+decode_normal_atlas :: proc(r: ^Reader, out: ^Normal_Atlas) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		start := r.pos
+		end := start + int(count)
+		if end > len(r.data) {return false}
+		r.pos = end
+		out^ = r.data[start:end]
+	}
+	return true
+}
+
+@(private = "file")
 decode_uv :: proc(r: ^Reader, out: ^Uv) -> bool {
 	{
 		for decode_index_0 in 0 ..< 4 {
@@ -400,5 +418,13 @@ read_slot_2_world_animation_atlas :: proc(pkg: Package) -> (world.Animation_Atla
 	if !ok {return world.Animation_Atlas{}, false}
 	value: world.Animation_Atlas
 	if !decode_world_animation_atlas(&r, &value) {return world.Animation_Atlas{}, false}
+	return value, true
+}
+
+read_slot_3_normal_atlas :: proc(pkg: Package) -> (Normal_Atlas, bool) {
+	r, ok := slot_reader(pkg, 3)
+	if !ok {return nil, false}
+	value: Normal_Atlas
+	if !decode_normal_atlas(&r, &value) {return nil, false}
 	return value, true
 }

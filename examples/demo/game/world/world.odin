@@ -33,6 +33,7 @@ World :: struct {
 	level_atlas:            sg.Image,
 	normal_atlas:           sg.Image,
 	atlas:                  sg.Image,
+	sprite_normal_atlas:    sg.Image,
 	lut:                    sg.Image,
 	cam:                    Camera,
 	player1_id:             logic.Entity,
@@ -238,7 +239,7 @@ init :: proc(w: ^World) {
 	w.mouse_btn.up = true
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
-	w.sprite_normal_pipe = sprite_normal_init(w.atlas)
+	w.sprite_normal_pipe = sprite_normal_init(w.atlas, w.sprite_normal_atlas)
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
 	level_atlas_desc := sg.query_image_desc(w.level_atlas)
 	normal_atlas_desc := sg.query_image_desc(w.normal_atlas)
