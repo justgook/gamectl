@@ -12,8 +12,9 @@ The browser prototype is evidence for behavior, not production code. Reimplement
 - [ ] Make held second-stick input command firing; settle its relationship with `Action3`.
 - [ ] Add muzzle position and ensure bullets originate from the weapon rather than actor center.
 - [ ] Create the Rifle Marine platformer configuration.
-- [x] Add configurable ground slide state, committed movement, cooldown, low collider, and clearance-safe restoration.
+- [x] Add distance/speed-configured ground slide state, committed movement, momentum decay, cooldown, low collider, and clearance-safe restoration.
 - [x] Disable dash by default and reject configurations that enable dash and slide together.
+- [x] Reduce platformer animation states to idle/run loops plus slide start/loop/exit and jump start/loop/land sequences with one-shot transitions.
 - [ ] Add player integrity, damage invulnerability, knockback, death, and encounter restart.
 - [ ] Add Freight Terminal camera look-ahead and bounds profile.
 - [ ] Add temporary movement/combat tuning overlay and timing capture.

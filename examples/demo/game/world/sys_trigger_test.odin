@@ -134,7 +134,7 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	animation, has_animation := logic.get_component(&w.animation, world_entity)
 	testing.expectf(
 		t,
-		has_animation && animation.def == &w.animation_atlas.defs[15],
+		has_animation && animation.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE],
 		"enemy animation = %v",
 		animation,
 	)
@@ -142,9 +142,14 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	testing.expectf(
 		t,
 		has_platformer_anim &&
-		platformer_anim.set[.Idle].def == &w.animation_atlas.defs[15] &&
-		platformer_anim.set[.Run].def == &w.animation_atlas.defs[16] &&
-		platformer_anim.set[.Swim_Jump].def == &w.animation_atlas.defs[29],
+		platformer_anim.idle.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 0] &&
+		platformer_anim.run.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 1] &&
+		platformer_anim.slide.start.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 2] &&
+		platformer_anim.slide.loop.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 3] &&
+		platformer_anim.slide.exit.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 4] &&
+		platformer_anim.jump.start.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 5] &&
+		platformer_anim.jump.loop.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 6] &&
+		platformer_anim.jump.exit.def == &w.animation_atlas.defs[ENEMY_ANIM_BASE + 7],
 		"enemy platformer animation = %v",
 		platformer_anim,
 	)

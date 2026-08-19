@@ -515,14 +515,14 @@ test_platformer_ground_slide_uses_action2_and_direction :: proc(t: ^testing.T) {
 	testing.expectf(t, platformer.slide_active, "slide should be active")
 	testing.expectf(
 		t,
-		platformer.slide_frames == PLATFORMER_DEFAULT_CONFIG.slide.frames - 1,
-		"slide frames=%d",
-		platformer.slide_frames,
+		platformer.slide_distance_remaining == PLATFORMER_DEFAULT_CONFIG.slide.distance - PLATFORMER_DEFAULT_CONFIG.slide.speed,
+		"slide distance remaining=%d",
+		platformer.slide_distance_remaining,
 	)
 }
 
 @(test)
-test_platformer_slide_commits_direction_and_locks_jump :: proc(t: ^testing.T) {
+test_platformer_slide_travels_configured_distance_while_forward_is_held :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
@@ -532,24 +532,108 @@ test_platformer_slide_commits_direction_and_locks_jump :: proc(t: ^testing.T) {
 		height = 12 * UNIT,
 	}
 	config := PLATFORMER_DEFAULT_CONFIG
-	config.slide.frames = 3
+	config.slide.distance = 25 * UNIT
+	config.slide.speed = 10 * UNIT
+	start_x := 64 * UNIT
+	logic.add_component(&w.position, player, Position{start_x, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	for _ in 0 ..< 3 {
+		sys_platformer(w)
+	}
+
+	pos, _ := logic.get_component(&w.position, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, pos.x == start_x + config.slide.distance, "slide distance pos=%v", pos^)
+	testing.expectf(t, !platformer.slide_active, "slide should finish only after covering its distance")
+}
+
+@(test)
+test_platformer_slide_momentum_decays_to_zero_over_configured_frames :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(68)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.speed = 12 * UNIT
+	config.slide.distance = config.slide.speed
+	config.slide.decay_frames = 3
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	sys_platformer(w)
+	logic.add_component(&w.input, player, Input{})
+	expected_velocities := [3]i32{8 * UNIT, 4 * UNIT, 0}
+	for expected_velocity in expected_velocities {
+		sys_platformer(w)
+		vel, _ := test_platformer_velocity(w, player)
+		testing.expectf(t, vel.x == expected_velocity, "decay velocity=%d, expected=%d", vel.x, expected_velocity)
+	}
+}
+
+@(test)
+test_platformer_slide_momentum_decays_to_run_speed_when_forward_is_held :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(69)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.speed = 12 * UNIT
+	config.slide.distance = config.slide.speed
+	config.slide.decay_frames = 3
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{.East, .Action2})
 	logic.add_component(&w.collider, player, collider)
 	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
 
 	sys_platformer(w)
-	position_after_start, _ := logic.get_component(&w.position, player)
-	start_second_frame := position_after_start^
-	logic.add_component(&w.input, player, Input{.West, .Action1})
-	sys_platformer(w)
+	expected_velocities := [3]i32{10 * UNIT, 8 * UNIT, config.max_run}
+	for expected_velocity in expected_velocities {
+		sys_platformer(w)
+		vel, _ := test_platformer_velocity(w, player)
+		testing.expectf(t, vel.x == expected_velocity, "forward decay velocity=%d, expected=%d", vel.x, expected_velocity)
+	}
+}
 
-	pos, _ := logic.get_component(&w.position, player)
-	vel, _ := test_platformer_velocity(w, player)
-	platformer, _ := logic.get_component(&w.platformer, player)
-	testing.expectf(t, pos.x == start_second_frame.x + config.slide.speed, "slide direction changed, pos=%v", pos^)
-	testing.expectf(t, pos.y == start_second_frame.y && vel.y == 0, "slide allowed jump, pos=%v vel=%v", pos^, vel^)
-	testing.expectf(t, platformer.facing == 1, "slide changed facing=%d", platformer.facing)
+@(test)
+test_platformer_slide_momentum_decays_toward_opposite_run_speed :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(70)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.speed = 12 * UNIT
+	config.slide.distance = config.slide.speed
+	config.slide.decay_frames = 3
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	sys_platformer(w)
+	logic.add_component(&w.input, player, Input{.West})
+	expected_velocities := [3]i32{6 * UNIT, 0, -config.max_run}
+	for expected_velocity in expected_velocities {
+		sys_platformer(w)
+		vel, _ := test_platformer_velocity(w, player)
+		testing.expectf(t, vel.x == expected_velocity, "opposite decay velocity=%d, expected=%d", vel.x, expected_velocity)
+	}
 }
 
 @(test)
@@ -595,7 +679,7 @@ test_platformer_slide_restores_collider_and_starts_cooldown_when_finished :: pro
 		height = 12 * UNIT,
 	}
 	config := PLATFORMER_DEFAULT_CONFIG
-	config.slide.frames = 1
+	config.slide.distance = config.slide.speed
 	config.slide.cooldown_frames = 3
 	start := Position{64 * UNIT, i32(-test_capsule_bottom(&collider))}
 	start_bottom := start.y + collider.y - collider.height / 2 - collider.radius
@@ -630,7 +714,7 @@ test_platformer_slide_stays_low_when_ceiling_blocks_standing_collider :: proc(t:
 		height = 12 * UNIT,
 	}
 	config := PLATFORMER_DEFAULT_CONFIG
-	config.slide.frames = 1
+	config.slide.distance = config.slide.speed
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{.Action2})
 	logic.add_component(&w.collider, player, collider)
@@ -643,9 +727,9 @@ test_platformer_slide_stays_low_when_ceiling_blocks_standing_collider :: proc(t:
 	testing.expectf(t, platformer.slide_active, "low posture should remain active under ceiling")
 	testing.expectf(
 		t,
-		platformer.slide_frames == 0,
-		"slide motion should still finish, frames=%d",
-		platformer.slide_frames,
+		platformer.slide_distance_remaining == 0,
+		"slide motion should still finish, distance remaining=%d",
+		platformer.slide_distance_remaining,
 	)
 	testing.expectf(
 		t,
@@ -669,7 +753,7 @@ test_platformer_finished_slide_keeps_moving_until_it_can_stand :: proc(t: ^testi
 		height = 12 * UNIT,
 	}
 	config := PLATFORMER_DEFAULT_CONFIG
-	config.slide.frames = 1
+	config.slide.distance = config.slide.speed
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{.Action2})
 	logic.add_component(&w.collider, player, collider)
@@ -698,7 +782,7 @@ test_platformer_slide_cooldown_blocks_immediate_second_slide :: proc(t: ^testing
 		height = 12 * UNIT,
 	}
 	config := PLATFORMER_DEFAULT_CONFIG
-	config.slide.frames = 2
+	config.slide.distance = config.slide.speed * 2
 	config.slide.cooldown_frames = 3
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{.Action2})
@@ -1260,12 +1344,130 @@ test_platformer_ladder_top_down_enters_ladder :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_platformer_anim_selects_swim_and_swim_idle_in_water :: proc(t: ^testing.T) {
+test_animation_play_once_finishes_a_looping_definition_after_one_cycle :: proc(t: ^testing.T) {
 	w := new(World)
 	defer platformer_anim_test_world_destroy(w)
-	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	defer logic.destroy_storage(&w.sprite)
+	defs := [1]AnimDef{{frame_start = 0, frame_count = 1, repeat = 0}}
+	frames := [1]AnimFrame{{duration = 10}}
+	w.animation_atlas = {defs = defs[:], frames = frames[:]}
+	entity := logic.Entity(44)
+	anim := animation_create(&defs[0])
+	animation_play_once(&anim, &defs[0])
+	logic.add_component(&w.animation, entity, anim)
+	logic.add_component(&w.sprite, entity, Sprite{})
+
+	sys_animation(w, 0.011)
+
+	updated, _ := logic.get_component(&w.animation, entity)
+	testing.expectf(t, animation_is_finished(updated), "one-shot animation should finish after one cycle")
+	testing.expectf(t, updated.repeat_index == 1, "one-shot repeats=%d", updated.repeat_index)
+}
+
+@(test)
+test_platformer_anim_plays_slide_start_once_then_slide_loop :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [8]AnimDef{}
 	player := logic.Entity(41)
-	logic.add_component(&w.platformer, player, Platformer{in_water = true, velocity = Velocity{UNIT, -UNIT}, facing = -1})
+	logic.add_component(&w.platformer, player, Platformer{on_ground = true, facing = 1})
+	logic.add_component(&w.animation, player, animation_create(&defs[0]))
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(&defs[0], &defs[1], &defs[2], &defs[3], &defs[4], &defs[5], &defs[6], &defs[7]),
+	)
+
+	sys_platformer_anim(w)
+	anim, _ := logic.get_component(&w.animation, player)
+	ctrl, _ := logic.get_component(&w.platformer_anim, player)
+	testing.expectf(t, ctrl.current == .Idle && anim.def == &defs[0], "initial animation=%v", ctrl.current)
+
+	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.slide_active = true
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide_Start && anim.def == &defs[2], "slide start=%v", ctrl.current)
+	testing.expectf(t, anim.playing, "slide start should be playing")
+
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide_Start, "playing slide start was interrupted by %v", ctrl.current)
+
+	anim.playing = false
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide && anim.def == &defs[3], "slide loop=%v", ctrl.current)
+	testing.expectf(t, anim.playing, "slide loop should be playing")
+}
+
+@(test)
+test_platformer_anim_finishes_slide_start_before_early_slide_exit :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [8]AnimDef{}
+	player := logic.Entity(43)
+	logic.add_component(&w.platformer, player, Platformer{slide_active = true, on_ground = true, facing = 1})
+	logic.add_component(&w.animation, player, animation_create(&defs[0]))
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(&defs[0], &defs[1], &defs[2], &defs[3], &defs[4], &defs[5], &defs[6], &defs[7]),
+	)
+
+	sys_platformer_anim(w)
+	anim, _ := logic.get_component(&w.animation, player)
+	ctrl, _ := logic.get_component(&w.platformer_anim, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.slide_active = false
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide_Start, "slide start should finish before exit")
+
+	anim.playing = false
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide_Exit && anim.def == &defs[4], "early slide end should go directly to exit")
+}
+
+@(test)
+test_platformer_anim_plays_slide_exit_once_then_latest_locomotion_loop :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [8]AnimDef{}
+	player := logic.Entity(42)
+	logic.add_component(&w.platformer, player, Platformer{slide_active = true, on_ground = true, facing = 1})
+	logic.add_component(&w.animation, player, animation_create(&defs[0]))
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(&defs[0], &defs[1], &defs[2], &defs[3], &defs[4], &defs[5], &defs[6], &defs[7]),
+	)
+
+	sys_platformer_anim(w)
+	anim, _ := logic.get_component(&w.animation, player)
+	ctrl, _ := logic.get_component(&w.platformer_anim, player)
+	anim.playing = false
+	sys_platformer_anim(w)
+
+	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.slide_active = false
+	platformer.velocity.x = UNIT
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide_Exit && anim.def == &defs[4], "slide exit=%v", ctrl.current)
+
+	platformer.velocity.x = 0
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Slide_Exit, "playing slide exit was interrupted by %v", ctrl.current)
+
+	platformer.velocity.x = UNIT
+	anim.playing = false
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Run && anim.def == &defs[1], "post-slide locomotion=%v", ctrl.current)
+}
+
+@(test)
+test_platformer_anim_plays_jump_start_once_then_jump_loop :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [8]AnimDef{}
+	player := logic.Entity(45)
+	logic.add_component(&w.platformer, player, Platformer{on_ground = true, facing = 1})
 	logic.add_component(&w.animation, player, animation_create(&defs[0]))
 	logic.add_component(
 		&w.platformer_anim,
@@ -1279,61 +1481,32 @@ test_platformer_anim_selects_swim_and_swim_idle_in_water :: proc(t: ^testing.T) 
 			&defs[5],
 			&defs[6],
 			&defs[7],
-			&defs[8],
-			&defs[9],
-			&defs[10],
-			&defs[11],
-			&defs[12],
-			&defs[13],
 		),
 	)
 
 	sys_platformer_anim(w)
 	anim, _ := logic.get_component(&w.animation, player)
 	ctrl, _ := logic.get_component(&w.platformer_anim, player)
-	testing.expectf(t, ctrl.current == .Swim_Vertical, "vertical input should win over horizontal input")
-	testing.expectf(t, anim.def == &defs[11], "expected vertical swim def")
-	testing.expectf(t, ctrl.sprite_flip == 6, "downward swim should rotate 90 degrees clockwise")
-	testing.expectf(t, ctrl.apply_facing, "vertical swim should preserve horizontal facing")
-	testing.expectf(t, ctrl.facing == -1, "vertical swim facing=%d", ctrl.facing)
-
 	platformer, _ := logic.get_component(&w.platformer, player)
-	platformer.velocity = {UNIT, UNIT}
+	platformer.on_ground = false
 	sys_platformer_anim(w)
-	ctrl, _ = logic.get_component(&w.platformer_anim, player)
-	testing.expectf(t, ctrl.current == .Swim_Vertical, "upward diagonal should use vertical swim")
-	testing.expectf(t, ctrl.sprite_flip == 0, "upward swim should use default orientation")
+	testing.expectf(t, ctrl.current == .Jump_Start && anim.def == &defs[5], "jump start=%v", ctrl.current)
 
-	platformer.velocity = {UNIT, 0}
 	sys_platformer_anim(w)
-	ctrl, _ = logic.get_component(&w.platformer_anim, player)
-	testing.expectf(t, ctrl.current == .Swim, "horizontal swimmer should use swim animation")
+	testing.expectf(t, ctrl.current == .Jump_Start, "playing jump start was interrupted by %v", ctrl.current)
 
-	platformer.velocity = {}
+	anim.playing = false
 	sys_platformer_anim(w)
-	ctrl, _ = logic.get_component(&w.platformer_anim, player)
-	testing.expectf(t, ctrl.current == .Swim_Idle, "idle swimmer should use swim idle animation")
-
-	platformer.in_water = false
-	platformer.swim_jumping = true
-	sys_platformer_anim(w)
-	anim, _ = logic.get_component(&w.animation, player)
-	ctrl, _ = logic.get_component(&w.platformer_anim, player)
-	testing.expectf(t, ctrl.current == .Swim_Jump, "water exit should use swim jump animation")
-	testing.expectf(t, anim.def == &defs[13], "expected swim jump def")
+	testing.expectf(t, ctrl.current == .Jump && anim.def == &defs[6], "jump loop=%v", ctrl.current)
 }
 
 @(test)
-test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
+test_platformer_anim_finishes_jump_start_before_early_landing :: proc(t: ^testing.T) {
 	w := new(World)
 	defer platformer_anim_test_world_destroy(w)
-	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
-	player := logic.Entity(40)
-	logic.add_component(
-		&w.platformer,
-		player,
-		Platformer{on_ladder = true, velocity = Velocity{0, PLATFORMER_DEFAULT_CONFIG.ladder.climb_speed}},
-	)
+	defs := [8]AnimDef{}
+	player := logic.Entity(47)
+	logic.add_component(&w.platformer, player, Platformer{on_ground = false, facing = 1})
 	logic.add_component(&w.animation, player, animation_create(&defs[0]))
 	logic.add_component(
 		&w.platformer_anim,
@@ -1347,24 +1520,65 @@ test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 			&defs[5],
 			&defs[6],
 			&defs[7],
-			&defs[8],
-			&defs[9],
-			&defs[10],
-			&defs[11],
-			&defs[12],
-			&defs[13],
 		),
 	)
 
 	sys_platformer_anim(w)
+	anim, _ := logic.get_component(&w.animation, player)
+	ctrl, _ := logic.get_component(&w.platformer_anim, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.on_ground = true
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Jump_Start, "jump start should finish before landing")
 
-	anim, has_anim := logic.get_component(&w.animation, player)
-	ctrl, has_ctrl := logic.get_component(&w.platformer_anim, player)
-	testing.expect(t, has_anim)
-	testing.expect(t, has_ctrl)
-	testing.expectf(t, ctrl.current == .Climb, "expected climb animation, got %v", ctrl.current)
-	testing.expectf(t, anim.def == &defs[9], "expected climb def")
-	testing.expectf(t, anim.speed > 0, "climb animation should advance while moving, speed=%f", anim.speed)
+	anim.playing = false
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Jump_Land && anim.def == &defs[7], "early landing should go directly to land")
+}
+
+@(test)
+test_platformer_anim_plays_jump_land_once_then_latest_locomotion_loop :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [8]AnimDef{}
+	player := logic.Entity(46)
+	logic.add_component(&w.platformer, player, Platformer{on_ground = false, facing = 1})
+	logic.add_component(&w.animation, player, animation_create(&defs[0]))
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(
+			&defs[0],
+			&defs[1],
+			&defs[2],
+			&defs[3],
+			&defs[4],
+			&defs[5],
+			&defs[6],
+			&defs[7],
+		),
+	)
+
+	sys_platformer_anim(w)
+	anim, _ := logic.get_component(&w.animation, player)
+	ctrl, _ := logic.get_component(&w.platformer_anim, player)
+	anim.playing = false
+	sys_platformer_anim(w)
+
+	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.on_ground = true
+	platformer.velocity.x = UNIT
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Jump_Land && anim.def == &defs[7], "jump land=%v", ctrl.current)
+
+	platformer.velocity.x = 0
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Jump_Land, "playing jump land was interrupted by %v", ctrl.current)
+
+	platformer.velocity.x = UNIT
+	anim.playing = false
+	sys_platformer_anim(w)
+	testing.expectf(t, ctrl.current == .Run && anim.def == &defs[1], "post-jump locomotion=%v", ctrl.current)
 }
 
 @(test)

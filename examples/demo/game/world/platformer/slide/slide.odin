@@ -2,8 +2,9 @@ package slide
 
 Config :: struct {
 	enabled:         bool,
+	distance:        i32,
 	speed:           i32,
-	frames:          int,
+	decay_frames:    int,
 	cooldown_frames: int,
 	collider_height: i32,
 }

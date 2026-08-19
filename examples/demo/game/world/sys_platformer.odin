@@ -80,45 +80,53 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		delay_frames = 4,
 		reset_air_on_ground = true,
 	},
-	slide = {enabled = true, speed = 15 * UNIT, frames = 3, cooldown_frames = 8, collider_height = 4 * UNIT},
+	slide = {
+		enabled = true,
+		distance = 120 * UNIT,
+		speed = 15 * UNIT,
+		decay_frames = 10,
+		cooldown_frames = 8,
+		collider_height = 4 * UNIT,
+	},
 	dash_direction = default_dash_direction,
 }
 
 Platformer :: struct {
-	config:                Platformer_Config,
-	velocity:              Velocity,
-	on_ground:             bool,
-	on_wall:               bool,
-	on_ladder:             bool,
-	in_water:              bool,
-	swim_jumping:          bool,
-	hit_ceiling:           bool,
-	ground_normal:         [2]i32,
-	wall_normal:           [2]i32,
-	ground_segment:        ^shape.Segment,
-	wall_segment:          ^shape.Segment,
-	ladder_zone:           int,
-	coyote_timer:          int,
-	jump_buffer:           int,
-	jump_frames:           int,
-	jump_held:             bool,
-	wall_jumps:            int,
-	air_jumps:             int,
-	dash_frames:           int,
-	dash_delay:            int,
-	dash_cooldown:         int,
-	dash_ground_used:      int,
-	dash_air_used:         int,
-	dash_dir:              [2]i32,
-	dash_held:             bool,
-	dash_air:              bool,
-	slide_active:          bool,
-	slide_frames:          int,
-	slide_cooldown:        int,
-	slide_direction:       i32,
-	slide_standing_height: i32,
-	slide_held:            bool,
-	facing:                i32,
+	config:                   Platformer_Config,
+	velocity:                 Velocity,
+	on_ground:                bool,
+	on_wall:                  bool,
+	on_ladder:                bool,
+	in_water:                 bool,
+	swim_jumping:             bool,
+	hit_ceiling:              bool,
+	ground_normal:            [2]i32,
+	wall_normal:              [2]i32,
+	ground_segment:           ^shape.Segment,
+	wall_segment:             ^shape.Segment,
+	ladder_zone:              int,
+	coyote_timer:             int,
+	jump_buffer:              int,
+	jump_frames:              int,
+	jump_held:                bool,
+	wall_jumps:               int,
+	air_jumps:                int,
+	dash_frames:              int,
+	dash_delay:               int,
+	dash_cooldown:            int,
+	dash_ground_used:         int,
+	dash_air_used:            int,
+	dash_dir:                 [2]i32,
+	dash_held:                bool,
+	dash_air:                 bool,
+	slide_active:             bool,
+	slide_distance_remaining: i32,
+	slide_cooldown:           int,
+	slide_decay_frames:       int,
+	slide_direction:          i32,
+	slide_standing_height:    i32,
+	slide_held:               bool,
+	facing:                   i32,
 }
 
 Platformer_Zone_Kind :: enum {
@@ -200,7 +208,7 @@ sys_platformer :: proc(w: ^World) {
 			// Preserve committed slide movement while low clearance prevents standing.
 			platformer_apply_slide_velocity(vel, platformer)
 			platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
-			platformer_finish_slide_frame(&w.grid, pos, collider, platformer)
+			platformer_finish_slide_frame(&w.grid, pos, vel, collider, platformer)
 			platformer.slide_held = .Action2 in input
 			continue
 		}
@@ -217,10 +225,14 @@ sys_platformer :: proc(w: ^World) {
 			}
 		}
 
-		platformer_apply_input(input, vel, platformer)
+		if platformer.slide_decay_frames > 0 {
+			platformer_apply_slide_decay(input, vel, platformer)
+		} else {
+			platformer_apply_input(input, vel, platformer)
+		}
 		if platformer_try_start_slide(pos, input, vel, collider, platformer) {
 			platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
-			platformer_finish_slide_frame(&w.grid, pos, collider, platformer)
+			platformer_finish_slide_frame(&w.grid, pos, vel, collider, platformer)
 			platformer.slide_held = .Action2 in input
 			continue
 		}
@@ -748,12 +760,14 @@ platformer_try_start_slide :: proc(
 		direction = -1
 	}
 	assert(direction == -1 || direction == 1)
-	assert(cfg.slide.frames > 0)
+	assert(cfg.slide.distance > 0)
 	assert(cfg.slide.speed > 0)
+	assert(cfg.slide.decay_frames >= 0)
 	assert(cfg.slide.collider_height >= 0 && cfg.slide.collider_height < collider.height)
 	p.facing = direction
 	p.slide_active = true
-	p.slide_frames = cfg.slide.frames
+	p.slide_distance_remaining = cfg.slide.distance
+	p.slide_decay_frames = 0
 	p.slide_direction = direction
 	p.slide_standing_height = collider.height
 	pos.y -= (collider.height - cfg.slide.collider_height) / 2
@@ -765,18 +779,48 @@ platformer_try_start_slide :: proc(
 @(private = "file")
 platformer_apply_slide_velocity :: proc(vel: ^Velocity, p: ^Platformer) {
 	cfg := platformer_config(p)
-	vel.x = p.slide_direction * cfg.slide.speed
+	step := cfg.slide.speed
+	if p.slide_distance_remaining > 0 {
+		step = min(step, p.slide_distance_remaining)
+		p.slide_distance_remaining -= step
+	}
+	vel.x = p.slide_direction * step
 	vel.y = 0
 }
 
 @(private = "file")
-platformer_finish_slide_frame :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer) {
-	assert(p.slide_active)
-	assert(p.slide_frames >= 0)
-	if p.slide_frames > 0 {
-		p.slide_frames -= 1
+platformer_apply_slide_decay :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
+	assert(p.slide_decay_frames > 0)
+	cfg := platformer_config(p)
+	move_x := i32(0)
+	if .East in input {
+		move_x += 1
 	}
-	if p.slide_frames > 0 || !platformer_slide_has_headroom(g, pos, collider, p) {
+	if .West in input {
+		move_x -= 1
+	}
+	if move_x != 0 {
+		p.facing = move_x
+	}
+
+	target := move_x * cfg.max_run
+	difference := abs(vel.x - target)
+	step := (difference + i32(p.slide_decay_frames) - 1) / i32(p.slide_decay_frames)
+	vel.x = approach_i32(vel.x, target, step)
+	p.slide_decay_frames -= 1
+}
+
+@(private = "file")
+platformer_finish_slide_frame :: proc(
+	g: ^grid.Grid,
+	pos: ^Position,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) {
+	assert(p.slide_active)
+	assert(p.slide_distance_remaining >= 0)
+	if p.slide_distance_remaining > 0 || !platformer_slide_has_headroom(g, pos, collider, p) {
 		return
 	}
 
@@ -785,7 +829,12 @@ platformer_finish_slide_frame :: proc(g: ^grid.Grid, pos: ^Position, collider: ^
 	collider.height = p.slide_standing_height
 	p.slide_standing_height = 0
 	p.slide_active = false
-	p.slide_cooldown = platformer_config(p).slide.cooldown_frames
+	cfg := platformer_config(p)
+	p.slide_cooldown = cfg.slide.cooldown_frames
+	p.slide_decay_frames = cfg.slide.decay_frames
+	if p.slide_decay_frames > 0 {
+		vel.x = p.slide_direction * cfg.slide.speed
+	}
 }
 
 @(private = "file")

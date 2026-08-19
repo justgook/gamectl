@@ -29,14 +29,16 @@ Animation_Atlas :: struct {
 }
 
 Animation :: struct {
-	def:          ^AnimDef,
-	frame_index:  u32,
-	frame_timer:  f32,
-	repeat_index: u32,
-	playing:      bool,
-	speed:        f32,
-	on_loop:      proc(w: ^World, entity: logic.Entity, done: bool),
-	on_frame:     proc(w: ^World, entity: logic.Entity, frame: u32),
+	def:                 ^AnimDef,
+	frame_index:         u32,
+	frame_timer:         f32,
+	repeat_index:        u32,
+	playing:             bool,
+	speed:               f32,
+	repeat_override:     u32,
+	has_repeat_override: bool,
+	on_loop:             proc(w: ^World, entity: logic.Entity, done: bool),
+	on_frame:            proc(w: ^World, entity: logic.Entity, frame: u32),
 }
 
 atlas_get_anim :: proc(atlas: ^Animation_Atlas, index: int) -> ^AnimDef {
@@ -72,8 +74,21 @@ animation_create_stopped :: proc(def: ^AnimDef) -> Animation {
 
 animation_play :: proc(anim: ^Animation, def: ^AnimDef) {
 	anim.def = def
+	anim.has_repeat_override = false
 	animation_reset(anim)
 	anim.playing = true
+}
+
+animation_play_loop :: proc(anim: ^Animation, def: ^AnimDef) {
+	animation_play(anim, def)
+	anim.repeat_override = 0
+	anim.has_repeat_override = true
+}
+
+animation_play_once :: proc(anim: ^Animation, def: ^AnimDef) {
+	animation_play(anim, def)
+	anim.repeat_override = 1
+	anim.has_repeat_override = true
 }
 
 animation_play_if_different :: proc(anim: ^Animation, def: ^AnimDef) {
@@ -97,13 +112,7 @@ animation_reset :: proc(anim: ^Animation) {
 }
 
 animation_is_finished :: proc(anim: ^Animation) -> bool {
-	if anim.def == nil {
-		return true
-	}
-	if anim.def.repeat == 0 {
-		return false
-	}
-	return anim.frame_index >= anim.def.frame_count - 1 && !anim.playing
+	return anim.def == nil || !anim.playing
 }
 
 animation_get_frame :: proc(atlas: ^Animation_Atlas, anim: ^Animation) -> ^AnimFrame {
@@ -168,7 +177,8 @@ sys_animation :: proc(w: ^World, dt: f64) {
 
 			if int(anim.frame_index) >= len(frames) {
 				completed_repeat := anim.repeat_index + 1
-				if anim.def.repeat == 0 || completed_repeat < anim.def.repeat {
+				repeat := anim.repeat_override if anim.has_repeat_override else anim.def.repeat
+				if repeat == 0 || completed_repeat < repeat {
 					anim.repeat_index = completed_repeat
 					anim.frame_index = 0
 					if anim.on_loop != nil {
@@ -201,12 +211,9 @@ sys_animation :: proc(w: ^World, dt: f64) {
 
 		// TODO find a way how to move that to the sys_platformer_anim.odin file
 		if platformer_anim, has_platformer_anim := logic.get_component(&w.platformer_anim, entity);
-		   has_platformer_anim {
-			sprite.flip |= platformer_anim.sprite_flip
-			if platformer_anim.apply_facing && platformer_anim.facing < 0 {
-				sprite.flip |= 1
-				sprite.offset.x *= -1
-			}
+		   has_platformer_anim && platformer_anim.facing < 0 {
+			sprite.flip |= 1
+			sprite.offset.x *= -1
 		}
 	}
 }
