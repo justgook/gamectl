@@ -5,6 +5,7 @@ import "logic"
 import air_jump "platformer/air_jump"
 import dash "platformer/dash"
 import ladder "platformer/ladder"
+import slide "platformer/slide"
 import slope "platformer/slope"
 import wall "platformer/wall"
 import water "platformer/water"
@@ -31,6 +32,7 @@ Platformer_Config :: struct {
 	water:              water.Config,
 	air_jump:           air_jump.Config,
 	dash:               dash.Config,
+	slide:              slide.Config,
 	dash_direction:     Dash_Direction_Proc,
 }
 
@@ -71,45 +73,52 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 	water = {enabled = true, swim_speed = 2 * UNIT, jump_speed = 8 * UNIT},
 	air_jump = {enabled = true, max_jumps = 999, jump_y_speed = 5 * UNIT},
 	dash = {
-		enabled = true,
+		enabled = false,
 		ground = {enabled = true, speed = 5 * UNIT, frames = 8, count = 1},
 		air = {enabled = true, speed = 5 * UNIT, frames = 8, count = 1},
 		cooldown_frames = 20,
 		delay_frames = 4,
 		reset_air_on_ground = true,
 	},
+	slide = {enabled = true, speed = 15 * UNIT, frames = 3, cooldown_frames = 8, collider_height = 4 * UNIT},
 	dash_direction = default_dash_direction,
 }
 
 Platformer :: struct {
-	config:           Platformer_Config,
-	velocity:         Velocity,
-	on_ground:        bool,
-	on_wall:          bool,
-	on_ladder:        bool,
-	in_water:         bool,
-	swim_jumping:     bool,
-	hit_ceiling:      bool,
-	ground_normal:    [2]i32,
-	wall_normal:      [2]i32,
-	ground_segment:   ^shape.Segment,
-	wall_segment:     ^shape.Segment,
-	ladder_zone:      int,
-	coyote_timer:     int,
-	jump_buffer:      int,
-	jump_frames:      int,
-	jump_held:        bool,
-	wall_jumps:       int,
-	air_jumps:        int,
-	dash_frames:      int,
-	dash_delay:       int,
-	dash_cooldown:    int,
-	dash_ground_used: int,
-	dash_air_used:    int,
-	dash_dir:         [2]i32,
-	dash_held:        bool,
-	dash_air:         bool,
-	facing:           i32,
+	config:                Platformer_Config,
+	velocity:              Velocity,
+	on_ground:             bool,
+	on_wall:               bool,
+	on_ladder:             bool,
+	in_water:              bool,
+	swim_jumping:          bool,
+	hit_ceiling:           bool,
+	ground_normal:         [2]i32,
+	wall_normal:           [2]i32,
+	ground_segment:        ^shape.Segment,
+	wall_segment:          ^shape.Segment,
+	ladder_zone:           int,
+	coyote_timer:          int,
+	jump_buffer:           int,
+	jump_frames:           int,
+	jump_held:             bool,
+	wall_jumps:            int,
+	air_jumps:             int,
+	dash_frames:           int,
+	dash_delay:            int,
+	dash_cooldown:         int,
+	dash_ground_used:      int,
+	dash_air_used:         int,
+	dash_dir:              [2]i32,
+	dash_held:             bool,
+	dash_air:              bool,
+	slide_active:          bool,
+	slide_frames:          int,
+	slide_cooldown:        int,
+	slide_direction:       i32,
+	slide_standing_height: i32,
+	slide_held:            bool,
+	facing:                i32,
 }
 
 Platformer_Zone_Kind :: enum {
@@ -175,15 +184,25 @@ sys_platformer :: proc(w: ^World) {
 		platformer.in_water = false
 
 		platformer_refresh_ground(&w.grid, pos, vel, collider, platformer)
-		platformer_update_dash_reset_and_timers(platformer)
+		platformer_update_ability_timers(platformer)
 
 		ladder_zone, touching_ladder := platformer_find_ladder_zone(w, pos, collider, platformer)
 		if platformer_handle_ladder(w, pos, input, vel, collider, platformer, ladder_zone, touching_ladder) {
 			platformer.dash_held = .Action2 in input
+			platformer.slide_held = .Action2 in input
 			continue
 		}
 		if touching_ladder {
 			platformer_apply_ladder_top_support(pos, vel, collider, platformer, &w.platformer_zones[ladder_zone])
+		}
+
+		if platformer.slide_active {
+			// Preserve committed slide movement while low clearance prevents standing.
+			platformer_apply_slide_velocity(vel, platformer)
+			platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
+			platformer_finish_slide_frame(&w.grid, pos, collider, platformer)
+			platformer.slide_held = .Action2 in input
+			continue
 		}
 
 		if platformer.dash_frames > 0 {
@@ -193,16 +212,24 @@ sys_platformer :: proc(w: ^World) {
 				platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
 				platformer_finish_dash_frame(vel, platformer)
 				platformer.dash_held = .Action2 in input
+				platformer.slide_held = .Action2 in input
 				continue
 			}
 		}
 
 		platformer_apply_input(input, vel, platformer)
+		if platformer_try_start_slide(pos, input, vel, collider, platformer) {
+			platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
+			platformer_finish_slide_frame(&w.grid, pos, collider, platformer)
+			platformer.slide_held = .Action2 in input
+			continue
+		}
 		platformer_apply_jump(input, vel, platformer)
 		if platformer_try_start_dash(input, vel, platformer) {
 			platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
 			platformer_finish_dash_frame(vel, platformer)
 			platformer.dash_held = .Action2 in input
+			platformer.slide_held = .Action2 in input
 			continue
 		}
 		platformer_apply_gravity(vel, platformer)
@@ -212,6 +239,7 @@ sys_platformer :: proc(w: ^World) {
 			platformer_apply_ladder_top_support(pos, vel, collider, platformer, &w.platformer_zones[ladder_zone])
 		}
 		platformer.dash_held = .Action2 in input
+		platformer.slide_held = .Action2 in input
 	}
 }
 
@@ -254,10 +282,13 @@ platformer_refresh_ground :: proc(
 }
 
 @(private = "file")
-platformer_update_dash_reset_and_timers :: proc(p: ^Platformer) {
+platformer_update_ability_timers :: proc(p: ^Platformer) {
 	cfg := platformer_config(p)
 	if p.dash_delay > 0 {
 		p.dash_delay -= 1
+	}
+	if p.slide_cooldown > 0 {
+		p.slide_cooldown -= 1
 	}
 	if p.dash_cooldown > 0 {
 		p.dash_cooldown -= 1
@@ -350,6 +381,7 @@ platformer_apply_swim :: proc(
 	p.dash_frames = 0
 	p.dash_delay = 0
 	p.dash_held = .Action2 in input
+	p.slide_held = .Action2 in input
 
 	if jump_pressed && bounds.w == zone.bounds.w {
 		p.in_water = false
@@ -395,6 +427,7 @@ platformer_apply_swim_jump :: proc(
 	}
 	p.jump_held = .Action1 in input
 	p.dash_held = .Action2 in input
+	p.slide_held = .Action2 in input
 }
 
 @(private = "file")
@@ -692,6 +725,94 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 	}
 
 	p.jump_held = jump_down
+}
+
+@(private = "file")
+platformer_try_start_slide :: proc(
+	pos: ^Position,
+	input: ^Input,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) -> bool {
+	cfg := platformer_config(p)
+	slide_pressed := .Action2 in input && !p.slide_held
+	if !slide_pressed || !slide.Can_Start(cfg.slide, p.on_ground, p.slide_cooldown) {
+		return false
+	}
+
+	direction := p.facing
+	if .East in input && .West not_in input {
+		direction = 1
+	} else if .West in input && .East not_in input {
+		direction = -1
+	}
+	assert(direction == -1 || direction == 1)
+	assert(cfg.slide.frames > 0)
+	assert(cfg.slide.speed > 0)
+	assert(cfg.slide.collider_height >= 0 && cfg.slide.collider_height < collider.height)
+	p.facing = direction
+	p.slide_active = true
+	p.slide_frames = cfg.slide.frames
+	p.slide_direction = direction
+	p.slide_standing_height = collider.height
+	pos.y -= (collider.height - cfg.slide.collider_height) / 2
+	collider.height = cfg.slide.collider_height
+	platformer_apply_slide_velocity(vel, p)
+	return true
+}
+
+@(private = "file")
+platformer_apply_slide_velocity :: proc(vel: ^Velocity, p: ^Platformer) {
+	cfg := platformer_config(p)
+	vel.x = p.slide_direction * cfg.slide.speed
+	vel.y = 0
+}
+
+@(private = "file")
+platformer_finish_slide_frame :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer) {
+	assert(p.slide_active)
+	assert(p.slide_frames >= 0)
+	if p.slide_frames > 0 {
+		p.slide_frames -= 1
+	}
+	if p.slide_frames > 0 || !platformer_slide_has_headroom(g, pos, collider, p) {
+		return
+	}
+
+	assert(p.slide_standing_height > collider.height)
+	pos.y += (p.slide_standing_height - collider.height) / 2
+	collider.height = p.slide_standing_height
+	p.slide_standing_height = 0
+	p.slide_active = false
+	p.slide_cooldown = platformer_config(p).slide.cooldown_frames
+}
+
+@(private = "file")
+platformer_slide_has_headroom :: proc(
+	g: ^grid.Grid,
+	pos: ^Position,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) -> bool {
+	assert(p.slide_standing_height > collider.height)
+	current_bounds := platformer_world_aabb(pos, collider)
+	standing_top := current_bounds.w + p.slide_standing_height - collider.height
+	query := shape.Aabb{current_bounds.x, current_bounds.w, current_bounds.z, standing_top}
+	found := grid.query_aabb(g, &query)
+	defer delete(found)
+
+	for ceiling in found {
+		normal := segment_left_normal(ceiling)
+		if normal.y >= 0 {
+			continue
+		}
+		contact_y, ok := segment_y_at_aabb_x(ceiling, query.x, query.z, pos.x + collider.x)
+		if ok && contact_y >= current_bounds.w && contact_y < standing_top {
+			return false
+		}
+	}
+	return true
 }
 
 @(private = "file")
@@ -1042,12 +1163,13 @@ apply_ground_result :: proc(pos: ^Position, vel: ^Velocity, p: ^Platformer, resu
 	p.ground_segment = result.segment
 }
 
-@(private = "file")
 platformer_config :: proc(p: ^Platformer) -> Platformer_Config {
-	if p.config.max_run == 0 {
-		return PLATFORMER_DEFAULT_CONFIG
+	cfg := p.config
+	if cfg.max_run == 0 {
+		cfg = PLATFORMER_DEFAULT_CONFIG
 	}
-	return p.config
+	assert(!(cfg.dash.enabled && cfg.slide.enabled), "dash and slide cannot be enabled at the same time")
+	return cfg
 }
 
 @(private = "file")

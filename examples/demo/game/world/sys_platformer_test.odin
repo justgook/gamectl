@@ -490,7 +490,7 @@ test_platformer_air_jump_disabled_by_config :: proc(t: ^testing.T) {
 
 
 @(test)
-test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
+test_platformer_ground_slide_uses_action2_and_direction :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
@@ -510,18 +510,185 @@ test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
 	platformer, has_platformer := logic.get_component(&w.platformer, player)
 	testing.expect(t, has_vel)
 	testing.expect(t, has_platformer)
-	testing.expectf(t, vel.x == PLATFORMER_DEFAULT_CONFIG.dash.ground.speed, "dash vel=%v", vel^)
-	testing.expectf(t, vel.y == 0, "dash vel=%v", vel^)
+	testing.expectf(t, vel.x == PLATFORMER_DEFAULT_CONFIG.slide.speed, "slide vel=%v", vel^)
+	testing.expectf(t, vel.y == 0, "slide vel=%v", vel^)
+	testing.expectf(t, platformer.slide_active, "slide should be active")
 	testing.expectf(
 		t,
-		platformer.dash_frames == PLATFORMER_DEFAULT_CONFIG.dash.ground.frames - 1,
-		"dash frames=%d",
-		platformer.dash_frames,
+		platformer.slide_frames == PLATFORMER_DEFAULT_CONFIG.slide.frames - 1,
+		"slide frames=%d",
+		platformer.slide_frames,
 	)
 }
 
 @(test)
-test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
+test_platformer_slide_commits_direction_and_locks_jump :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(67)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.frames = 3
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	sys_platformer(w)
+	position_after_start, _ := logic.get_component(&w.position, player)
+	start_second_frame := position_after_start^
+	logic.add_component(&w.input, player, Input{.West, .Action1})
+	sys_platformer(w)
+
+	pos, _ := logic.get_component(&w.position, player)
+	vel, _ := test_platformer_velocity(w, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, pos.x == start_second_frame.x + config.slide.speed, "slide direction changed, pos=%v", pos^)
+	testing.expectf(t, pos.y == start_second_frame.y && vel.y == 0, "slide allowed jump, pos=%v vel=%v", pos^, vel^)
+	testing.expectf(t, platformer.facing == 1, "slide changed facing=%d", platformer.facing)
+}
+
+@(test)
+test_platformer_slide_shrinks_collider_without_moving_feet :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(61)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	start := Position{64 * UNIT, i32(-test_capsule_bottom(&collider))}
+	start_bottom := start.y + collider.y - collider.height / 2 - collider.radius
+	logic.add_component(&w.position, player, start)
+	logic.add_component(&w.input, player, Input{.Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{on_ground = true, facing = 1})
+
+	sys_platformer(w)
+
+	pos, has_pos := logic.get_component(&w.position, player)
+	updated_collider, has_collider := logic.get_component(&w.collider, player)
+	testing.expect(t, has_pos && has_collider)
+	bottom := pos.y + updated_collider.y - updated_collider.height / 2 - updated_collider.radius
+	testing.expectf(
+		t,
+		updated_collider.height == PLATFORMER_DEFAULT_CONFIG.slide.collider_height,
+		"slide collider=%v",
+		updated_collider^,
+	)
+	testing.expectf(t, bottom == start_bottom, "slide moved feet from %d to %d", start_bottom, bottom)
+}
+
+@(test)
+test_platformer_slide_restores_collider_and_starts_cooldown_when_finished :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(62)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.frames = 1
+	config.slide.cooldown_frames = 3
+	start := Position{64 * UNIT, i32(-test_capsule_bottom(&collider))}
+	start_bottom := start.y + collider.y - collider.height / 2 - collider.radius
+	logic.add_component(&w.position, player, start)
+	logic.add_component(&w.input, player, Input{.Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	sys_platformer(w)
+
+	pos, _ := logic.get_component(&w.position, player)
+	updated_collider, _ := logic.get_component(&w.collider, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	bottom := pos.y + updated_collider.y - updated_collider.height / 2 - updated_collider.radius
+	testing.expectf(t, !platformer.slide_active, "one-frame slide should finish")
+	testing.expectf(t, updated_collider.height == collider.height, "standing collider=%v", updated_collider^)
+	testing.expectf(t, bottom == start_bottom, "restoring collider moved feet from %d to %d", start_bottom, bottom)
+	testing.expectf(t, platformer.slide_cooldown == 3, "slide cooldown=%d", platformer.slide_cooldown)
+}
+
+@(test)
+test_platformer_slide_stays_low_when_ceiling_blocks_standing_collider :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(
+		shape.Segment{0, 0, 256 * UNIT, 0},
+		shape.Segment{256 * UNIT, 20 * UNIT, 0, 20 * UNIT},
+	)
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(63)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.frames = 1
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	sys_platformer(w)
+
+	updated_collider, _ := logic.get_component(&w.collider, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, platformer.slide_active, "low posture should remain active under ceiling")
+	testing.expectf(
+		t,
+		platformer.slide_frames == 0,
+		"slide motion should still finish, frames=%d",
+		platformer.slide_frames,
+	)
+	testing.expectf(
+		t,
+		updated_collider.height == config.slide.collider_height,
+		"blocked standing collider=%v",
+		updated_collider^,
+	)
+}
+
+@(test)
+test_platformer_finished_slide_keeps_moving_until_it_can_stand :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(
+		shape.Segment{0, 0, 256 * UNIT, 0},
+		shape.Segment{80 * UNIT, 20 * UNIT, 0, 20 * UNIT},
+	)
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(66)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.slide.frames = 1
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	for _ in 0 ..< 5 {
+		sys_platformer(w)
+	}
+
+	pos, _ := logic.get_component(&w.position, player)
+	updated_collider, _ := logic.get_component(&w.collider, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, pos.x > 86 * UNIT, "blocked slide should carry actor out, pos=%v", pos^)
+	testing.expectf(t, !platformer.slide_active, "actor should stand after clearing ceiling")
+	testing.expectf(t, updated_collider.height == collider.height, "cleared slide collider=%v", updated_collider^)
+}
+
+@(test)
+test_platformer_slide_cooldown_blocks_immediate_second_slide :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments(shape.Segment{0, 0, 256 * UNIT, 0})
 	defer platformer_test_world_destroy(w)
 
@@ -531,32 +698,64 @@ test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
 		height = 12 * UNIT,
 	}
 	config := PLATFORMER_DEFAULT_CONFIG
-	config.dash.ground.frames = 1
-	config.dash.ground.count = 0
-	config.dash.delay_frames = 4
+	config.slide.frames = 2
+	config.slide.cooldown_frames = 3
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
-	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.input, player, Input{.Action2})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(
-		&w.platformer,
-		player,
-		Platformer{velocity = Velocity{}, config = config, on_ground = true, facing = 1},
-	)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
 
 	sys_platformer(w)
 	logic.add_component(&w.input, player, Input{})
 	sys_platformer(w)
-	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.input, player, Input{.Action2})
 	sys_platformer(w)
 
-	platformer, has_platformer := logic.get_component(&w.platformer, player)
-	testing.expect(t, has_platformer)
-	testing.expectf(
-		t,
-		platformer.dash_frames == 0,
-		"dash delay should block second dash, frames=%d",
-		platformer.dash_frames,
-	)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	updated_collider, _ := logic.get_component(&w.collider, player)
+	testing.expectf(t, !platformer.slide_active, "cooldown should block second slide")
+	testing.expectf(t, updated_collider.height == collider.height, "blocked slide collider=%v", updated_collider^)
+
+	logic.add_component(&w.input, player, Input{})
+	sys_platformer(w)
+	logic.add_component(&w.input, player, Input{.Action2})
+	sys_platformer(w)
+	updated_collider, _ = logic.get_component(&w.collider, player)
+	testing.expectf(t, updated_collider.height == config.slide.collider_height, "slide should restart after cooldown")
+}
+
+@(test)
+test_platformer_default_config_disables_air_dash :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(64)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{facing = 1})
+
+	sys_platformer(w)
+
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, !platformer.slide_active, "airborne actor cannot slide")
+	testing.expectf(t, platformer.dash_frames == 0, "default config must not air dash")
+}
+
+@(test)
+test_platformer_rejects_slide_and_dash_enabled_together :: proc(t: ^testing.T) {
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.dash.enabled = true
+	platformer := Platformer {
+		config = config,
+	}
+
+	testing.expect_assert_message(t, "dash and slide cannot be enabled at the same time")
+	_ = platformer_config(&platformer)
 }
 
 @(test)
