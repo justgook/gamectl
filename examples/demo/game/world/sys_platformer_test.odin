@@ -1501,7 +1501,7 @@ test_platformer_anim_plays_jump_start_once_then_jump_loop :: proc(t: ^testing.T)
 }
 
 @(test)
-test_platformer_anim_finishes_jump_start_before_early_landing :: proc(t: ^testing.T) {
+test_platformer_anim_early_landing_interrupts_jump_start :: proc(t: ^testing.T) {
 	w := new(World)
 	defer platformer_anim_test_world_destroy(w)
 	defs := [8]AnimDef{}
@@ -1529,11 +1529,7 @@ test_platformer_anim_finishes_jump_start_before_early_landing :: proc(t: ^testin
 	platformer, _ := logic.get_component(&w.platformer, player)
 	platformer.on_ground = true
 	sys_platformer_anim(w)
-	testing.expectf(t, ctrl.current == .Jump_Start, "jump start should finish before landing")
-
-	anim.playing = false
-	sys_platformer_anim(w)
-	testing.expectf(t, ctrl.current == .Jump_Land && anim.def == &defs[7], "early landing should go directly to land")
+	testing.expectf(t, ctrl.current == .Jump_Land && anim.def == &defs[7], "landing should interrupt jump start immediately")
 }
 
 @(test)

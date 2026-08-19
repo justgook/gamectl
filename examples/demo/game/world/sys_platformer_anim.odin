@@ -65,6 +65,10 @@ sys_platformer_anim :: proc(w: ^World) {
 
 		switch phase {
 		case .Start:
+			if sequence == .Jump && desired != .Jump {
+				platformer_anim_play_once(anim, ctrl, .Jump_Land)
+				continue
+			}
 			if !animation_is_finished(anim) {
 				continue
 			}
