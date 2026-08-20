@@ -40,6 +40,14 @@ _Avoid_: using Animation Tree to mean only its State Machine Graph editor.
 A compositional unit within an Animation Tree. An Animation Node may select an animation or contain a Blend Tree, Blend Space, or State Machine.
 _Avoid_: graph node when the node's animation-composition role matters.
 
+**Animation Parameter**:
+A named signed 32-bit integer input declared once by an Animation Tree, with stable document identity and an authored default value. Names are case-sensitive and unique within the Animation Tree.
+_Avoid_: condition variable when referring to the declaration rather than its use in one condition.
+
+**State Machine Transition Condition**:
+A structured signed 32-bit integer comparison between one Animation Parameter and one authored value. Every condition on a transition must match for that transition to advance; an ordinary transition without conditions always matches. Start entry edges are unconditional.
+_Avoid_: advance expression, because conditions are structured comparisons rather than arbitrary expressions.
+
 **Node Graph**:
 A directed graph whose nodes expose explicit input and output ports and whose edges connect compatible output ports to input ports. Blend Trees are authored as Node Graphs; other domains may reuse the same graph vocabulary.
 _Avoid_: State Machine Graph, whose edges represent transitions between states rather than port connections.
@@ -112,6 +120,8 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - **World Object Renderers** are configured within the World Editor's view-specific configuration rather than as a top-level Project Unit category.
 - A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
 - An **Animation Tree** owns exactly one root **Animation Node**, and composite Animation Nodes own their child Animation Nodes within the same document.
+- An **Animation Tree** declares its **Animation Parameters** once at document level; State Machine Transition Conditions reference those declarations by name.
+- A State Machine transition advances only when all of its **State Machine Transition Conditions** match; a transition without conditions always matches.
 - A **Node Graph** edge connects one output port to one input port; connection capacity and compatibility belong to the participating ports.
 - A **Group Node** owns a child **Node Graph**; node identities are unique within each authoritative graph document and its embedded inline child graphs.
 - Repeated occurrences of one linked graph share authored node identity by source and node id, but each occurrence has a distinct execution identity through its Group path.

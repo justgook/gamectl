@@ -1,10 +1,14 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import {
+    ANIMATION_CONDITION_OPERATORS,
     ANIMATION_NODE_KINDS,
     animationNodePath,
+    animationParameterReferenceCounts,
     cloneAnimationNodeWithNewIds,
     createAnimationNode,
+    createAnimationParameter,
     createDemoAnimationTreeDocument,
+    isInt32,
     validateAnimationNodeViews,
     validateAnimationTreeDocument,
 } from "/util/animation-tree.js"
@@ -41,6 +45,17 @@ const NODE_TYPES = [
 ]
 
 const CLIPBOARD_FORMAT = "gams.animation-tree.nodes"
+
+const CONDITION_OPERATORS = [
+    { value: "eq", label: "=" },
+    { value: "neq", label: "!=" },
+    { value: "lt", label: "<" },
+    { value: "lte", label: "<=" },
+    { value: "gt", label: ">" },
+    { value: "gte", label: ">=" },
+]
+
+assert(CONDITION_OPERATORS.every((operator) => ANIMATION_CONDITION_OPERATORS.includes(operator.value)), "view-animation-tree condition operators must match the document model")
 
 const INSPECTOR_INPUT_TARGETS = new Set([
     "animation",
@@ -119,6 +134,15 @@ function stateMachineRequiredNodes(node) {
     ]
 }
 
+function conditionParameterIdsInNode(node, result = new Set()) {
+    if (node.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
+        for (const edge of node.graph.transitions) if (edge.kind === "transition") for (const condition of edge.conditions) result.add(condition.parameterId)
+        for (const state of node.graph.states) conditionParameterIdsInNode(state.node, result)
+    }
+    if (node.kind === ANIMATION_NODE_KINDS.BLEND_TREE) for (const placement of node.graph.nodes) conditionParameterIdsInNode(placement.node, result)
+    return result
+}
+
 function projectStateMachineGraph(node) {
     return {
         nodes: node.graph.states.map((state) => ({
@@ -189,6 +213,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.statusOutput = null
         this.mountedNodeView = null
         this.inspectorInputTemplates = {}
+        this.invalidEditorInput = null
     }
 
     connectedCallback() {
@@ -238,10 +263,64 @@ export class ViewAnimationTree extends ViewCanvasBase {
     createViewPluginMethods() {
         return {
             addState: (input) => {
+                if (!this.requireValidEditorDraft()) return { ok: false }
                 this.addState(input && input.type ? input.type : "animation")
                 return { ok: true }
             },
         }
+    }
+
+    requireValidEditorDraft() {
+        const active = document.activeElement
+        if (!this.invalidEditorInput && active instanceof HTMLInputElement && this.inspectorElement instanceof HTMLElement && this.inspectorElement.contains(active)) active.blur()
+        if (!this.invalidEditorInput) return true
+        this.invalidEditorInput.reportValidity()
+        queueMicrotask(() => this.invalidEditorInput.focus())
+        return false
+    }
+
+    setInvalidEditorInput(input, message) {
+        assert(input instanceof HTMLInputElement, "view-animation-tree invalid draft requires an input")
+        input.classList.add("danger")
+        input.setCustomValidity(message)
+        this.invalidEditorInput = input
+        this.setStatus(message, "danger")
+        input.reportValidity()
+        queueMicrotask(() => input.focus())
+    }
+
+    clearInvalidEditorInput(input) {
+        input.classList.remove("danger")
+        input.setCustomValidity("")
+        if (this.invalidEditorInput === input) this.invalidEditorInput = null
+    }
+
+    parameterReferenceCounts() {
+        this.syncActiveGraph()
+        return animationParameterReferenceCounts(this.animationTree)
+    }
+
+    async openParametersPopup() {
+        if (!this.requireValidEditorDraft()) return false
+        const counts = Object.fromEntries(this.parameterReferenceCounts())
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: "Animation Parameters",
+                size: "medium",
+                tag: "view-animation-parameters",
+                props: { parameters: structuredClone(this.animationTree.parameters), referenceCounts: counts },
+            }),
+            "ui.popup.open animation parameters",
+        )
+        if (!payload || payload.cancelled) return false
+        assert(Array.isArray(payload.parameters), "animation parameters popup must return parameters")
+        const before = this.captureSnapshot()
+        this.animationTree.parameters = structuredClone(payload.parameters)
+        validateAnimationTreeDocument(this.animationTree)
+        this.renderInspector()
+        this.recordEdit("edit Animation Parameters", before)
+        this.setStatus("Updated Animation Parameters", "success")
+        return true
     }
 
     loadActiveGraph() {
@@ -418,6 +497,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     navigateToAnimationNode(nodeId) {
+        if (!this.requireValidEditorDraft()) return false
         this.syncActiveGraph()
         validateAnimationTreeDocument(this.animationTree)
         const path = animationNodePath(this.animationTree, nodeId)
@@ -447,6 +527,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     async edit() {
+        if (!this.requireValidEditorDraft()) return false
         if (this.selectedNodeIds.size !== 1) {
             this.setStatus("Select exactly one node to edit", "warning")
             return false
@@ -482,6 +563,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     async add() {
+        if (!this.requireValidEditorDraft()) return false
         if (this.graphModel === null) {
             this.setStatus(`${this.activeNode.name} does not contain graph nodes`, "info")
             return false
@@ -491,6 +573,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     clearSelection() {
+        if (!this.requireValidEditorDraft()) return false
         const hasSelection = this.selectedNodeIds.size > 0 || this.selectedEdgeId !== null
         if (!hasSelection && this.activeNodePath.length > 1) {
             const parentNodeId = this.activeNodePath[this.activeNodePath.length - 2]
@@ -538,6 +621,9 @@ export class ViewAnimationTree extends ViewCanvasBase {
         <button type="button" data-action="zoom-fit" aria-label="Fit graph" title="Fit graph"><i aria-hidden="true">fit_screen</i></button>
         <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
       </div>
+      <div role="buttongroup" data-element="config-actions">
+        <button type="button" data-action="parameters" aria-label="Animation Parameters" title="Animation Parameters"><i aria-hidden="true">tune</i></button>
+      </div>
     `
 
         const actions = {
@@ -552,6 +638,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
             zoomIn: controls.querySelector('[data-action="zoom-in"]'),
             zoomFit: controls.querySelector('[data-action="zoom-fit"]'),
             zoomOut: controls.querySelector('[data-action="zoom-out"]'),
+            parameters: controls.querySelector('[data-action="parameters"]'),
         }
 
         const breadcrumbs = controls.querySelector('[data-element="breadcrumbs"]')
@@ -568,9 +655,10 @@ export class ViewAnimationTree extends ViewCanvasBase {
         actions.redo.addEventListener("click", () => this.redo())
         actions.copy.addEventListener("click", () => this.copy())
         actions.paste.addEventListener("click", () => this.paste())
-        actions.zoomIn.addEventListener("click", () => this.zoomIn())
-        actions.zoomFit.addEventListener("click", () => this.zoomFit())
-        actions.zoomOut.addEventListener("click", () => this.zoomOut())
+        actions.zoomIn.addEventListener("click", () => { if (this.requireValidEditorDraft()) this.zoomIn() })
+        actions.zoomFit.addEventListener("click", () => { if (this.requireValidEditorDraft()) this.zoomFit() })
+        actions.zoomOut.addEventListener("click", () => { if (this.requireValidEditorDraft()) this.zoomOut() })
+        actions.parameters.addEventListener("click", () => void this.openParametersPopup())
         return controls
     }
 
@@ -662,6 +750,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     undo() {
+        if (!this.requireValidEditorDraft()) return false
         if (!this.history.undo()) return false
         this.syncHistoryControls()
         this.setStatus("Undid graph edit", "info")
@@ -669,6 +758,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     redo() {
+        if (!this.requireValidEditorDraft()) return false
         if (!this.history.redo()) return false
         this.syncHistoryControls()
         this.setStatus("Redid graph edit", "info")
@@ -681,13 +771,14 @@ export class ViewAnimationTree extends ViewCanvasBase {
         if (selected.size === 0) return null
         return {
             format: CLIPBOARD_FORMAT,
-            version: 1,
+            version: 2,
             nodes: structuredClone(this.graph.nodes.filter((node) => selected.has(node.id))),
             edges: structuredClone(this.graph.edges.filter((edge) => selected.has(edge.from) && selected.has(edge.to))),
         }
     }
 
     async copy() {
+        if (!this.requireValidEditorDraft()) return false
         const payload = this.clipboardPayload()
         if (!payload) {
             this.setStatus("Select one or more states to copy", "warning")
@@ -703,19 +794,29 @@ export class ViewAnimationTree extends ViewCanvasBase {
         const payload = JSON.parse(String(text))
         assert(payload && typeof payload === "object", "view-animation-tree clipboard payload must be an object")
         assert(payload.format === CLIPBOARD_FORMAT, "view-animation-tree clipboard format is not supported")
-        assert(payload.version === 1, "view-animation-tree clipboard version is not supported")
+        assert(payload.version === 2, "view-animation-tree clipboard version is not supported")
         assert(Array.isArray(payload.nodes) && payload.nodes.length > 0, "view-animation-tree clipboard requires nodes")
         assert(Array.isArray(payload.edges), "view-animation-tree clipboard requires edges")
         return payload
     }
 
     async paste() {
+        if (!this.requireValidEditorDraft()) return false
         if (!(this.graphModel instanceof StateMachineGraph)) {
             this.setStatus("Copy and paste for this editor is not implemented", "info")
             return false
         }
         assert(navigator.clipboard, "view-animation-tree paste requires navigator.clipboard")
         const payload = this.parseClipboardPayload(await navigator.clipboard.readText())
+        const availableParameters = new Set(this.animationTree.parameters.map((parameter) => parameter.id))
+        const referencedParameters = new Set()
+        for (const node of payload.nodes) for (const id of conditionParameterIdsInNode(node.animationNode)) referencedParameters.add(id)
+        for (const edge of payload.edges) if (edge.kind === "transition") for (const condition of edge.conditions) referencedParameters.add(condition.parameterId)
+        const missingParameters = [...referencedParameters].filter((id) => !availableParameters.has(id))
+        if (missingParameters.length > 0) {
+            this.setStatus(`Paste requires missing Animation Parameters: ${missingParameters.join(", ")}`, "warning")
+            return false
+        }
         const before = this.captureSnapshot()
         const idMap = new Map()
         const animationNodes = new Map()
@@ -824,6 +925,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     addState(typeValue = "animation", worldPoint = null) {
+        if (!this.requireValidEditorDraft()) return false
         assert(this.graphModel, "view-animation-tree active graph model is required")
         const types = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? BLEND_NODE_TYPES : NODE_TYPES
         const type = types.find((candidate) => candidate.value === typeValue)
@@ -879,6 +981,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     cycleTransitionMode() {
+        if (!this.requireValidEditorDraft()) return false
         this.transitionModeIndex = (this.transitionModeIndex + 1) % TRANSITION_MODES.length
         this.syncTransitionModeControl()
         this.setStatus(`New transitions use ${this.currentTransitionMode().label}`, "info")
@@ -924,7 +1027,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         const id = this.graph.edges.length === 0 ? 1 : Math.max(...this.graph.edges.map((edge) => edge.id)) + 1
         const kind = this.graphModel.edgeKindFrom(from)
         const mode = this.currentTransitionMode()
-        const edge = kind === "entry" ? { id, kind, from, to } : { id, kind, from, to, switchMode: mode.value }
+        const edge = kind === "entry" ? { id, kind, from, to } : { id, kind, from, to, switchMode: mode.value, conditions: [] }
         this.graphModel.addEdge(edge)
         this.selectedNodeIds.clear()
         this.selectedNodeId = null
@@ -938,6 +1041,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     deleteSelected() {
+        if (!this.requireValidEditorDraft()) return false
         this.cancelTransitionDrag()
         if (this.selectedNodeId === null && this.selectedEdgeId === null) {
             this.setStatus("Select a state or transition to delete", "warning")
@@ -1235,9 +1339,210 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.bindBlendNodeInspector(node)
     }
 
+    renderAnimationParametersInspector() {
+        const counts = this.parameterReferenceCounts()
+        this.selectionOutput.textContent = "Animation Parameters"
+        this.inspectorElement.innerHTML = `
+      <form data-element="animation-parameters-inspector">
+        <fieldset>
+          <legend>Animation Parameters</legend>
+          <table class="compact-actions">
+            <thead><tr><th>Name</th><th>Default</th><th>Uses</th><th aria-label="Actions"></th></tr></thead>
+            <tbody>
+              ${this.animationTree.parameters.map((parameter) => `
+                <tr data-parameter-id="${this.escapeAttribute(parameter.id)}">
+                  <td><input type="text" data-field="parameter-name" value="${this.escapeAttribute(parameter.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></td>
+                  <td><input type="number" data-field="parameter-default" value="${parameter.defaultValue}" min="-2147483648" max="2147483647" step="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></td>
+                  <td><output>${counts.get(parameter.id)}</output></td>
+                  <td><button type="button" class="danger" data-action="delete-parameter" ${counts.get(parameter.id) > 0 ? "disabled" : ""} aria-label="Delete ${this.escapeAttribute(parameter.name)}" title="Delete ${this.escapeAttribute(parameter.name)}"><i aria-hidden="true">delete</i></button></td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+          <button type="button" data-action="add-parameter"><i aria-hidden="true">add</i> Add parameter</button>
+        </fieldset>
+      </form>
+    `
+        this.bindAnimationParametersInspector(counts)
+    }
+
+    bindAnimationParametersInspector(counts) {
+        const add = this.inspectorElement.querySelector('[data-action="add-parameter"]')
+        assert(add instanceof HTMLButtonElement, "view-animation-tree add parameter button is required")
+        add.addEventListener("click", () => {
+            if (!this.requireValidEditorDraft()) return
+            const before = this.captureSnapshot()
+            const parameter = createAnimationParameter(this.animationTree.parameters)
+            this.animationTree.parameters.push(parameter)
+            this.renderInspector()
+            this.recordEdit("add Animation Parameter", before)
+            this.setStatus(`Added ${parameter.name}`, "success")
+        })
+        for (const row of this.inspectorElement.querySelectorAll("tr[data-parameter-id]")) {
+            const parameter = this.animationTree.parameters.find((candidate) => candidate.id === row.dataset.parameterId)
+            assert(parameter, `view-animation-tree missing parameter ${row.dataset.parameterId}`)
+            const name = row.querySelector('[data-field="parameter-name"]')
+            const defaultValue = row.querySelector('[data-field="parameter-default"]')
+            const remove = row.querySelector('[data-action="delete-parameter"]')
+            assert(name instanceof HTMLInputElement, "view-animation-tree parameter name input is required")
+            assert(defaultValue instanceof HTMLInputElement, "view-animation-tree parameter default input is required")
+            assert(remove instanceof HTMLButtonElement, "view-animation-tree delete parameter button is required")
+            let nameBefore = null
+            name.addEventListener("focus", () => { if (nameBefore === null) nameBefore = this.captureSnapshot() })
+            name.addEventListener("blur", () => {
+                const value = name.value.trim()
+                name.value = value
+                if (!value) {
+                    this.setInvalidEditorInput(name, "Parameter names must not be blank")
+                    return
+                }
+                if (this.animationTree.parameters.some((candidate) => candidate.id !== parameter.id && candidate.name === value)) {
+                    this.setInvalidEditorInput(name, `Parameter name already exists: ${value}`)
+                    return
+                }
+                assert(nameBefore, "view-animation-tree parameter name snapshot is required")
+                this.clearInvalidEditorInput(name)
+                parameter.name = value
+                this.recordEdit("rename Animation Parameter", nameBefore)
+                nameBefore = this.captureSnapshot()
+                this.setStatus(`Renamed parameter to ${value}`, "success")
+            })
+            let defaultBefore = null
+            defaultValue.addEventListener("focus", () => { if (defaultBefore === null) defaultBefore = this.captureSnapshot() })
+            defaultValue.addEventListener("blur", () => {
+                const value = defaultValue.valueAsNumber
+                if (!defaultValue.value || !isInt32(value)) {
+                    this.setInvalidEditorInput(defaultValue, "Parameter defaults must be signed 32-bit integers")
+                    return
+                }
+                assert(defaultBefore, "view-animation-tree parameter default snapshot is required")
+                this.clearInvalidEditorInput(defaultValue)
+                parameter.defaultValue = value
+                this.recordEdit("edit Animation Parameter default", defaultBefore)
+                defaultBefore = this.captureSnapshot()
+                this.setStatus(`Updated ${parameter.name} default`, "success")
+            })
+            remove.addEventListener("click", () => {
+                if (!this.requireValidEditorDraft()) return
+                assert(counts.get(parameter.id) === 0, `referenced Animation Parameter ${parameter.name} cannot be deleted`)
+                const before = this.captureSnapshot()
+                this.animationTree.parameters.splice(this.animationTree.parameters.indexOf(parameter), 1)
+                this.renderInspector()
+                this.recordEdit("delete Animation Parameter", before)
+                this.setStatus(`Deleted ${parameter.name}`, "success")
+            })
+        }
+    }
+
+    conditionFields(edge) {
+        const hasParameters = this.animationTree.parameters.length > 0
+        return `
+          <fieldset data-element="transition-conditions">
+            <legend>Conditions</legend>
+            ${edge.conditions.length === 0 ? "<output>Always</output>" : `
+              <table class="compact-actions">
+                <thead><tr><th>Parameter</th><th>Operator</th><th>Value</th><th aria-label="Actions"></th></tr></thead>
+                <tbody>${edge.conditions.map((condition, index) => `
+                  <tr data-condition-index="${index}">
+                    <td><select data-field="condition-parameter">
+                      ${this.animationTree.parameters.map((parameter) => `<option value="${this.escapeAttribute(parameter.id)}" ${condition.parameterId === parameter.id ? "selected" : ""}>${this.escapeAttribute(parameter.name)}</option>`).join("")}
+                    </select></td>
+                    <td><select data-field="condition-operator">
+                      ${CONDITION_OPERATORS.map((operator) => `<option value="${operator.value}" ${condition.operator === operator.value ? "selected" : ""}>${this.escapeAttribute(operator.label)}</option>`).join("")}
+                    </select></td>
+                    <td><input type="number" data-field="condition-value" value="${condition.value}" min="-2147483648" max="2147483647" step="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></td>
+                    <td><button type="button" class="danger" data-action="delete-condition" aria-label="Delete condition" title="Delete condition"><i aria-hidden="true">delete</i></button></td>
+                  </tr>`).join("")}</tbody>
+              </table>`}
+            ${hasParameters ? '<button type="button" data-action="add-condition"><i aria-hidden="true">add</i> Add condition</button>' : '<output class="warning">Declare an Animation Parameter before adding conditions.</output><button type="button" data-action="manage-parameters"><i aria-hidden="true">tune</i> Manage parameters</button>'}
+          </fieldset>`
+    }
+
+    bindTransitionConditions(edge) {
+        const add = this.inspectorElement.querySelector('[data-action="add-condition"]')
+        const manage = this.inspectorElement.querySelector('[data-action="manage-parameters"]')
+        if (add !== null) {
+            assert(add instanceof HTMLButtonElement, "view-animation-tree add condition button is required")
+            add.addEventListener("click", () => {
+                if (!this.requireValidEditorDraft()) return
+                assert(this.animationTree.parameters.length > 0, "view-animation-tree condition requires an Animation Parameter")
+                const before = this.captureSnapshot()
+                edge.conditions.push({ parameterId: this.animationTree.parameters[0].id, operator: "gt", value: 0 })
+                this.renderInspector()
+                this.draw()
+                this.recordEdit("add transition condition", before)
+                this.setStatus("Added transition condition", "success")
+            })
+        }
+        if (manage !== null) {
+            assert(manage instanceof HTMLButtonElement, "view-animation-tree manage parameters button is required")
+            manage.addEventListener("click", () => void this.openParametersPopup())
+        }
+        for (const row of this.inspectorElement.querySelectorAll("tr[data-condition-index]")) {
+            const condition = edge.conditions[Number(row.dataset.conditionIndex)]
+            assert(condition, `view-animation-tree missing transition condition ${row.dataset.conditionIndex}`)
+            const parameter = row.querySelector('[data-field="condition-parameter"]')
+            const operator = row.querySelector('[data-field="condition-operator"]')
+            const value = row.querySelector('[data-field="condition-value"]')
+            const remove = row.querySelector('[data-action="delete-condition"]')
+            assert(parameter instanceof HTMLSelectElement, "view-animation-tree condition parameter select is required")
+            assert(operator instanceof HTMLSelectElement, "view-animation-tree condition operator select is required")
+            assert(value instanceof HTMLInputElement, "view-animation-tree condition value input is required")
+            assert(remove instanceof HTMLButtonElement, "view-animation-tree delete condition button is required")
+            parameter.addEventListener("change", () => {
+                if (!this.requireValidEditorDraft()) {
+                    parameter.value = condition.parameterId
+                    return
+                }
+                const before = this.captureSnapshot()
+                condition.parameterId = parameter.value
+                this.recordEdit("change transition condition parameter", before)
+                this.setStatus("Updated transition condition", "success")
+            })
+            operator.addEventListener("change", () => {
+                if (!this.requireValidEditorDraft()) {
+                    operator.value = condition.operator
+                    return
+                }
+                assert(ANIMATION_CONDITION_OPERATORS.includes(operator.value), `unknown transition condition operator ${operator.value}`)
+                const before = this.captureSnapshot()
+                condition.operator = operator.value
+                this.recordEdit("change transition condition operator", before)
+                this.setStatus("Updated transition condition", "success")
+            })
+            let valueBefore = null
+            value.addEventListener("focus", () => { if (valueBefore === null) valueBefore = this.captureSnapshot() })
+            value.addEventListener("blur", () => {
+                const next = value.valueAsNumber
+                if (!value.value || !isInt32(next)) {
+                    this.setInvalidEditorInput(value, "Condition values must be signed 32-bit integers")
+                    return
+                }
+                assert(valueBefore, "view-animation-tree condition value snapshot is required")
+                this.clearInvalidEditorInput(value)
+                condition.value = next
+                this.recordEdit("change transition condition value", valueBefore)
+                valueBefore = this.captureSnapshot()
+                this.setStatus("Updated transition condition", "success")
+            })
+            remove.addEventListener("click", () => {
+                if (!this.requireValidEditorDraft()) return
+                const before = this.captureSnapshot()
+                edge.conditions.splice(edge.conditions.indexOf(condition), 1)
+                this.renderInspector()
+                this.draw()
+                this.recordEdit("delete transition condition", before)
+                this.setStatus("Deleted transition condition", "success")
+            })
+        }
+    }
+
     renderInspector() {
         assert(this.inspectorElement instanceof HTMLElement, "view-animation-tree inspector is not initialized")
         assert(this.selectionOutput instanceof HTMLOutputElement, "view-animation-tree selection output is not initialized")
+        if (this.activeNode.id === this.animationTree.root.id && this.selectedNodeIds.size === 0 && this.selectedEdgeId === null) {
+            this.renderAnimationParametersInspector()
+            return
+        }
         if (this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE) {
             this.renderNodeGraphInspector()
             return
@@ -1267,12 +1572,17 @@ export class ViewAnimationTree extends ViewCanvasBase {
             <label>To <output>${this.escapeAttribute(this.stateName(edge.to))}</output></label>
             ${switchModeField}
           </fieldset>
+          ${edge.kind === "transition" ? this.conditionFields(edge) : ""}
         </form>
       `
             if (edge.kind === "entry") return
             const switchMode = this.inspectorElement.querySelector('[data-field="switch-mode"]')
             assert(switchMode instanceof HTMLSelectElement, "view-animation-tree missing transition switch mode select")
             switchMode.addEventListener("change", () => {
+                if (!this.requireValidEditorDraft()) {
+                    switchMode.value = edge.switchMode
+                    return
+                }
                 const before = this.captureSnapshot()
                 const mode = this.transitionMode(switchMode.value)
                 edge.switchMode = mode.value
@@ -1280,6 +1590,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
                 this.draw()
                 this.setStatus(`Changed ${label} to ${mode.label}`, "success")
             })
+            this.bindTransitionConditions(edge)
             return
         }
         if (this.selectedNodeId === null) {
@@ -1431,6 +1742,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     async _onContextMenu(event) {
+        if (!this.requireValidEditorDraft()) return
         if (this.graphModel === null) return
         const activeRenderer = this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE ? this.nodeGraphRenderer : this.renderer
         const worldPoint = this.getWorldPoint(event.clientX, event.clientY)
@@ -1444,7 +1756,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
     }
 
     onCanvasMouseDown(event) {
-        if (event.button !== 0) return
+        if (event.button !== 0 || !this.requireValidEditorDraft()) return
         this.focus()
         const point = this.getWorldPoint(event.clientX, event.clientY)
         this.lastPointerWorld = point

@@ -40,7 +40,7 @@ test("blend inspector changes capture undo snapshots at the change transaction b
 test("clear selection only navigates to the parent animation node when nothing is selected", () => {
   assert.match(
     source,
-    /clearSelection\(\) \{\s*const hasSelection = this\.selectedNodeIds\.size > 0 \|\| this\.selectedEdgeId !== null\s*if \(!hasSelection && this\.activeNodePath\.length > 1\) \{[\s\S]*?this\.navigateToAnimationNode\(parentNodeId\)[\s\S]*?return true[\s\S]*?this\.setNodeSelection\(\[\]\)/,
+    /clearSelection\(\) \{[\s\S]*?const hasSelection = this\.selectedNodeIds\.size > 0 \|\| this\.selectedEdgeId !== null\s*if \(!hasSelection && this\.activeNodePath\.length > 1\) \{[\s\S]*?this\.navigateToAnimationNode\(parentNodeId\)[\s\S]*?return true[\s\S]*?this\.setNodeSelection\(\[\]\)/,
     "Escape should clear a node or edge selection before moving up one breadcrumb layer",
   )
 })

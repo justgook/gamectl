@@ -35,6 +35,7 @@ function rendererConfig() {
       edge: [0, 0, 0, 1],
       edgeSelected: [0, 0, 0, 1],
       edgeSymbol: [0, 0, 0, 1],
+      edgeConditionSymbol: [1, 0.5, 0, 1],
     },
   }
 }
@@ -48,6 +49,12 @@ test("transition region is the visible frame around the node body", () => {
   assert.equal(renderer.hitTransitionRegion([node], { x: 24, y: 50 }), node)
   assert.equal(renderer.hitTransitionRegion([node], { x: 50, y: 50 }), null)
   assert.equal(renderer.hitNode([node], { x: 50, y: 50 }), node)
+})
+
+test("conditioned transitions require a distinct arrow symbol color", () => {
+  const config = rendererConfig()
+  delete config.theme.edgeConditionSymbol
+  assert.throws(() => new StateMachineGraphRenderer(config), /edgeConditionSymbol/)
 })
 
 test("transition region must leave a positive node body", () => {

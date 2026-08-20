@@ -56,6 +56,7 @@ export function validateStateMachineGraphRendererConfig(input) {
     "edge",
     "edgeSelected",
     "edgeSymbol",
+    "edgeConditionSymbol",
   ])
     requireColor(theme[key], `state machine graph renderer config.theme.${key}`)
 
@@ -318,7 +319,8 @@ export class StateMachineGraphRenderer {
     ctx.quadraticCurveTo(control.x, control.y, end.x, end.y)
     ctx.stroke()
 
-    const symbolColor = cssColor(this.config.theme.edgeSymbol)
+    const conditioned = edge.kind === "transition" && edge.conditions.length > 0
+    const symbolColor = cssColor(conditioned ? this.config.theme.edgeConditionSymbol : this.config.theme.edgeSymbol)
     ctx.fillStyle = symbolColor
     ctx.strokeStyle = symbolColor
     const arrowSize = this.config.edge.arrowSize

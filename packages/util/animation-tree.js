@@ -19,6 +19,10 @@ export const ROOT_ANIMATION_NODE_KINDS = Object.freeze([
   ANIMATION_NODE_KINDS.STATE_MACHINE,
 ])
 
+export const ANIMATION_CONDITION_OPERATORS = Object.freeze(["eq", "neq", "lt", "lte", "gt", "gte"])
+export const INT32_MIN = -2147483648
+export const INT32_MAX = 2147483647
+
 export const DEFAULT_ANIMATION_NODE_VIEWS = Object.freeze({
   [ANIMATION_NODE_KINDS.ANIMATION]: "view-animation",
   [ANIMATION_NODE_KINDS.ONE_SHOT]: null,
@@ -57,6 +61,34 @@ function requireObject(value, label) {
 
 function createId() {
   return crypto.randomUUID()
+}
+
+export function isInt32(value) {
+  return Number.isInteger(value) && value >= INT32_MIN && value <= INT32_MAX
+}
+
+export function createAnimationParameter(parameters = []) {
+  assert(Array.isArray(parameters), "animation parameters must be an array")
+  const names = new Set(parameters.map((parameter) => parameter.name))
+  let index = 1
+  while (names.has(`Parameter ${index}`)) index += 1
+  return { id: createId(), name: `Parameter ${index}`, defaultValue: 0 }
+}
+
+export function animationParameterReferenceCounts(document) {
+  validateAnimationTreeDocument(document)
+  const counts = new Map(document.parameters.map((parameter) => [parameter.id, 0]))
+  const visit = (node) => {
+    if (node.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
+      for (const edge of node.graph.transitions) {
+        if (edge.kind !== "transition") continue
+        for (const condition of edge.conditions) counts.set(condition.parameterId, counts.get(condition.parameterId) + 1)
+      }
+    }
+    for (const child of childAnimationNodes(node)) visit(child)
+  }
+  visit(document.root)
+  return counts
 }
 
 export function validateAnimationSelector(value, label = "animation selector") {
@@ -184,11 +216,11 @@ export function cloneAnimationNodeWithNewIds(source) {
   return cloneNode(source)
 }
 
-export function createAnimationTreeDocument({ id = createId(), name = "Animation Tree", root }) {
+export function createAnimationTreeDocument({ id = createId(), name = "Animation Tree", parameters = [], root }) {
   assert(typeof id === "string" && id.length > 0, "animation tree id must be a non-empty string")
   assert(typeof name === "string" && name.length > 0, "animation tree name must be a non-empty string")
   assert(root && ROOT_ANIMATION_NODE_KINDS.includes(root.kind), `animation tree root kind ${root?.kind} is not supported`)
-  const document = { id, name, root }
+  const document = { id, name, parameters, root }
   validateAnimationTreeDocument(document)
   return document
 }
@@ -218,6 +250,21 @@ export function validateAnimationTreeDocument(document) {
   requireObject(document, "animation tree")
   assert(typeof document.id === "string" && document.id.length > 0, "animation tree id must be a non-empty string")
   assert(typeof document.name === "string" && document.name.length > 0, "animation tree name must be a non-empty string")
+  assert(Array.isArray(document.parameters), "animation tree parameters must be an array")
+  const parameterIds = new Set()
+  const parameterNames = new Set()
+  document.parameters.forEach((parameter, index) => {
+    const label = `animation tree parameters[${index}]`
+    requireObject(parameter, label)
+    assert(Object.keys(parameter).length === 3 && ["id", "name", "defaultValue"].every((key) => Object.hasOwn(parameter, key)), `${label} must contain only id, name, and defaultValue`)
+    assert(typeof parameter.id === "string" && parameter.id.length > 0, `${label}.id must be a non-empty string`)
+    assert(!parameterIds.has(parameter.id), `animation tree duplicate parameter id ${parameter.id}`)
+    parameterIds.add(parameter.id)
+    assert(typeof parameter.name === "string" && parameter.name === parameter.name.trim() && parameter.name.length > 0, `${label}.name must be a trimmed non-empty string`)
+    assert(!parameterNames.has(parameter.name), `animation tree duplicate parameter name ${parameter.name}`)
+    parameterNames.add(parameter.name)
+    assert(isInt32(parameter.defaultValue), `${label}.defaultValue must be a signed 32-bit integer`)
+  })
   requireObject(document.root, "animation tree root")
   assert(ROOT_ANIMATION_NODE_KINDS.includes(document.root.kind), `animation tree root kind ${document.root.kind} is not supported`)
   const ids = new Set()
@@ -233,6 +280,25 @@ export function validateAnimationTreeDocument(document) {
       requireObject(node.graph, `${label}.graph`)
       assert(Array.isArray(node.graph.states), `${label}.graph.states must be an array`)
       assert(Array.isArray(node.graph.transitions), `${label}.graph.transitions must be an array`)
+      node.graph.transitions.forEach((edge, index) => {
+        const edgeLabel = `${label}.graph.transitions[${index}]`
+        requireObject(edge, edgeLabel)
+        assert(edge.kind === "entry" || edge.kind === "transition", `${edgeLabel}.kind must be entry or transition`)
+        if (edge.kind === "entry") {
+          assert(!Object.hasOwn(edge, "conditions"), `${edgeLabel} entry edge must not contain conditions`)
+          return
+        }
+        assert(edge.switchMode === "immediate" || edge.switchMode === "sync" || edge.switchMode === "at-end", `${edgeLabel}.switchMode is not supported`)
+        assert(Array.isArray(edge.conditions), `${edgeLabel}.conditions must be an array`)
+        edge.conditions.forEach((condition, conditionIndex) => {
+          const conditionLabel = `${edgeLabel}.conditions[${conditionIndex}]`
+          requireObject(condition, conditionLabel)
+          assert(Object.keys(condition).length === 3 && ["parameterId", "operator", "value"].every((key) => Object.hasOwn(condition, key)), `${conditionLabel} must contain only parameterId, operator, and value`)
+          assert(typeof condition.parameterId === "string" && parameterIds.has(condition.parameterId), `${conditionLabel}.parameterId must reference an Animation Parameter`)
+          assert(ANIMATION_CONDITION_OPERATORS.includes(condition.operator), `${conditionLabel}.operator is not supported`)
+          assert(isInt32(condition.value), `${conditionLabel}.value must be a signed 32-bit integer`)
+        })
+      })
       requireObject(node.graph.start, `${label}.graph.start`)
       requireObject(node.graph.end, `${label}.graph.end`)
       node.graph.states.forEach((state, index) => {
@@ -294,5 +360,6 @@ export function createDemoAnimationTreeDocument() {
     { id: 7, kind: "transition", from: fall.id, to: idle.id, switchMode: "immediate" },
     { id: 8, kind: "transition", from: fall.id, to: "end", switchMode: "at-end" },
   )
-  return createAnimationTreeDocument({ id: "demo-animation-tree", name: "Animation Tree", root })
+  for (const edge of root.graph.transitions) if (edge.kind === "transition") edge.conditions = []
+  return createAnimationTreeDocument({ id: "demo-animation-tree", name: "Animation Tree", parameters: [], root })
 }

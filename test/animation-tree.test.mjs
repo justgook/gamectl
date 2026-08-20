@@ -3,8 +3,10 @@ import test from "node:test"
 
 import {
   ANIMATION_NODE_KINDS,
+  ANIMATION_CONDITION_OPERATORS,
   DEFAULT_ANIMATION_NODE_VIEWS,
   animationNodePath,
+  animationParameterReferenceCounts,
   createAnimationNode,
   createAnimationTreeDocument,
   createDemoAnimationTreeDocument,
@@ -47,6 +49,44 @@ test("animation node views exhaustively configure editable and inspector-only no
     () => validateAnimationNodeViews({ ...DEFAULT_ANIMATION_NODE_VIEWS, animation: "" }),
     /animation node view animation must be a non-empty view tag or null/,
   )
+})
+
+test("animation tree validates document-level integer parameters and transition conditions", () => {
+  const document = createDemoAnimationTreeDocument()
+  document.parameters.push({ id: "speed-id", name: "movement speed", defaultValue: 0 })
+  const transition = document.root.graph.transitions.find((edge) => edge.kind === "transition")
+  transition.conditions.push({ parameterId: "speed-id", operator: "gt", value: 0 })
+
+  assert.deepEqual(createAnimationTreeDocument(document), document)
+  assert.deepEqual(ANIMATION_CONDITION_OPERATORS, ["eq", "neq", "lt", "lte", "gt", "gte"])
+  assert.equal(animationParameterReferenceCounts(document).get("speed-id"), 1)
+
+  const missing = structuredClone(document)
+  missing.root.graph.transitions.find((edge) => edge.kind === "transition").conditions[0].parameterId = "missing"
+  assert.throws(() => createAnimationTreeDocument(missing), /must reference an Animation Parameter/)
+
+  const fractional = structuredClone(document)
+  fractional.parameters[0].defaultValue = 0.5
+  assert.throws(() => createAnimationTreeDocument(fractional), /signed 32-bit integer/)
+
+  const entryConditions = structuredClone(document)
+  entryConditions.root.graph.transitions.find((edge) => edge.kind === "entry").conditions = []
+  assert.throws(() => createAnimationTreeDocument(entryConditions), /entry edge must not contain conditions/)
+})
+
+test("animation parameter references include nested state machines", () => {
+  const document = createDemoAnimationTreeDocument()
+  document.parameters.push({ id: "grounded-id", name: "grounded", defaultValue: 1 })
+  const nested = createAnimationNode(ANIMATION_NODE_KINDS.STATE_MACHINE, { id: "nested", name: "Nested" })
+  const child = createAnimationNode(ANIMATION_NODE_KINDS.ANIMATION, { id: "nested-child", name: "Child" })
+  nested.graph.states.push({ node: child, position: { x: 0, y: 0 } })
+  nested.graph.transitions.push(
+    { id: "nested-entry", kind: "entry", from: "start", to: child.id },
+    { id: "nested-exit", kind: "transition", from: child.id, to: "end", switchMode: "at-end", conditions: [{ parameterId: "grounded-id", operator: "eq", value: 0 }] },
+  )
+  document.root.graph.states.push({ node: nested, position: { x: 0, y: 0 } })
+
+  assert.equal(animationParameterReferenceCounts(document).get("grounded-id"), 1)
 })
 
 test("animation tree rejects duplicate embedded animation node ids", () => {
