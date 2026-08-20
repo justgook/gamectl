@@ -1,0 +1,74 @@
+{
+  "id": "04879799-9720-4a53-a9b5-88803bb8d244",
+  "name": "Animation Tree",
+  "parameters": [],
+  "root": {
+    "id": "1ed1be5a-7ab1-432a-ae0d-46b0d37150ba",
+    "kind": "state-machine",
+    "name": "Animation Tree",
+    "ports": [
+      {
+        "id": "animation",
+        "direction": "output",
+        "dataType": "animation",
+        "maxConnections": null
+      }
+    ],
+    "graph": {
+      "states": [
+        {
+          "node": {
+            "id": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+            "kind": "animation",
+            "name": "Animation",
+            "animation": {
+              "url": "",
+              "layer": "*",
+              "tag": "*"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 385.0211161387632,
+            "y": 62.360482654600276
+          }
+        }
+      ],
+      "transitions": [
+        {
+          "id": 1,
+          "kind": "transition",
+          "from": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "to": "end",
+          "switchMode": "immediate",
+          "conditions": []
+        },
+        {
+          "id": 2,
+          "kind": "entry",
+          "from": "start",
+          "to": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c"
+        }
+      ],
+      "start": {
+        "position": {
+          "x": -120,
+          "y": 180
+        }
+      },
+      "end": {
+        "position": {
+          "x": 840,
+          "y": 180
+        }
+      }
+    }
+  }
+}
