@@ -31,6 +31,8 @@ local NG = {
 	NODE_FOR_EACH_INPUT = 8,
 	NODE_ITERATION_CONTROL = 9,
 	NODE_FOR_EACH_SHARED_INPUT = 10,
+	NODE_FOR_EACH_GET_VAR = 11,
+	NODE_FOR_EACH_SET_VAR = 12,
 }
 
 function main()
@@ -130,6 +132,8 @@ local function validateLevel(level, ownerKind)
 	end
 	local controlCount = 0
 	local forEachInputCount = 0
+	local getVarsByName = {}
+	local setVarsByName = {}
 	for _, node in ipairs(level) do
 		assertInteger(node.id, nodeLabel(node) .. ".id")
 		assertInteger(node.kind, nodeLabel(node) .. ".kind")
@@ -177,6 +181,26 @@ local function validateLevel(level, ownerKind)
 			forEachInputCount = forEachInputCount + 1
 		elseif node.kind == NG.NODE_FOR_EACH_SHARED_INPUT then
 			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be inside For Each") end
+		elseif node.kind == NG.NODE_FOR_EACH_GET_VAR then
+			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be a direct child of For Each") end
+			if #getInputs(node) ~= #getOutputs(node) then error(nodeLabel(node) .. " requires one paired output per input") end
+			for index, inputPort in ipairs(getInputs(node)) do
+				local outputPort = getOutputs(node)[index]
+				local name = inputPort.name
+				if type(name) ~= "string" or name == "" then error(portLabel(node, inputPort, "input") .. " requires a variable name") end
+				if not outputPort or outputPort.id ~= inputPort.id or outputPort.name ~= name then error(portLabel(node, inputPort, "input") .. " requires a paired output with the same id and name") end
+				if getVarsByName[name] then error("duplicate GetVar variable " .. string.format("%q", name)) end
+				getVarsByName[name] = { node = node, port = inputPort }
+			end
+		elseif node.kind == NG.NODE_FOR_EACH_SET_VAR then
+			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be a direct child of For Each") end
+			if #getOutputs(node) ~= 0 then error(nodeLabel(node) .. " must not have outputs") end
+			for _, inputPort in ipairs(getInputs(node)) do
+				local name = inputPort.name
+				if type(name) ~= "string" or name == "" then error(portLabel(node, inputPort, "input") .. " requires a variable name") end
+				if setVarsByName[name] then error("duplicate SetVar variable " .. string.format("%q", name)) end
+				setVarsByName[name] = { node = node, port = inputPort }
+			end
 		elseif node.kind == NG.NODE_GRAPH_OUTPUT then
 			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " Graph Output must be inside For Each") end
 		elseif node.kind == NG.NODE_ITERATION_CONTROL then
@@ -191,6 +215,9 @@ local function validateLevel(level, ownerKind)
 	if ownerKind == NG.NODE_FOR_EACH then
 		if forEachInputCount == 0 then error("For Each requires at least one For Each Input") end
 		if controlCount > 1 then error("For Each allows at most one Iteration Control") end
+		for name, setter in pairs(setVarsByName) do
+			if not getVarsByName[name] then error(portLabel(setter.node, setter.port, "input") .. " references undeclared Iteration State " .. string.format("%q", name)) end
+		end
 	end
 end
 
@@ -384,6 +411,52 @@ local function orderNeededNodes()
 	end
 end
 
+local function orderForEachInitializers(level, getVars)
+	local localNodes = {}
+	local neededInitializers = {}
+	local visitingInitializers = {}
+	local visitedInitializers = {}
+	local orderedInitializers = {}
+	for _, node in ipairs(level) do localNodes[node.id] = node end
+
+	local function markInitializer(nodeId)
+		if neededInitializers[nodeId] then return end
+		local node = localNodes[nodeId]
+		if not node then error("GetVar initialization references missing node " .. tostring(nodeId)) end
+		if node.kind ~= NG.NODE_VALUE and node.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT and node.kind ~= NG.NODE_CODE then
+			error(nodeLabel(node) .. " cannot participate in a GetVar initialization chain")
+		end
+		neededInitializers[nodeId] = true
+		if node.kind == NG.NODE_FOR_EACH_SHARED_INPUT then return end
+		for _, inputPort in ipairs(getInputs(node)) do
+			if isConnectedInput(inputPort) then markInitializer(inputPort.srcNodeId) end
+		end
+	end
+
+	for _, getVar in ipairs(getVars) do
+		for _, inputPort in ipairs(getInputs(getVar)) do
+			if not isConnectedInput(inputPort) then error(portLabel(getVar, inputPort, "input") .. " must be connected") end
+			markInitializer(inputPort.srcNodeId)
+		end
+	end
+
+	local function visitInitializer(nodeId)
+		if visitedInitializers[nodeId] then return end
+		if visitingInitializers[nodeId] then error("cycle detected in GetVar initialization at node: " .. tostring(nodeId)) end
+		visitingInitializers[nodeId] = true
+		local node = localNodes[nodeId]
+		if node.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT then
+			for _, inputPort in ipairs(getInputs(node)) do if isConnectedInput(inputPort) then visitInitializer(inputPort.srcNodeId) end end
+		end
+		visitingInitializers[nodeId] = nil
+		visitedInitializers[nodeId] = true
+		orderedInitializers[#orderedInitializers + 1] = node
+	end
+
+	for _, node in ipairs(level) do if neededInitializers[node.id] then visitInitializer(node.id) end end
+	return orderedInitializers, neededInitializers
+end
+
 local function orderForEachBody(level)
 	local localNodes = {}
 	local localNeeded = {}
@@ -397,13 +470,14 @@ local function orderForEachBody(level)
 		local node = localNodes[nodeId]
 		if not node then error("For Each body references missing node " .. tostring(nodeId)) end
 		localNeeded[nodeId] = true
+		if node.kind == NG.NODE_FOR_EACH_GET_VAR then return end
 		for _, inputPort in ipairs(getInputs(node)) do
 			if isConnectedInput(inputPort) then mark(inputPort.srcNodeId) end
 		end
 	end
 
 	for _, node in ipairs(level) do
-		if node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL or isRunTarget(node) then mark(node.id) end
+		if node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL or node.kind == NG.NODE_FOR_EACH_SET_VAR or isRunTarget(node) then mark(node.id) end
 	end
 
 	local function visitLocal(nodeId)
@@ -411,8 +485,10 @@ local function orderForEachBody(level)
 		if localVisiting[nodeId] then error("cycle detected at node: " .. tostring(nodeId)) end
 		localVisiting[nodeId] = true
 		local node = localNodes[nodeId]
-		for _, inputPort in ipairs(getInputs(node)) do
-			if isConnectedInput(inputPort) and localNeeded[inputPort.srcNodeId] then visitLocal(inputPort.srcNodeId) end
+		if node.kind ~= NG.NODE_FOR_EACH_GET_VAR then
+			for _, inputPort in ipairs(getInputs(node)) do
+				if isConnectedInput(inputPort) and localNeeded[inputPort.srcNodeId] then visitLocal(inputPort.srcNodeId) end
+			end
 		end
 		localVisiting[nodeId] = nil
 		localVisited[nodeId] = true
@@ -720,23 +796,33 @@ end
 
 local function emitForEachNode(node)
 	local child = node.childGraph
-	local bodyOrder = orderForEachBody(child)
 	local boundaries = {}
 	local sharedInputs = {}
+	local getVars = {}
+	local setVars = {}
 	local collectors = {}
 	local control = nil
 	for _, childNode in ipairs(child) do
 		if childNode.kind == NG.NODE_FOR_EACH_INPUT then boundaries[#boundaries + 1] = childNode end
 		if childNode.kind == NG.NODE_FOR_EACH_SHARED_INPUT then sharedInputs[#sharedInputs + 1] = childNode end
+		if childNode.kind == NG.NODE_FOR_EACH_GET_VAR then getVars[#getVars + 1] = childNode end
+		if childNode.kind == NG.NODE_FOR_EACH_SET_VAR then setVars[#setVars + 1] = childNode end
 		if childNode.kind == NG.NODE_GRAPH_OUTPUT then collectors[#collectors + 1] = childNode end
 		if childNode.kind == NG.NODE_ITERATION_CONTROL then control = childNode end
 	end
+	local initializerOrder, initializerIds = orderForEachInitializers(child, getVars)
+	local bodyOrder = orderForEachBody(child)
 
 	for _, inputPort in ipairs(getInputs(node)) do
 		if not isConnectedInput(inputPort) then error(portLabel(node, inputPort, "input") .. " must be connected") end
 	end
 	for _, collector in ipairs(collectors) do
 		if not isConnectedInput(collector.inputs[1]) then error(nodeLabel(collector) .. " must be connected") end
+	end
+	for _, setVar in ipairs(setVars) do
+		for _, inputPort in ipairs(getInputs(setVar)) do
+			if not isConnectedInput(inputPort) then error(portLabel(setVar, inputPort, "input") .. " must be connected") end
+		end
 	end
 
 	emit(("-- for each node %d: %s"):format(node.id, node.name or ""))
@@ -789,6 +875,25 @@ local function emitForEachNode(node)
 		emit(("%s = json.array()"):format(luaVar(node.id, outputPort.id)))
 		emit(("%s = false"):format(luaActiveVar(node.id, outputPort.id)))
 	end
+	local stateVariable = "__ng_each_state_" .. tostring(node.id)
+	emit(("local %s = {}"):format(stateVariable))
+	emit(("if __ng_each_count_%d > 0 then"):format(node.id))
+	for _, initializer in ipairs(initializerOrder) do
+		if initializer.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT then emitNode(initializer) end
+	end
+	for _, getVar in ipairs(getVars) do
+		for _, inputPort in ipairs(getInputs(getVar)) do
+			local sourceActive = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			local sourceValue = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			local message = portLabel(getVar, inputPort, "input") .. " must provide an active, non-nil initial value"
+			emit(("  if not %s or %s == nil then"):format(sourceActive, sourceValue))
+			emit(("    __ng_node_error(%d, %s)"):format(node.id, luaString(message)))
+			emit(("    error(%s)"):format(luaString(message)))
+			emit("  end")
+			emit(("  %s[%s] = %s"):format(stateVariable, luaString(inputPort.name), sourceValue))
+		end
+	end
+	emit("end")
 	emit(("for __ng_each_index_%d = 1, __ng_each_count_%d do"):format(node.id, node.id))
 	for _, boundary in ipairs(boundaries) do
 		emit(("  %s = __ng_each_arrays_%d[%d][__ng_each_index_%d]"):format(luaVar(boundary.id, 1), node.id, boundary.id, node.id))
@@ -798,8 +903,14 @@ local function emitForEachNode(node)
 		emit(("  %s = __ng_each_arrays_%d[%d]"):format(luaVar(boundary.id, 3), node.id, boundary.id))
 		emit(("  %s = true"):format(luaActiveVar(boundary.id, 3)))
 	end
+	for _, getVar in ipairs(getVars) do
+		for _, outputPort in ipairs(getOutputs(getVar)) do
+			emit(("  %s = %s[%s]"):format(luaVar(getVar.id, outputPort.id), stateVariable, luaString(outputPort.name)))
+			emit(("  %s = true"):format(luaActiveVar(getVar.id, outputPort.id)))
+		end
+	end
 	for _, childNode in ipairs(bodyOrder) do
-		if childNode.kind ~= NG.NODE_FOR_EACH_INPUT and childNode.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT and childNode.kind ~= NG.NODE_GRAPH_OUTPUT and childNode.kind ~= NG.NODE_ITERATION_CONTROL then emitNode(childNode) end
+		if not initializerIds[childNode.id] and childNode.kind ~= NG.NODE_FOR_EACH_INPUT and childNode.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT and childNode.kind ~= NG.NODE_FOR_EACH_GET_VAR and childNode.kind ~= NG.NODE_FOR_EACH_SET_VAR and childNode.kind ~= NG.NODE_GRAPH_OUTPUT and childNode.kind ~= NG.NODE_ITERATION_CONTROL then emitNode(childNode) end
 	end
 	local skipVariable = "__ng_each_skip_" .. tostring(node.id)
 	local breakVariable = "__ng_each_break_" .. tostring(node.id)
@@ -809,6 +920,22 @@ local function emitForEachNode(node)
 	else
 		emit(("  local %s = false"):format(skipVariable))
 		emit(("  local %s = false"):format(breakVariable))
+	end
+	local nextStateVariable = "__ng_each_next_state_" .. tostring(node.id)
+	emit(("  local %s = {}"):format(nextStateVariable))
+	for _, setVar in ipairs(setVars) do
+		for _, inputPort in ipairs(getInputs(setVar)) do
+			local sourceActive = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			local sourceValue = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			local message = portLabel(setVar, inputPort, "input") .. " must not produce an active nil update"
+			emit(("  if %s then"):format(sourceActive))
+			emit(("    if %s == nil then"):format(sourceValue))
+			emit(("      __ng_node_error(%d, %s)"):format(node.id, luaString(message)))
+			emit(("      error(%s)"):format(luaString(message)))
+			emit("    end")
+			emit(("    %s[%s] = %s"):format(nextStateVariable, luaString(inputPort.name), sourceValue))
+			emit("  end")
+		end
 	end
 	for _, collector in ipairs(collectors) do
 		local parentOutput = nil
@@ -825,6 +952,7 @@ local function emitForEachNode(node)
 		emit(("    %s[#%s + 1] = %s"):format(luaVar(node.id, parentOutput.id), luaVar(node.id, parentOutput.id), sourceValue))
 		emit("  end")
 	end
+	emit(("  for __ng_state_name, __ng_state_value in pairs(%s) do %s[__ng_state_name] = __ng_state_value end"):format(nextStateVariable, stateVariable))
 	emit(("  if %s then break end"):format(breakVariable))
 	emit("end")
 	for _, outputPort in ipairs(getOutputs(node)) do emit(("%s = true"):format(luaActiveVar(node.id, outputPort.id))) end
@@ -841,7 +969,7 @@ emitNode = function(node)
 		emitForEachNode(node)
 	elseif node.kind == NG.NODE_GOAL then
 		-- Goal nodes are emitted in the final output block.
-	elseif node.kind == NG.NODE_FOR_EACH_INPUT or node.kind == NG.NODE_FOR_EACH_SHARED_INPUT or node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL then
+	elseif node.kind == NG.NODE_FOR_EACH_INPUT or node.kind == NG.NODE_FOR_EACH_SHARED_INPUT or node.kind == NG.NODE_FOR_EACH_GET_VAR or node.kind == NG.NODE_FOR_EACH_SET_VAR or node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL then
 		-- For Each boundaries are emitted by their owning For Each Node.
 	elseif node.kind == NG.NODE_GROUP or node.kind == NG.NODE_GRAPH_INPUT then
 		error("Group Nodes must be flattened before compilation: " .. tostring(node.id))

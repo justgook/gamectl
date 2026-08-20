@@ -15,6 +15,8 @@ export const NG_NODE_KINDS = Object.freeze({
   FOR_EACH_INPUT: 8,
   ITERATION_CONTROL: 9,
   FOR_EACH_SHARED_INPUT: 10,
+  FOR_EACH_GET_VAR: 11,
+  FOR_EACH_SET_VAR: 12,
 })
 
 export const NG_FOR_EACH_INPUT_OUTPUTS = Object.freeze([
@@ -138,6 +140,20 @@ function cloneLevel(graph, globalIds, label, { allowExternalSources = false, res
       const output = outputs[0]
       assert(output.id === NG_FOR_EACH_SHARED_INPUT_OUTPUT.id && output.name === NG_FOR_EACH_SHARED_INPUT_OUTPUT.name && output.value === null, `Shared Input ${raw.id} output must be Value`)
     }
+    if (raw.kind === NG_NODE_KINDS.FOR_EACH_GET_VAR) {
+      assert(ownerKind === null || ownerKind === NG_NODE_KINDS.FOR_EACH, `GetVar ${raw.id} must be a direct child of a For Each Node`)
+      assert(inputs.length === outputs.length, `GetVar ${raw.id} requires one paired output per input`)
+      inputs.forEach((input, index) => {
+        const output = outputs[index]
+        assert(input.name.length > 0, `GetVar ${raw.id} input ${input.id} requires a variable name`)
+        assert(output.id === input.id && output.name === input.name && output.value === null, `GetVar ${raw.id} input ${input.id} must have a paired output with the same id and name`)
+      })
+    }
+    if (raw.kind === NG_NODE_KINDS.FOR_EACH_SET_VAR) {
+      assert(ownerKind === null || ownerKind === NG_NODE_KINDS.FOR_EACH, `SetVar ${raw.id} must be a direct child of a For Each Node`)
+      assert(outputs.length === 0, `SetVar ${raw.id} must not have outputs`)
+      inputs.forEach((input) => assert(input.name.length > 0, `SetVar ${raw.id} input ${input.id} requires a variable name`))
+    }
     if (raw.kind === NG_NODE_KINDS.ITERATION_CONTROL) {
       assert(ownerKind === null || ownerKind === NG_NODE_KINDS.FOR_EACH, `Iteration Control ${raw.id} must be a direct child of a For Each Node`)
       assert(outputs.length === 0, `Iteration Control ${raw.id} must not have outputs`)
@@ -225,7 +241,7 @@ export function cloneNgGraphFragment(graph, options = {}) {
 export function cloneNgGraph(graph, options = {}) {
   const cloned = cloneLevel(structuredClone(graph), new Set(), "view-ng graph", { resolveLinked: resolverFrom(options) })
   for (const node of cloned)
-    assert(![NG_NODE_KINDS.GRAPH_INPUT, NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind), `root graph cannot contain ${kindName(node.kind)} ${node.id}`)
+    assert(![NG_NODE_KINDS.GRAPH_INPUT, NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.FOR_EACH_GET_VAR, NG_NODE_KINDS.FOR_EACH_SET_VAR, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind), `root graph cannot contain ${kindName(node.kind)} ${node.id}`)
   return cloned
 }
 
@@ -346,6 +362,8 @@ function kindName(kind) {
   if (kind === NG_NODE_KINDS.FOR_EACH) return "for-each"
   if (kind === NG_NODE_KINDS.FOR_EACH_INPUT) return "for-each-input"
   if (kind === NG_NODE_KINDS.FOR_EACH_SHARED_INPUT) return "for-each-shared-input"
+  if (kind === NG_NODE_KINDS.FOR_EACH_GET_VAR) return "for-each-get-var"
+  if (kind === NG_NODE_KINDS.FOR_EACH_SET_VAR) return "for-each-set-var"
   if (kind === NG_NODE_KINDS.ITERATION_CONTROL) return "iteration-control"
   throw new Error(`view-ng unknown node kind ${kind}`)
 }

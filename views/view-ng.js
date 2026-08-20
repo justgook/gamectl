@@ -531,8 +531,10 @@ export class ViewNg extends ViewCanvasBase {
               ? NG_FOR_EACH_INPUT_OUTPUTS.map((port) => ({ outputId: port.id, name: port.name, value: null }))
               : kind === NG_NODE_KINDS.FOR_EACH_SHARED_INPUT
                 ? [{ outputId: NG_FOR_EACH_SHARED_INPUT_OUTPUT.id, name: NG_FOR_EACH_SHARED_INPUT_OUTPUT.name, value: null }]
-                : [NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.ITERATION_CONTROL, NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(kind)
-                ? [] : (Array.isArray(draft.outputs) ? draft.outputs : [])
+                : kind === NG_NODE_KINDS.FOR_EACH_GET_VAR
+                  ? draftInputs.map((input, index) => ({ outputId: Number(input.inputId || input.id || index + 1), name: String(input.name || "").trim(), value: null }))
+                  : [NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.FOR_EACH_SET_VAR, NG_NODE_KINDS.ITERATION_CONTROL, NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(kind)
+                    ? [] : (Array.isArray(draft.outputs) ? draft.outputs : [])
         const result = {
             id: Number(nodeId), kind, x: Number(existing?.x ?? 0), y: Number(existing?.y ?? 0), name,
             ...(kind === NG_NODE_KINDS.CODE ? { codePath: String(draft.codePath || "").trim() } : {}),
@@ -640,7 +642,7 @@ export class ViewNg extends ViewCanvasBase {
         const payload = unwrap(await runtime.call("ui.popup.open", {
             title: `Edit node #${nodeId}`, size: "medium", tag: "view-ng-node", props: {
                 mode: "edit", nodeId, kind: node.kind, nodeName: node.name, inputCount: node.inputs.length, outputCount: node.outputs.length,
-                allowGraphBoundaryNodes: [NG_NODE_KINDS.GRAPH_INPUT, NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind),
+                allowGraphBoundaryNodes: [NG_NODE_KINDS.GRAPH_INPUT, NG_NODE_KINDS.GRAPH_OUTPUT, NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.FOR_EACH_GET_VAR, NG_NODE_KINDS.FOR_EACH_SET_VAR, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind),
                 childGraphOwnerKind: this.activeGroupPath.length ? this.activeGroupNode().kind : 0,
                 insideForEach: this.isInsideForEach(),
                 ...(node.kind === NG_NODE_KINDS.CODE ? { codePath: node.codePath, code: "" } : {}),
@@ -715,7 +717,7 @@ export class ViewNg extends ViewCanvasBase {
             const ownerKind = this.activeGroupPath.length ? this.activeGroupNode().kind : 0
             if (kind === NG_NODE_KINDS.GRAPH_INPUT && ownerKind !== NG_NODE_KINDS.GROUP) return null
             if (kind === NG_NODE_KINDS.GRAPH_OUTPUT && ![NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind)) return null
-            if ([NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(kind) && ownerKind !== NG_NODE_KINDS.FOR_EACH) return null
+            if ([NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.FOR_EACH_GET_VAR, NG_NODE_KINDS.FOR_EACH_SET_VAR, NG_NODE_KINDS.ITERATION_CONTROL].includes(kind) && ownerKind !== NG_NODE_KINDS.FOR_EACH) return null
             if (kind === NG_NODE_KINDS.GOAL && this.isInsideForEach()) return null
             const group = String(entry.group || "Presets").trim() || "Presets"
             return { name, kind, group, data: { ...entry, name, kind, group } }
@@ -735,6 +737,8 @@ export class ViewNg extends ViewCanvasBase {
             ...(ownerKind === NG_NODE_KINDS.FOR_EACH ? [
                 { label: "input", kind: NG_NODE_KINDS.FOR_EACH_INPUT, name: "items" },
                 { label: "shared input", kind: NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, name: "value" },
+                { label: "get var", kind: NG_NODE_KINDS.FOR_EACH_GET_VAR, name: "GetVar" },
+                { label: "set var", kind: NG_NODE_KINDS.FOR_EACH_SET_VAR, name: "SetVar" },
                 { label: "iteration control", kind: NG_NODE_KINDS.ITERATION_CONTROL, name: "Iteration Control" },
             ] : []),
         ]
@@ -837,7 +841,7 @@ export class ViewNg extends ViewCanvasBase {
         const invalidBoundary = source.some((node) =>
             (node.kind === NG_NODE_KINDS.GRAPH_INPUT && ownerKind !== NG_NODE_KINDS.GROUP) ||
             (node.kind === NG_NODE_KINDS.GRAPH_OUTPUT && ![NG_NODE_KINDS.GROUP, NG_NODE_KINDS.FOR_EACH].includes(ownerKind)) ||
-            ([NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind) && ownerKind !== NG_NODE_KINDS.FOR_EACH))
+            ([NG_NODE_KINDS.FOR_EACH_INPUT, NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, NG_NODE_KINDS.FOR_EACH_GET_VAR, NG_NODE_KINDS.FOR_EACH_SET_VAR, NG_NODE_KINDS.ITERATION_CONTROL].includes(node.kind) && ownerKind !== NG_NODE_KINDS.FOR_EACH))
         if (invalidBoundary) {
             this._setStatus("boundary nodes can only be pasted into their matching child graph", "warning")
             return false

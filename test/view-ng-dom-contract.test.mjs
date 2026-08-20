@@ -32,8 +32,13 @@ test("editing with no selection renames the active child-graph owner", () => {
 
 test("boundary node types follow the active child-graph owner", () => {
   assert.match(nodeEditorSource, /childGraphOwnerKind[\s\S]*?<option value="for-each"/)
-  assert.match(nodeEditorSource, /<option value="for-each-input"[\s\S]*?<option value="for-each-shared-input"[\s\S]*?<option value="iteration-control"/)
+  assert.match(nodeEditorSource, /<option value="for-each-input"[\s\S]*?<option value="for-each-shared-input"[\s\S]*?<option value="for-each-get-var"[\s\S]*?<option value="for-each-set-var"[\s\S]*?<option value="iteration-control"/)
   assert.match(source, /childGraphOwnerKind: this\.activeGroupPath\.length \? this\.activeGroupNode\(\)\.kind : 0/)
+})
+
+test("GetVar derives paired outputs from its editable inputs", () => {
+  assert.match(nodeEditorSource, /this\.draft\.kind === NG\.NODE_FOR_EACH_GET_VAR[\s\S]*?this\.draft\.outputs = this\.draft\.inputs\.map/)
+  assert.match(source, /kind === NG_NODE_KINDS\.FOR_EACH_GET_VAR[\s\S]*?draftInputs\.map/)
 })
 
 test("new composite presets receive fresh child identities", () => {

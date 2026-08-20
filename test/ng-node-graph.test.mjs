@@ -326,6 +326,38 @@ test("For Each Shared Inputs derive parent value ports without affecting array i
   assert.throws(() => cloneNgGraph(graph), /Shared Input 24 output must be Value/)
 })
 
+test("GetVar requires paired ports and SetVar is direct For Each state", () => {
+  const graph = forEachGraph()
+  graph[1].childGraph.push(
+    {
+      id: 24, kind: NG_NODE_KINDS.VALUE, x: 0, y: 150, name: "Initial", inputs: [],
+      outputs: [{ id: 1, name: "", value: "0" }],
+    },
+    {
+      id: 25, kind: NG_NODE_KINDS.FOR_EACH_GET_VAR, x: 150, y: 150, name: "GetVar",
+      inputs: [{ id: 1, name: "total", srcNodeId: 24, srcOutputId: 1 }],
+      outputs: [{ id: 1, name: "total", value: null }],
+    },
+    {
+      id: 26, kind: NG_NODE_KINDS.FOR_EACH_SET_VAR, x: 300, y: 150, name: "SetVar",
+      inputs: [{ id: 1, name: "total", srcNodeId: 25, srcOutputId: 1 }], outputs: [],
+    },
+  )
+  assert.doesNotThrow(() => cloneNgGraph(graph))
+
+  const unpaired = structuredClone(graph)
+  unpaired[1].childGraph.find((node) => node.id === 25).outputs[0].name = "other"
+  assert.throws(() => cloneNgGraph(unpaired), /paired output with the same id and name/)
+
+  const nested = forEachGraph()
+  nested[1].childGraph.push({
+    id: 24, kind: NG_NODE_KINDS.GROUP, x: 0, y: 150, name: "Nested", inputs: [], outputs: [], childGraph: [{
+      id: 25, kind: NG_NODE_KINDS.FOR_EACH_GET_VAR, x: 0, y: 0, name: "GetVar", inputs: [], outputs: [],
+    }],
+  })
+  assert.throws(() => cloneNgGraph(nested), /GetVar 25 must be a direct child/)
+})
+
 test("For Each remains structured while nested Groups flatten", () => {
   const graph = forEachGraph()
   const flat = flattenNgGraph(graph)

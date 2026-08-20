@@ -68,6 +68,18 @@ _Avoid_: Graph Input, which exposes one parent value inside a Group Node rather 
 A For Each child-graph boundary node representing one parent value that remains unchanged across all iterations. It exposes one fixed Value output and does not participate in determining iteration count.
 _Avoid_: Singleton, which describes plugin lifecycle in GAMS; For Each Input, which requires an array and exposes per-iteration Item, Index, and Array outputs.
 
+**Iteration State**:
+Named state scoped to one execution of a For Each Node. It is initialized when the For Each execution starts, can be read and updated during each iteration, and carries an updated value into the next iteration.
+_Avoid_: static variable, which may imply persistence across separate graph runs; Shared Input, whose value remains unchanged across iterations.
+
+**GetVar**:
+A For Each child-graph node that declares Iteration State through named initial-value inputs and exposes paired current-value outputs with the same names and stable port identities.
+_Avoid_: Get State when referring to the authored node type; Shared Input, which does not change between iterations.
+
+**SetVar**:
+A For Each child-graph node whose named inputs conditionally commit matching Iteration State values for the next iteration.
+_Avoid_: Set State when referring to the authored node type; Graph Output, which collects values for the parent Node Graph.
+
 **Iteration Control**:
 An optional For Each child-graph boundary node with global skip and break inputs. Skip omits the current iteration from every collected output; break omits the current iteration and stops the sequence.
 _Avoid_: Graph Output, because Iteration Control governs execution rather than exposing collected data to the parent Node Graph.
@@ -140,6 +152,11 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - **Graph Outputs** inside a For Each child graph collect iteration values into array outputs on the owning For Each Node. Every retained iteration must produce one active, non-nil value for every Graph Output; otherwise execution fails.
 - A multi-input **For Each Node** behaves like a strict zip over its input arrays. Current indexes are one-based, and every For Each Input exposes an active Item and Index on every iteration.
 - A For Each child graph may contain zero Graph Outputs for side-effect-only execution. A zero-output For Each Node is a graph run target, like a zero-output Code Node.
+- A For Each child graph may contain any number of direct-child GetVar and SetVar nodes for **Iteration State**. Iteration State does not propagate through nested or linked Groups. GetVar inputs declare case-sensitive state names and expose paired outputs with the same names. State names must be unique across all GetVar nodes; update names must be unique across all SetVar nodes; every SetVar name must match a GetVar declaration.
+- Every GetVar input must be connected to an active, non-nil initial value that is evaluated once when its For Each execution starts. GetVar does not own an inline literal; Value Nodes provide authored initial values and Shared Inputs provide parent-supplied initial values. An initial value may be computed by a loop-invariant dependency chain of Value, Shared Input, Code, and Group Nodes; the chain must not depend on For Each Input, GetVar output, SetVar, Iteration Control, or another per-iteration result.
+- Every SetVar input must be connected. An active, non-nil SetVar input commits its value for the next iteration; an inactive SetVar input retains the previous value. An active nil update fails execution. A declared state without a matching SetVar remains unchanged. Every SetVar is an implicit execution target in each iteration. Skip and break still commit active SetVar updates because Iteration Control does not roll back body execution.
+- A zero-length For Each does not initialize Iteration State or execute GetVar initialization dependency chains, so initializer Code Nodes do not produce side effects when the body has no iterations.
+- Iteration State remains internal to its owning For Each execution. It does not automatically add final-state outputs to the For Each Node; parent outputs remain arrays collected through Graph Outputs.
 - A For Each child graph may contain at most one **Iteration Control**. If both control inputs are true, break takes precedence over skip; absent or unconnected control inputs are false.
 - **Inline Group Storage** embeds the child graph in its parent graph document.
 - **Linked Group Storage** stores a Project-root-relative source path without an embedded child-graph cache.

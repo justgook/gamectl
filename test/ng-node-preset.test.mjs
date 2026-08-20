@@ -18,6 +18,11 @@ test("Code presets normalize their declared interface", () => {
   assert.deepEqual(draft.outputs, [{ outputId: 1, name: "text", value: "" }])
 })
 
+test("Iteration State preset kinds normalize GetVar and SetVar aliases", () => {
+  assert.equal(normalizeNgPresetDraft({ name: "Get", kind: "get-var" }).kind, NG_NODE_KINDS.FOR_EACH_GET_VAR)
+  assert.equal(normalizeNgPresetDraft({ name: "Set", kind: "set-var" }).kind, NG_NODE_KINDS.FOR_EACH_SET_VAR)
+})
+
 test("linked Group presets need only their authoritative Group document", () => {
   const draft = normalizeNgPresetDraft({
     name: "Mission Background",
