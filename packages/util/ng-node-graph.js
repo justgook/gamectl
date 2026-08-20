@@ -70,7 +70,12 @@ function cloneOutput(output, nodeId) {
   assert(typeof output.id === "number" && Number.isFinite(output.id), `view-ng graph output ${nodeId}.id must be a finite number`)
   assert(typeof output.name === "string", `view-ng graph output ${nodeId}.${output.id}.name must be a string`)
   assert(output.value === null || typeof output.value === "string", `view-ng graph output ${nodeId}.${output.id}.value must be a string or null`)
-  return { id: output.id, name: output.name, value: output.value }
+  const hasStateSource = output.stateNodeId !== undefined || output.statePortId !== undefined
+  if (hasStateSource) {
+    assert(typeof output.stateNodeId === "number" && Number.isFinite(output.stateNodeId), `view-ng graph output ${nodeId}.${output.id}.stateNodeId must be a finite number`)
+    assert(typeof output.statePortId === "number" && Number.isFinite(output.statePortId), `view-ng graph output ${nodeId}.${output.id}.statePortId must be a finite number`)
+  }
+  return { id: output.id, name: output.name, value: output.value, ...(hasStateSource ? { stateNodeId: output.stateNodeId, statePortId: output.statePortId } : {}) }
 }
 
 function groupStorage(raw, label) {
@@ -117,6 +122,7 @@ function cloneLevel(graph, globalIds, label, { allowExternalSources = false, res
       assert(output.id > 0, `${label} node ${raw.id} output id must be positive`)
       assert(!outputIds.has(output.id), `${label} node ${raw.id} has duplicate output id ${output.id}`)
       outputIds.add(output.id)
+      assert(output.stateNodeId === undefined || raw.kind === NG_NODE_KINDS.FOR_EACH, `${label} non-For Each Node ${raw.id} output ${output.id} must not reference Iteration State`)
     }
     if (raw.kind === NG_NODE_KINDS.GRAPH_INPUT) {
       assert(ownerKind === null || ownerKind === NG_NODE_KINDS.GROUP, `Graph Input ${raw.id} must be a direct child of a Group Node`)
@@ -285,10 +291,18 @@ export function cloneNgNodesWithNewIds(nodes, firstId) {
       srcOutputId: input.srcNodeId && idMap.has(input.srcNodeId) ? input.srcOutputId : 0,
     })
     const result = { ...node, id: idMap.get(originalId), inputs: node.inputs.map(remapSource), outputs: node.outputs.map((output) => ({ ...output })) }
-    if ((node.kind === NG_NODE_KINDS.GROUP && node.storage.mode === "inline") || node.kind === NG_NODE_KINDS.FOR_EACH) {
+    if (node.kind === NG_NODE_KINDS.GROUP && node.storage.mode === "inline") {
       result.childGraph = remapLevel(node.childGraph)
       result.inputs = result.inputs.map((input) => ({ ...input, id: idMap.get(input.id) }))
       result.outputs = result.outputs.map((output) => ({ ...output, id: idMap.get(output.id) }))
+    }
+    if (node.kind === NG_NODE_KINDS.FOR_EACH) {
+      result.childGraph = remapLevel(node.childGraph)
+      result.inputs = result.inputs.map((input) => ({ ...input, id: idMap.get(input.id) }))
+      result.outputs = result.outputs.map((output) => output.stateNodeId === undefined
+        ? { ...output, id: idMap.get(output.id) }
+        : { ...output, stateNodeId: idMap.get(output.stateNodeId) })
+      syncNgForEachBoundary(result)
     }
     return result
   })
@@ -319,12 +333,37 @@ export function syncNgForEachBoundary(forEach, parentGraph = null) {
     srcNodeId: previousInputs.get(node.id)?.srcNodeId || 0,
     srcOutputId: previousInputs.get(node.id)?.srcOutputId || 0,
   }))
-  forEach.outputs = forEach.childGraph.filter((node) => node.kind === NG_NODE_KINDS.GRAPH_OUTPUT).map((node) => ({ id: node.id, name: node.name || `output ${node.id}`, value: null }))
+
+  const previousStateOutputs = new Map(forEach.outputs.filter((output) => output.stateNodeId !== undefined).map((output) => [`${output.stateNodeId}:${output.statePortId}`, output]))
+  const graphOutputs = forEach.childGraph.filter((node) => node.kind === NG_NODE_KINDS.GRAPH_OUTPUT).map((node) => ({ id: node.id, name: node.name || `output ${node.id}`, value: null }))
+  const usedOutputIds = new Set(graphOutputs.map((output) => output.id))
+  let nextOutputId = Math.max(0, ...forEach.outputs.map((output) => output.id), ...graphOutputs.map((output) => output.id)) + 1
+  const stateOutputs = []
+  const retainedStateKeys = new Set()
+  const remappedStateIds = new Map()
+  for (const getVar of forEach.childGraph.filter((node) => node.kind === NG_NODE_KINDS.FOR_EACH_GET_VAR)) for (const output of getVar.outputs) {
+    const key = `${getVar.id}:${output.id}`
+    retainedStateKeys.add(key)
+    const previous = previousStateOutputs.get(key)
+    let id = previous?.id
+    if (id === undefined || usedOutputIds.has(id)) {
+      while (usedOutputIds.has(nextOutputId)) nextOutputId += 1
+      id = nextOutputId++
+    }
+    usedOutputIds.add(id)
+    if (previous && previous.id !== id) remappedStateIds.set(previous.id, id)
+    stateOutputs.push({ id, name: output.name, value: null, stateNodeId: getVar.id, statePortId: output.id })
+  }
+  const removedStateIds = new Set([...previousStateOutputs].filter(([key]) => !retainedStateKeys.has(key)).map(([, output]) => output.id))
+  forEach.outputs = [...graphOutputs, ...stateOutputs]
   if (parentGraph) {
     const outputIds = new Set(forEach.outputs.map((output) => output.id))
-    for (const node of parentGraph) for (const input of node.inputs) if (input.srcNodeId === forEach.id && !outputIds.has(input.srcOutputId)) {
-      input.srcNodeId = 0
-      input.srcOutputId = 0
+    for (const node of parentGraph) for (const input of node.inputs) if (input.srcNodeId === forEach.id) {
+      if (remappedStateIds.has(input.srcOutputId)) input.srcOutputId = remappedStateIds.get(input.srcOutputId)
+      else if (removedStateIds.has(input.srcOutputId) || !outputIds.has(input.srcOutputId)) {
+        input.srcNodeId = 0
+        input.srcOutputId = 0
+      }
     }
   }
   return forEach
@@ -422,6 +461,7 @@ export function flattenNgGraphWithLocations(graph, options = {}) {
   const rootRecords = []
   const executionIdBySource = new Map()
   const nodeKindBySource = new Map()
+  const forEachStateOutputIdBySource = new Map()
   const locations = new Map()
   let nextContextId = 1
   let nextExecutionId = nextNgNodeId(document, { resolveLinked })
@@ -431,6 +471,8 @@ export function flattenNgGraphWithLocations(graph, options = {}) {
     const executionId = context.linked ? nextExecutionId++ : node.id
     executionIdBySource.set(`${context.id}:${node.id}`, executionId)
     nodeKindBySource.set(`${context.id}:${node.id}`, node.kind)
+    if (node.kind === NG_NODE_KINDS.FOR_EACH) for (const output of node.outputs) if (output.stateNodeId !== undefined)
+      forEachStateOutputIdBySource.set(`${context.id}:${node.id}:${output.id}`, context.linked ? nextExecutionId++ : output.id)
     const record = { node: structuredClone(node), context, executionId, children: null }
     destination.push(record)
     locations.set(executionId, {
@@ -495,8 +537,9 @@ export function flattenNgGraphWithLocations(graph, options = {}) {
       if (!source) return { ...input, srcNodeId: 0, srcOutputId: 0 }
       const sourceId = executionIdBySource.get(`${source.contextId}:${source.srcNodeId}`)
       assert(sourceId !== undefined, `view-ng flattened input references non-executable node ${source.srcNodeId}`)
+      const stateOutputId = forEachStateOutputIdBySource.get(`${source.contextId}:${source.srcNodeId}:${source.srcOutputId}`)
       const sourceOutputId = nodeKindBySource.get(`${source.contextId}:${source.srcNodeId}`) === NG_NODE_KINDS.FOR_EACH
-        ? executionIdBySource.get(`${source.contextId}:${source.srcOutputId}`)
+        ? stateOutputId ?? executionIdBySource.get(`${source.contextId}:${source.srcOutputId}`)
         : source.srcOutputId
       assert(sourceOutputId !== undefined, `view-ng flattened For Each output references missing Graph Output ${source.srcOutputId}`)
       return { ...input, srcNodeId: sourceId, srcOutputId: sourceOutputId }
@@ -504,9 +547,16 @@ export function flattenNgGraphWithLocations(graph, options = {}) {
     if (children) {
       node.childGraph = materialize(children)
       node.inputs = node.inputs.map((input) => ({ ...input, id: executionIdBySource.get(`${context.id}:${input.id}`) }))
-      node.outputs = node.outputs.map((output) => ({ ...output, id: executionIdBySource.get(`${context.id}:${output.id}`) }))
+      node.outputs = node.outputs.map((output) => output.stateNodeId === undefined
+        ? { ...output, id: executionIdBySource.get(`${context.id}:${output.id}`) }
+        : {
+            ...output,
+            id: forEachStateOutputIdBySource.get(`${context.id}:${sourceNodeId}:${output.id}`),
+            stateNodeId: executionIdBySource.get(`${context.id}:${output.stateNodeId}`),
+          })
       node.inputs.forEach((input) => assert(input.id !== undefined, `view-ng flattened For Each ${sourceNodeId} references missing For Each Input`))
-      node.outputs.forEach((output) => assert(output.id !== undefined, `view-ng flattened For Each ${sourceNodeId} references missing Graph Output`))
+      node.outputs.forEach((output) => assert(output.id !== undefined, `view-ng flattened For Each ${sourceNodeId} references missing output`))
+      node.outputs.filter((output) => output.statePortId !== undefined).forEach((output) => assert(output.stateNodeId !== undefined, `view-ng flattened For Each ${sourceNodeId} references missing GetVar`))
     }
     return node
   })

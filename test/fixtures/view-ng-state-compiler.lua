@@ -61,9 +61,13 @@ local function stateGraph(includeControl)
     { id = 10, kind = 7, name = "Stateful", inputs = {
       { id = 20, name = "items", srcNodeId = 1, srcOutputId = 1 },
       { id = 21, name = "initial", srcNodeId = 1, srcOutputId = 2 },
-    }, outputs = { { id = 26, name = "values" } }, childGraph = child },
+    }, outputs = {
+      { id = 26, name = "values" },
+      { id = 31, name = "total", stateNodeId = 23, statePortId = 1 },
+    }, childGraph = child },
     { id = 30, kind = 1, name = "Result", inputs = {
       { id = 1, name = "values", srcNodeId = 10, srcOutputId = 26 },
+      { id = 2, name = "total", srcNodeId = 10, srcOutputId = 31 },
     }, outputs = {} },
   }
 end
@@ -90,6 +94,7 @@ assert(#result.Result.inputs.values == 3)
 assert(result.Result.inputs.values[1] == 0)
 assert(result.Result.inputs.values[2] == 1)
 assert(result.Result.inputs.values[3] == 1)
+assert(result.Result.inputs.total == 4)
 
 stateInactiveSecond = false
 stateSkipFirst = true
@@ -100,14 +105,16 @@ assert(stateInitializerCount == 2)
 assert(#result.Result.inputs.values == 2)
 assert(result.Result.inputs.values[1] == 1)
 assert(result.Result.inputs.values[2] == 3)
+assert(result.Result.inputs.total == 6)
 
 stateItems = json.array()
 stateSkipFirst = false
 graph = stateGraph(false)
 compileGraph()
 result = main()
-assert(stateInitializerCount == 2)
+assert(stateInitializerCount == 3)
 assert(#result.Result.inputs.values == 0)
+assert(result.Result.inputs.total == 0)
 
 stateItems = {1}
 graph = stateGraph(false)
@@ -148,3 +155,12 @@ local missingOk, missingError = pcall(function()
 end)
 assert(not missingOk)
 assert(tostring(missingError):find("undeclared Iteration State", 1, true))
+
+graph = stateGraph(false)
+graph[2].childGraph[7].name = "total"
+local collisionOk, collisionError = pcall(function()
+  dofile("examples/demo/ng/compile-graph.lua")
+  main()
+end)
+assert(not collisionOk)
+assert(tostring(collisionError):find("conflicts with a Graph Output", 1, true))

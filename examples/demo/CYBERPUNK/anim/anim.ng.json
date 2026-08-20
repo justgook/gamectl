@@ -1372,6 +1372,13 @@
         "id": 155,
         "name": "output",
         "value": null
+      },
+      {
+        "id": 156,
+        "name": "last_id",
+        "value": null,
+        "stateNodeId": 153,
+        "statePortId": 1
       }
     ],
     "childGraph": [
@@ -1542,8 +1549,8 @@
       {
         "id": 154,
         "kind": 12,
-        "x": 1261,
-        "y": 242,
+        "x": 1236,
+        "y": 234,
         "name": "SetVar",
         "inputs": [
           {

@@ -343,7 +343,22 @@ test("GetVar requires paired ports and SetVar is direct For Each state", () => {
       inputs: [{ id: 1, name: "total", srcNodeId: 25, srcOutputId: 1 }], outputs: [],
     },
   )
-  assert.doesNotThrow(() => cloneNgGraph(graph))
+  const cloned = cloneNgGraph(graph)
+  assert.deepEqual(cloned[1].outputs, [
+    { id: 22, name: "result", value: null },
+    { id: 23, name: "total", value: null, stateNodeId: 25, statePortId: 1 },
+  ])
+  cloned.push({
+    id: 27, kind: NG_NODE_KINDS.GOAL, x: 500, y: 150, name: "Final state",
+    inputs: [{ id: 1, name: "total", srcNodeId: 10, srcOutputId: 23 }], outputs: [],
+  })
+  const flat = flattenNgGraph(cloned)
+  assert.equal(flat.find((node) => node.id === 10).outputs.find((output) => output.stateNodeId !== undefined).id, 23)
+  assert.equal(flat.find((node) => node.id === 27).inputs[0].srcOutputId, 23)
+
+  const copied = cloneNgNodesWithNewIds([cloned[1]], 100).nodes[0]
+  const copiedStateOutput = copied.outputs.find((output) => output.stateNodeId !== undefined)
+  assert.equal(copiedStateOutput.stateNodeId, copied.childGraph.find((node) => node.kind === NG_NODE_KINDS.FOR_EACH_GET_VAR).id)
 
   const unpaired = structuredClone(graph)
   unpaired[1].childGraph.find((node) => node.id === 25).outputs[0].name = "other"

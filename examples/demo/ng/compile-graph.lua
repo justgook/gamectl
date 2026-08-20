@@ -176,6 +176,25 @@ local function validateLevel(level, ownerKind)
 
 		if node.kind == NG.NODE_FOR_EACH then
 			validateLevel(node.childGraph, NG.NODE_FOR_EACH)
+			local graphOutputNames = {}
+			local expectedStateOutputs = {}
+			for _, childNode in ipairs(node.childGraph) do if childNode.kind == NG.NODE_GRAPH_OUTPUT then
+				graphOutputNames[childNode.name ~= "" and childNode.name or ("output " .. tostring(childNode.id))] = true
+			end end
+			for _, childNode in ipairs(node.childGraph) do
+				if childNode.kind == NG.NODE_FOR_EACH_GET_VAR then for _, outputPort in ipairs(getOutputs(childNode)) do
+					if graphOutputNames[outputPort.name] then error(nodeLabel(node) .. " Iteration State " .. string.format("%q", outputPort.name) .. " conflicts with a Graph Output") end
+					local key = tostring(childNode.id) .. ":" .. tostring(outputPort.id)
+					expectedStateOutputs[key] = true
+					local parentOutput = nil
+					for _, candidate in ipairs(getOutputs(node)) do if candidate.stateNodeId == childNode.id and candidate.statePortId == outputPort.id then parentOutput = candidate end end
+					if not parentOutput or parentOutput.name ~= outputPort.name then error(nodeLabel(node) .. " missing final Iteration State output " .. string.format("%q", outputPort.name)) end
+				end end
+			end
+			for _, outputPort in ipairs(getOutputs(node)) do if outputPort.stateNodeId ~= nil then
+				local key = tostring(outputPort.stateNodeId) .. ":" .. tostring(outputPort.statePortId)
+				if not expectedStateOutputs[key] then error(portLabel(node, outputPort, "output") .. " references missing GetVar state") end
+			end end
 		elseif node.kind == NG.NODE_FOR_EACH_INPUT then
 			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be inside For Each") end
 			forEachInputCount = forEachInputCount + 1
@@ -872,12 +891,11 @@ local function emitForEachNode(node)
 		emit(("%s = true"):format(luaActiveVar(sharedInput.id, 1)))
 	end
 	for _, outputPort in ipairs(getOutputs(node)) do
-		emit(("%s = json.array()"):format(luaVar(node.id, outputPort.id)))
+		emit(("%s = %s"):format(luaVar(node.id, outputPort.id), outputPort.stateNodeId == nil and "json.array()" or "nil"))
 		emit(("%s = false"):format(luaActiveVar(node.id, outputPort.id)))
 	end
 	local stateVariable = "__ng_each_state_" .. tostring(node.id)
 	emit(("local %s = {}"):format(stateVariable))
-	emit(("if __ng_each_count_%d > 0 then"):format(node.id))
 	for _, initializer in ipairs(initializerOrder) do
 		if initializer.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT then emitNode(initializer) end
 	end
@@ -893,7 +911,6 @@ local function emitForEachNode(node)
 			emit(("  %s[%s] = %s"):format(stateVariable, luaString(inputPort.name), sourceValue))
 		end
 	end
-	emit("end")
 	emit(("for __ng_each_index_%d = 1, __ng_each_count_%d do"):format(node.id, node.id))
 	for _, boundary in ipairs(boundaries) do
 		emit(("  %s = __ng_each_arrays_%d[%d][__ng_each_index_%d]"):format(luaVar(boundary.id, 1), node.id, boundary.id, node.id))
@@ -955,7 +972,10 @@ local function emitForEachNode(node)
 	emit(("  for __ng_state_name, __ng_state_value in pairs(%s) do %s[__ng_state_name] = __ng_state_value end"):format(nextStateVariable, stateVariable))
 	emit(("  if %s then break end"):format(breakVariable))
 	emit("end")
-	for _, outputPort in ipairs(getOutputs(node)) do emit(("%s = true"):format(luaActiveVar(node.id, outputPort.id))) end
+	for _, outputPort in ipairs(getOutputs(node)) do
+		if outputPort.stateNodeId ~= nil then emit(("%s = %s[%s]"):format(luaVar(node.id, outputPort.id), stateVariable, luaString(outputPort.name))) end
+		emit(("%s = true"):format(luaActiveVar(node.id, outputPort.id)))
+	end
 	emit(("__ng_node_done(%d)"):format(node.id))
 	emit("")
 end
