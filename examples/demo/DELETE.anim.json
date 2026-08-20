@@ -20,11 +20,11 @@
           "node": {
             "id": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
             "kind": "animation",
-            "name": "Animation",
+            "name": "Idle",
             "animation": {
-              "url": "",
-              "layer": "*",
-              "tag": "*"
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "normal",
+              "tag": "Idle"
             },
             "ports": [
               {

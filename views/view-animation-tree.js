@@ -10,6 +10,7 @@ import {
     createEmptyAnimationTreeDocument,
     isInt32,
     validateAnimationNodeViews,
+    validateAnimationSelector,
     validateAnimationTreeDocument,
 } from "/util/animation-tree.js"
 import { NodeGraph } from "/util/node-graph.js"
@@ -686,6 +687,30 @@ export class ViewAnimationTree extends ViewCanvasBase {
         void this.activateNodeView()
     }
 
+    async editAnimationSelector(node) {
+        assert(node.kind === ANIMATION_NODE_KINDS.ANIMATION, "animation selector requires an Animation Node")
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: "Choose Animation",
+                size: "medium",
+                tag: "view-animation-selector",
+                props: { value: structuredClone(node.animation) },
+            }),
+            "animation selector popup",
+        )
+        if (!payload || payload.cancelled) return false
+        validateAnimationSelector(payload.value, "animation selector popup value")
+        const before = this.captureSnapshot()
+        node.animation = structuredClone(payload.value)
+        this.syncActiveGraph()
+        validateAnimationTreeDocument(this.animationTree)
+        this.renderInspector()
+        this.draw()
+        this.recordEdit("edit animation", before)
+        this.setStatus(`Updated ${node.name}`, "success")
+        return true
+    }
+
     async edit() {
         if (!this.requireValidEditorDraft()) return false
         if (this.selectedNodeIds.size !== 1) {
@@ -699,6 +724,12 @@ export class ViewAnimationTree extends ViewCanvasBase {
             return false
         }
         const node = path[path.length - 1]
+        if (node.kind === ANIMATION_NODE_KINDS.ANIMATION) {
+            const graphNode = this.selectedNode()
+            const animationNode = this.activeNode.kind === ANIMATION_NODE_KINDS.STATE_MACHINE ? graphNode.animationNode : graphNode
+            assert(animationNode.id === nodeId && animationNode.kind === ANIMATION_NODE_KINDS.ANIMATION, "selected graph node must contain the Animation Node")
+            return this.editAnimationSelector(animationNode)
+        }
         if (this.nodeViewTag(node.kind) === null) {
             this.setStatus(`${node.name} has no configured editor`, "info")
             return false
@@ -718,7 +749,9 @@ export class ViewAnimationTree extends ViewCanvasBase {
         if (edit instanceof HTMLButtonElement) {
             const selectedId = this.selectedNodeIds.size === 1 ? (this.selectedNodeId ?? [...this.selectedNodeIds][0]) : null
             const path = selectedId === null ? null : animationNodePath(this.animationTree, selectedId)
-            edit.disabled = !path || this.nodeViewTag(path[path.length - 1].kind) === null || this.mountedNodeView !== null
+            const kind = path ? path[path.length - 1].kind : null
+            const hasEditor = kind === ANIMATION_NODE_KINDS.ANIMATION || (kind !== null && this.nodeViewTag(kind) !== null)
+            edit.disabled = !hasEditor || this.mountedNodeView !== null
         }
     }
 

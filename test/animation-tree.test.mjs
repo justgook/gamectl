@@ -50,7 +50,7 @@ test("sprite composition nodes only store parameters that affect 2D playback", (
 
 test("animation node views exhaustively configure editable and inspector-only node kinds", () => {
   assert.equal(validateAnimationNodeViews(DEFAULT_ANIMATION_NODE_VIEWS), DEFAULT_ANIMATION_NODE_VIEWS)
-  for (const kind of ["one-shot", "blend2", "time-seek", "time-scale", "switch"])
+  for (const kind of ["animation", "one-shot", "blend2", "time-seek", "time-scale", "switch"])
     assert.equal(DEFAULT_ANIMATION_NODE_VIEWS[kind], null)
 
   const missing = { ...DEFAULT_ANIMATION_NODE_VIEWS }

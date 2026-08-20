@@ -25,6 +25,7 @@ export class WidgetInputAnimation extends HTMLElement {
 
     const input = document.createElement("input")
     input.type = "text"
+    input.size = 10
     input.value = JSON.stringify(this._value)
     input.placeholder = '{"url":"file.aseprite","layer":"*","tag":"Run"}'
     input.setAttribute("autocomplete", "off")

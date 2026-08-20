@@ -120,7 +120,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"CYBERPUNK/missions/m01.ng.json\" />"
+          "layout": "<view-animation-tree data-source=\"DELETE.anim.json\" />"
         }
       }
     },
@@ -146,12 +146,6 @@
           "dnd": ["status:*"]
         }
       },
-      "view-animation": {
-        "url": "views/view-animation.js",
-        "label": "Animation",
-        "group": "Animation",
-        "internal": true
-      },
       "view-animation-tree": {
         "url": "views/view-animation-tree.js",
         "label": "Animation Tree",
@@ -162,7 +156,7 @@
             "animation": "<widget-input-animation></widget-input-animation>"
           },
           "nodeViews": {
-            "animation": "view-animation",
+            "animation": null,
             "one-shot": null,
             "blend2": null,
             "time-seek": null,

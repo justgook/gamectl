@@ -8,8 +8,10 @@ const selectorSource = await readFile(new URL("../views/view-animation-selector.
 const demoConfig = JSON.parse(await readFile(new URL("../examples/demo/gams.json", import.meta.url), "utf8"))
 
 test("animation tree inspector inputs are configured by predefined target path", () => {
-  const inputs = demoConfig.ui.views["view-animation-tree"].config.inputs
-  assert.equal(inputs.animation, "<widget-input-animation></widget-input-animation>")
+  const treeConfig = demoConfig.ui.views["view-animation-tree"].config
+  assert.equal(treeConfig.inputs.animation, "<widget-input-animation></widget-input-animation>")
+  assert.equal(treeConfig.nodeViews.animation, null)
+  assert.equal("view-animation" in demoConfig.ui.views, false)
   assert.match(treeSource, /const INSPECTOR_INPUT_TARGETS = new Set/)
   assert.match(treeSource, /INSPECTOR_INPUT_TARGETS\.has\(target\)/)
   assert.match(treeSource, /await import\(new URL\(`\/widgets\/inputs\/\$\{moduleName\}\.js`/)
@@ -17,9 +19,18 @@ test("animation tree inspector inputs are configured by predefined target path",
   assert.match(treeSource, /const animationInspector = this\.blendNodeInspector\(node\.animationNode\)/)
 })
 
+test("Animation Node edit opens the selector without navigating away from its graph", () => {
+  assert.match(treeSource, /async editAnimationSelector\(node\)/)
+  assert.match(treeSource, /tag: "view-animation-selector"/)
+  assert.match(treeSource, /node\.animation = structuredClone\(payload\.value\)/)
+  assert.match(treeSource, /recordEdit\("edit animation", before\)/)
+  assert.match(treeSource, /if \(node\.kind === ANIMATION_NODE_KINDS\.ANIMATION\)[\s\S]*?return this\.editAnimationSelector\(animationNode\)/)
+})
+
 test("animation input widget publishes structured Aseprite selectors", () => {
   assert.match(widgetSource, /validateAnimationSelector\(value/)
   assert.match(widgetSource, /input\.type = "text"/)
+  assert.match(widgetSource, /input\.size = 10/)
   assert.match(widgetSource, /input\.value = JSON\.stringify\(this\._value\)/)
   assert.match(widgetSource, /icon\.textContent = "edit"/)
   assert.match(widgetSource, /group\.setAttribute\("role", "buttongroup"\)/)
