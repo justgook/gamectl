@@ -32,7 +32,7 @@ test("editing with no selection renames the active child-graph owner", () => {
 
 test("boundary node types follow the active child-graph owner", () => {
   assert.match(nodeEditorSource, /childGraphOwnerKind[\s\S]*?<option value="for-each"/)
-  assert.match(nodeEditorSource, /<option value="for-each-input"[\s\S]*?<option value="iteration-control"/)
+  assert.match(nodeEditorSource, /<option value="for-each-input"[\s\S]*?<option value="for-each-shared-input"[\s\S]*?<option value="iteration-control"/)
   assert.match(source, /childGraphOwnerKind: this\.activeGroupPath\.length \? this\.activeGroupNode\(\)\.kind : 0/)
 })
 

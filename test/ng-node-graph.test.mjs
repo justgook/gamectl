@@ -308,6 +308,24 @@ test("For Each boundaries derive array inputs and collected outputs", () => {
   assert.deepEqual(graph[1].outputs, [{ id: 22, name: "result", value: null }])
 })
 
+test("For Each Shared Inputs derive parent value ports without affecting array inputs", () => {
+  const graph = forEachGraph()
+  graph[1].childGraph.push({
+    id: 24, kind: NG_NODE_KINDS.FOR_EACH_SHARED_INPUT, x: 0, y: 150, name: "configuration",
+    inputs: [], outputs: [{ id: 1, name: "Value", value: null }],
+  })
+  graph[1].inputs.push({ id: 24, name: "configuration", srcNodeId: 1, srcOutputId: 1 })
+  syncNgForEachBoundary(graph[1])
+  assert.deepEqual(graph[1].inputs, [
+    { id: 20, name: "items", srcNodeId: 1, srcOutputId: 1 },
+    { id: 24, name: "configuration", srcNodeId: 1, srcOutputId: 1 },
+  ])
+  assert.doesNotThrow(() => cloneNgGraph(graph))
+
+  graph[1].childGraph.at(-1).outputs[0].name = "Item"
+  assert.throws(() => cloneNgGraph(graph), /Shared Input 24 output must be Value/)
+})
+
 test("For Each remains structured while nested Groups flatten", () => {
   const graph = forEachGraph()
   const flat = flattenNgGraph(graph)

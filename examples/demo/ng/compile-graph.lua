@@ -30,6 +30,7 @@ local NG = {
 	NODE_FOR_EACH = 7,
 	NODE_FOR_EACH_INPUT = 8,
 	NODE_ITERATION_CONTROL = 9,
+	NODE_FOR_EACH_SHARED_INPUT = 10,
 }
 
 function main()
@@ -174,6 +175,8 @@ local function validateLevel(level, ownerKind)
 		elseif node.kind == NG.NODE_FOR_EACH_INPUT then
 			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be inside For Each") end
 			forEachInputCount = forEachInputCount + 1
+		elseif node.kind == NG.NODE_FOR_EACH_SHARED_INPUT then
+			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " must be inside For Each") end
 		elseif node.kind == NG.NODE_GRAPH_OUTPUT then
 			if ownerKind ~= NG.NODE_FOR_EACH then error(nodeLabel(node) .. " Graph Output must be inside For Each") end
 		elseif node.kind == NG.NODE_ITERATION_CONTROL then
@@ -719,10 +722,12 @@ local function emitForEachNode(node)
 	local child = node.childGraph
 	local bodyOrder = orderForEachBody(child)
 	local boundaries = {}
+	local sharedInputs = {}
 	local collectors = {}
 	local control = nil
 	for _, childNode in ipairs(child) do
 		if childNode.kind == NG.NODE_FOR_EACH_INPUT then boundaries[#boundaries + 1] = childNode end
+		if childNode.kind == NG.NODE_FOR_EACH_SHARED_INPUT then sharedInputs[#sharedInputs + 1] = childNode end
 		if childNode.kind == NG.NODE_GRAPH_OUTPUT then collectors[#collectors + 1] = childNode end
 		if childNode.kind == NG.NODE_ITERATION_CONTROL then control = childNode end
 	end
@@ -767,6 +772,19 @@ local function emitForEachNode(node)
 		emit(("  error(__ng_each_length_error_%d)"):format(node.id))
 		emit("end")
 	end
+	for _, sharedInput in ipairs(sharedInputs) do
+		local parentInput = nil
+		for _, inputPort in ipairs(getInputs(node)) do if inputPort.id == sharedInput.id then parentInput = inputPort end end
+		if not parentInput then error(nodeLabel(node) .. " missing input for Shared Input " .. tostring(sharedInput.id)) end
+		local sourceActive = luaActiveVar(parentInput.srcNodeId, parentInput.srcOutputId)
+		local sourceValue = luaVar(parentInput.srcNodeId, parentInput.srcOutputId)
+		emit(("if not %s then"):format(sourceActive))
+		emit(("  __ng_node_error(%d, %s)"):format(node.id, luaString(portLabel(node, parentInput, "input") .. " must be active")))
+		emit(("  error(%s)"):format(luaString(portLabel(node, parentInput, "input") .. " must be active")))
+		emit("end")
+		emit(("%s = %s"):format(luaVar(sharedInput.id, 1), sourceValue))
+		emit(("%s = true"):format(luaActiveVar(sharedInput.id, 1)))
+	end
 	for _, outputPort in ipairs(getOutputs(node)) do
 		emit(("%s = json.array()"):format(luaVar(node.id, outputPort.id)))
 		emit(("%s = false"):format(luaActiveVar(node.id, outputPort.id)))
@@ -781,7 +799,7 @@ local function emitForEachNode(node)
 		emit(("  %s = true"):format(luaActiveVar(boundary.id, 3)))
 	end
 	for _, childNode in ipairs(bodyOrder) do
-		if childNode.kind ~= NG.NODE_FOR_EACH_INPUT and childNode.kind ~= NG.NODE_GRAPH_OUTPUT and childNode.kind ~= NG.NODE_ITERATION_CONTROL then emitNode(childNode) end
+		if childNode.kind ~= NG.NODE_FOR_EACH_INPUT and childNode.kind ~= NG.NODE_FOR_EACH_SHARED_INPUT and childNode.kind ~= NG.NODE_GRAPH_OUTPUT and childNode.kind ~= NG.NODE_ITERATION_CONTROL then emitNode(childNode) end
 	end
 	local skipVariable = "__ng_each_skip_" .. tostring(node.id)
 	local breakVariable = "__ng_each_break_" .. tostring(node.id)
@@ -823,7 +841,7 @@ emitNode = function(node)
 		emitForEachNode(node)
 	elseif node.kind == NG.NODE_GOAL then
 		-- Goal nodes are emitted in the final output block.
-	elseif node.kind == NG.NODE_FOR_EACH_INPUT or node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL then
+	elseif node.kind == NG.NODE_FOR_EACH_INPUT or node.kind == NG.NODE_FOR_EACH_SHARED_INPUT or node.kind == NG.NODE_GRAPH_OUTPUT or node.kind == NG.NODE_ITERATION_CONTROL then
 		-- For Each boundaries are emitted by their owning For Each Node.
 	elseif node.kind == NG.NODE_GROUP or node.kind == NG.NODE_GRAPH_INPUT then
 		error("Group Nodes must be flattened before compilation: " .. tostring(node.id))

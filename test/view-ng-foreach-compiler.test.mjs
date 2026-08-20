@@ -4,6 +4,6 @@ import test from "node:test"
 
 const result = spawnSync("lua", ["test/fixtures/view-ng-foreach-compiler.lua"], { encoding: "utf8" })
 
-test("view-ng compiler executes equal-length For Each inputs and rejects unequal lengths", () => {
+test("view-ng compiler executes Shared Inputs and strict zipped For Each arrays", () => {
   assert.equal(result.status, 0, `${result.stdout}${result.stderr}`)
 })

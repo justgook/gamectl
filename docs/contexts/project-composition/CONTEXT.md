@@ -64,6 +64,10 @@ _Avoid_: Map Node, because For Each execution does not guarantee one output for 
 A For Each child-graph boundary node representing one parent array input. It exposes fixed Item, Index, and Array outputs for the current item, its one-based index, and the complete original array.
 _Avoid_: Graph Input, which exposes one parent value inside a Group Node rather than iteration context.
 
+**Shared Input**:
+A For Each child-graph boundary node representing one parent value that remains unchanged across all iterations. It exposes one fixed Value output and does not participate in determining iteration count.
+_Avoid_: Singleton, which describes plugin lifecycle in GAMS; For Each Input, which requires an array and exposes per-iteration Item, Index, and Array outputs.
+
 **Iteration Control**:
 An optional For Each child-graph boundary node with global skip and break inputs. Skip omits the current iteration from every collected output; break omits the current iteration and stops the sequence.
 _Avoid_: Graph Output, because Iteration Control governs execution rather than exposing collected data to the parent Node Graph.
@@ -131,7 +135,8 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - For Each iterations execute sequentially in input order. Collected outputs preserve retained iteration order, and each iteration's side effects complete before the next begins. Any child-node failure aborts the graph run without returning partial outputs.
 - A **For Each Node** may reduce output cardinality through global skip or break behavior and therefore is not a Map Node. Skip omits the entire current iteration from every collected output; break stops the entire iteration sequence.
 - Each **For Each Input** becomes one required array input port on its owning **For Each Node**. Its fixed Item, Index, and Array outputs cannot be added, removed, or renamed; renaming the boundary node renames the parent input.
-- For Each inputs must be connected, active dense arrays of equal length at execution time. Scalars, objects, sparse arrays, nil values, inactive inputs, and unequal input lengths fail execution. Empty arrays are valid; when every input is empty, the body executes zero times and each collected output is an empty array.
+- Each **Shared Input** becomes one required value input port on its owning **For Each Node**. Its fixed Value output cannot be added, removed, or renamed; renaming the boundary node renames the parent input. The connected value must be active and is exposed unchanged in every iteration.
+- For Each Inputs must be connected, active dense arrays of equal length at execution time. Scalars, objects, sparse arrays, nil values, inactive inputs, and unequal input lengths fail execution. Shared Inputs are excluded from this array and equal-length validation. Empty arrays are valid; when every For Each Input is empty, the body executes zero times and each collected output is an empty array.
 - **Graph Outputs** inside a For Each child graph collect iteration values into array outputs on the owning For Each Node. Every retained iteration must produce one active, non-nil value for every Graph Output; otherwise execution fails.
 - A multi-input **For Each Node** behaves like a strict zip over its input arrays. Current indexes are one-based, and every For Each Input exposes an active Item and Index on every iteration.
 - A For Each child graph may contain zero Graph Outputs for side-effect-only execution. A zero-output For Each Node is a graph run target, like a zero-output Code Node.

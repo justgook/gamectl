@@ -12,6 +12,7 @@ function kindFromString(value, fallback) {
   if (value === "output") return NG_NODE_KINDS.GRAPH_OUTPUT
   if (value === "for-each") return NG_NODE_KINDS.FOR_EACH
   if (value === "for-each-input") return NG_NODE_KINDS.FOR_EACH_INPUT
+  if (value === "for-each-shared-input" || value === "shared-input") return NG_NODE_KINDS.FOR_EACH_SHARED_INPUT
   if (value === "iteration-control") return NG_NODE_KINDS.ITERATION_CONTROL
   if (value === "code") return NG_NODE_KINDS.CODE
   return fallback

@@ -12,6 +12,7 @@ const NG = {
     NODE_FOR_EACH: 7,
     NODE_FOR_EACH_INPUT: 8,
     NODE_ITERATION_CONTROL: 9,
+    NODE_FOR_EACH_SHARED_INPUT: 10,
 }
 
 function assert(condition, message) {
@@ -44,6 +45,7 @@ function kindToFormValue(kind) {
     if (kind === NG.NODE_GRAPH_OUTPUT) return "output"
     if (kind === NG.NODE_FOR_EACH) return "for-each"
     if (kind === NG.NODE_FOR_EACH_INPUT) return "for-each-input"
+    if (kind === NG.NODE_FOR_EACH_SHARED_INPUT) return "for-each-shared-input"
     if (kind === NG.NODE_ITERATION_CONTROL) return "iteration-control"
     return "code"
 }
@@ -56,6 +58,7 @@ function kindFromFormValue(value, fallback = NG.NODE_CODE) {
     if (value === "output") return NG.NODE_GRAPH_OUTPUT
     if (value === "for-each") return NG.NODE_FOR_EACH
     if (value === "for-each-input") return NG.NODE_FOR_EACH_INPUT
+    if (value === "for-each-shared-input") return NG.NODE_FOR_EACH_SHARED_INPUT
     if (value === "iteration-control") return NG.NODE_ITERATION_CONTROL
     if (value === "code") return NG.NODE_CODE
     return fallback
@@ -199,7 +202,7 @@ export class ViewNgNode extends HTMLElement {
                 const ownerKind = Number(this.popupProps.childGraphOwnerKind || 0)
                 if (kind === NG.NODE_GRAPH_INPUT && ownerKind !== NG.NODE_GROUP) return null
                 if (kind === NG.NODE_GRAPH_OUTPUT && ![NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(ownerKind)) return null
-                if ([NG.NODE_FOR_EACH_INPUT, NG.NODE_ITERATION_CONTROL].includes(kind) && ownerKind !== NG.NODE_FOR_EACH) return null
+                if ([NG.NODE_FOR_EACH_INPUT, NG.NODE_FOR_EACH_SHARED_INPUT, NG.NODE_ITERATION_CONTROL].includes(kind) && ownerKind !== NG.NODE_FOR_EACH) return null
                 if (kind === NG.NODE_GOAL && this.popupProps.insideForEach) return null
                 const group = String(entry?.group || "Presets").trim() || "Presets"
                 return {
@@ -227,6 +230,11 @@ export class ViewNgNode extends HTMLElement {
         if (this.draft.kind === NG.NODE_FOR_EACH_INPUT) {
             this.draft.inputs = []
             this.draft.outputs = ["Item", "Index", "Array"].map((name, index) => ({ outputId: index + 1, name, value: "" }))
+            return
+        }
+        if (this.draft.kind === NG.NODE_FOR_EACH_SHARED_INPUT) {
+            this.draft.inputs = []
+            this.draft.outputs = [{ outputId: 1, name: "Value", value: "" }]
             return
         }
         if (this.draft.kind === NG.NODE_ITERATION_CONTROL) {
@@ -304,7 +312,7 @@ export class ViewNgNode extends HTMLElement {
         <option value="for-each" ${selected === "for-each" ? "selected" : ""}>for each</option>
         ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_GROUP ? `<option value="input" ${selected === "input" ? "selected" : ""}>input</option>` : ""}
         ${[NG.NODE_GROUP, NG.NODE_FOR_EACH].includes(Number(this.popupProps.childGraphOwnerKind || 0)) ? `<option value="output" ${selected === "output" ? "selected" : ""}>output</option>` : ""}
-        ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_FOR_EACH ? `<option value="for-each-input" ${selected === "for-each-input" ? "selected" : ""}>input</option><option value="iteration-control" ${selected === "iteration-control" ? "selected" : ""}>iteration control</option>` : ""}
+        ${Number(this.popupProps.childGraphOwnerKind || 0) === NG.NODE_FOR_EACH ? `<option value="for-each-input" ${selected === "for-each-input" ? "selected" : ""}>input</option><option value="for-each-shared-input" ${selected === "for-each-shared-input" ? "selected" : ""}>shared input</option><option value="iteration-control" ${selected === "iteration-control" ? "selected" : ""}>iteration control</option>` : ""}
       </optgroup>
       ${templateOptions}
     `

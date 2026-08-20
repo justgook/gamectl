@@ -421,8 +421,8 @@
   {
     "id": 84,
     "kind": 7,
-    "x": 1454,
-    "y": 198,
+    "x": 1471,
+    "y": 390,
     "name": "SET FRAME META",
     "inputs": [
       {
@@ -430,6 +430,18 @@
         "name": "items",
         "srcNodeId": 65,
         "srcOutputId": 1
+      },
+      {
+        "id": 142,
+        "name": "frame duration",
+        "srcNodeId": 145,
+        "srcOutputId": 1
+      },
+      {
+        "id": 143,
+        "name": "frame offset",
+        "srcNodeId": 145,
+        "srcOutputId": 2
       }
     ],
     "outputs": [
@@ -443,8 +455,8 @@
       {
         "id": 85,
         "kind": 8,
-        "x": -299,
-        "y": 150,
+        "x": -302,
+        "y": 384,
         "name": "items",
         "inputs": [],
         "outputs": [
@@ -490,11 +502,6 @@
         "inputs": [],
         "outputs": [
           {
-            "id": 1,
-            "name": "",
-            "value": "{\"duration\":32, \"offset\":[0,64]}"
-          },
-          {
             "id": 2,
             "name": "",
             "value": "[\"duration\", \"offset\"]"
@@ -524,7 +531,7 @@
           {
             "id": 3,
             "name": "src",
-            "srcNodeId": 87,
+            "srcNodeId": 144,
             "srcOutputId": 1
           },
           {
@@ -538,6 +545,65 @@
           {
             "id": 1,
             "name": "target",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 142,
+        "kind": 10,
+        "x": -338,
+        "y": 164,
+        "name": "frame duration",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Value",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 143,
+        "kind": 10,
+        "x": -335,
+        "y": 264,
+        "name": "frame offset",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "Value",
+            "value": null
+          }
+        ]
+      },
+      {
+        "id": 144,
+        "kind": 2,
+        "x": -99,
+        "y": 209,
+        "name": "toObject",
+        "codePath": "ng/presets/to-object.lua",
+        "inputs": [
+          {
+            "id": 1,
+            "name": "duration",
+            "srcNodeId": 142,
+            "srcOutputId": 1
+          },
+          {
+            "id": 2,
+            "name": "offset",
+            "srcNodeId": 143,
+            "srcOutputId": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 1,
+            "name": "object",
             "value": null
           }
         ]
@@ -1621,5 +1687,25 @@
       "mode": "linked",
       "path": "CYBERPUNK/anim/anim_def.g.ng.json"
     }
+  },
+  {
+    "id": 145,
+    "kind": 4,
+    "x": 1179,
+    "y": 434,
+    "name": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "32"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "[0,64]"
+      }
+    ]
   }
 ]
