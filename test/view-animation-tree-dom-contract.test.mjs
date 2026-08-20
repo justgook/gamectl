@@ -45,6 +45,29 @@ test("clear selection only navigates to the parent animation node when nothing i
   )
 })
 
+test("Animation Tree persistence actions are enabled and bound", () => {
+  for (const action of ["new", "open", "save", "save-as"]) {
+    assert.match(source, new RegExp(`data-action="${action}"(?![^>]* disabled)[^>]*>`))
+  }
+  assert.match(source, /data-action="reload"[^>]* disabled/)
+  for (const method of ["new", "open", "save", "saveAs", "reload"]) {
+    assert.match(source, new RegExp(`async ${method}\\(\\)`))
+  }
+  assert.match(source, /static get observedAttributes\(\) \{\s*return \["data-source"\]/)
+})
+
+test("restored data-source is adopted once after connection setup", () => {
+  assert.match(source, /attributeChangedCallback\(name, oldValue, newValue\) \{[\s\S]*?this\.animationTreePath = path[\s\S]*?if \(path && !this\._connecting\) void this\.loadDataSource\(path\)/)
+  assert.match(source, /connectedCallback\(\) \{[\s\S]*?this\._connecting = true[\s\S]*?super\.connectedCallback\(\)\s*this\._connecting = false[\s\S]*?if \(this\.animationTreePath\) void this\.loadDataSource\(this\.animationTreePath\)/)
+})
+
+test("Animation Tree persistence uses direct JSON and transactional loads", () => {
+  assert.match(source, /JSON\.stringify\(this\.animationTree, null, 2\)/)
+  assert.match(source, /document = JSON\.parse\(source\)\s*validateAnimationTreeDocument\(document\)[\s\S]*?this\.replaceAnimationTree\(document\)/)
+  assert.match(source, /if \(!this\.animationTreePath\) return this\.saveAs\(\)/)
+  assert.match(source, /props: \{ mode: "saver", filter: "", defaultName: `\$\{this\.animationTree\.name\}\.anim\.json` \}/)
+})
+
 test("active animation node changes refresh header breadcrumbs", () => {
   for (const method of ["navigateToAnimationNode\\(nodeId\\)", "restoreSnapshot\\(snapshot\\)"]) {
     assert.match(

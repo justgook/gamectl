@@ -9,10 +9,21 @@ import {
   animationParameterReferenceCounts,
   createAnimationNode,
   createAnimationTreeDocument,
+  createEmptyAnimationTreeDocument,
   createDemoAnimationTreeDocument,
   validateAnimationNodeViews,
   validateAnimationSelector,
 } from "../packages/util/animation-tree.js"
+
+test("new Animation Trees contain an empty State Machine root", () => {
+  const document = createEmptyAnimationTreeDocument()
+  assert.equal(document.name, "Animation Tree")
+  assert.equal(document.root.kind, ANIMATION_NODE_KINDS.STATE_MACHINE)
+  assert.deepEqual(document.parameters, [])
+  assert.deepEqual(document.root.graph.states, [])
+  assert.deepEqual(document.root.graph.transitions, [])
+  assert.deepEqual(createAnimationTreeDocument(document), document)
+})
 
 test("animation tree embeds child animation nodes with document-wide identities", () => {
   const document = createDemoAnimationTreeDocument()

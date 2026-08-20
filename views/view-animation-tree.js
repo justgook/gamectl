@@ -7,7 +7,7 @@ import {
     cloneAnimationNodeWithNewIds,
     createAnimationNode,
     createAnimationParameter,
-    createDemoAnimationTreeDocument,
+    createEmptyAnimationTreeDocument,
     isInt32,
     validateAnimationNodeViews,
     validateAnimationTreeDocument,
@@ -179,19 +179,26 @@ function projectBlendTreeGraph(node) {
 }
 
 export class ViewAnimationTree extends ViewCanvasBase {
+    static get observedAttributes() {
+        return ["data-source"]
+    }
+
     constructor() {
         super()
         this.renderer = null
         this.nodeGraphRenderer = null
         this.history = new UndoHistory()
-        this.animationTree = createDemoAnimationTreeDocument()
+        this.animationTree = createEmptyAnimationTreeDocument()
+        this.animationTreePath = String(this.getAttribute("data-source") || "").trim()
+        this._suppressDataSourceReload = false
+        this._connecting = false
         this.activeNodePath = [this.animationTree.root.id]
         this.activeNode = this.animationTree.root
         this.graphModel = null
         this.graph = null
         this.loadActiveGraph()
-        this.selectedNodeIds = new Set(["idle"])
-        this.selectedNodeId = "idle"
+        this.selectedNodeIds = new Set()
+        this.selectedNodeId = null
         this.selectedEdgeId = null
         this.hoveredNodeId = null
         this.hoveredTransitionNodeId = null
@@ -216,8 +223,19 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.invalidEditorInput = null
     }
 
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue === newValue || name !== "data-source") return
+        if (this._suppressDataSourceReload) return
+        const path = String(newValue || "").trim()
+        this.animationTreePath = path
+        if (!this.dataset.ready) return
+        this.syncFileControls()
+        if (path && !this._connecting) void this.loadDataSource(path)
+    }
+
     connectedCallback() {
         if (this.dataset.ready) return
+        this._connecting = true
         this.dataset.ready = "1"
         assert(this.viewConfig && typeof this.viewConfig === "object", "view-animation-tree viewConfig is required")
         assert(this.viewConfig.config && typeof this.viewConfig.config === "object", "view-animation-tree viewConfig.config is required")
@@ -242,6 +260,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         assert(this.statusOutput instanceof HTMLOutputElement, "view-animation-tree missing status output")
 
         super.connectedCallback()
+        this._connecting = false
         this.canvas.style.backgroundColor = canvasBackgroundColor(this.viewConfig.config.background)
         this.canvas.addEventListener("contextmenu", this._onContextMenu)
         this.setData(this.graph)
@@ -251,6 +270,9 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.syncActiveEditorControls()
         void this.loadInspectorInputTemplates(inspectorInputTemplates)
         void this.activateNodeView()
+        this.syncFileControls()
+        if (this.animationTreePath) void this.loadDataSource(this.animationTreePath)
+        else this.setStatus("New unsaved Animation Tree", "info")
     }
 
     disconnectedCallback() {
@@ -320,6 +342,144 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.renderInspector()
         this.recordEdit("edit Animation Parameters", before)
         this.setStatus("Updated Animation Parameters", "success")
+        return true
+    }
+
+    syncFileControls() {
+        const reload = this.queryHeaderControl('[data-action="reload"]')
+        if (reload instanceof HTMLButtonElement) reload.disabled = this.animationTreePath.length === 0
+    }
+
+    setAnimationTreePath(path) {
+        assert(typeof path === "string", "view-animation-tree source path must be a string")
+        this.animationTreePath = path.trim()
+        this._suppressDataSourceReload = true
+        if (this.animationTreePath) this.setAttribute("data-source", this.animationTreePath)
+        else this.removeAttribute("data-source")
+        this._suppressDataSourceReload = false
+        this.syncFileControls()
+    }
+
+    resetHistory() {
+        this.history.dispose()
+        this.history = new UndoHistory()
+        this.syncHistoryControls()
+    }
+
+    replaceAnimationTree(document, { autoFit = true } = {}) {
+        validateAnimationTreeDocument(document)
+        this.unmountNodeView()
+        this.animationTree = structuredClone(document)
+        this.activeNodePath = [this.animationTree.root.id]
+        this.activeNode = this.animationTree.root
+        this.loadActiveGraph()
+        this.selectedNodeIds = new Set()
+        this.selectedNodeId = null
+        this.selectedEdgeId = null
+        this.hoveredNodeId = null
+        this.hoveredTransitionNodeId = null
+        this.hoveredPort = null
+        this.nodeConnectionDrag = null
+        this.draggedNodeId = null
+        this.dragNodeStarts = null
+        this.selectionDrag = null
+        this.connectionSourceNodeId = null
+        this.invalidEditorInput = null
+        this.resetHistory()
+        const breadcrumbs = this.queryHeaderControl('[data-element="breadcrumbs"]')
+        assert(breadcrumbs instanceof HTMLElement && breadcrumbs.localName === "widget-breadcrumbs", "view-animation-tree missing breadcrumbs control")
+        breadcrumbs.items = this.breadcrumbItems()
+        this.syncActiveEditorControls()
+        this.setData(this.graph, { autoFit })
+        this.renderInspector()
+        this.syncTransitionModeControl()
+        void this.activateNodeView()
+    }
+
+    async reportPersistenceError(error) {
+        const message = error instanceof Error ? error.message : String(error)
+        this.setStatus(message, "danger")
+        await runtime.call("ui.toast.error", { message })
+    }
+
+    async new() {
+        if (!this.requireValidEditorDraft()) return false
+        this.replaceAnimationTree(createEmptyAnimationTreeDocument())
+        this.setAnimationTreePath("")
+        this.setStatus("Created new unsaved Animation Tree", "success")
+        return true
+    }
+
+    async open() {
+        if (!this.requireValidEditorDraft()) return false
+        const payload = unwrap(await runtime.call("ui.popup.open", {
+            title: "Open Animation Tree",
+            size: "medium",
+            tag: "view-files",
+            props: { mode: "chooser", filter: "" },
+        }), "ui.popup.open Animation Tree")
+        if (!payload || payload.cancelled) return false
+        const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+        assert(selection && typeof selection.path === "string" && selection.path.length > 0, "view-animation-tree open requires selected path")
+        return this.loadDataSource(selection.path)
+    }
+
+    async save() {
+        if (!this.requireValidEditorDraft()) return false
+        if (!this.animationTreePath) return this.saveAs()
+        return this.saveToPath(this.animationTreePath)
+    }
+
+    async saveAs() {
+        if (!this.requireValidEditorDraft()) return false
+        const payload = unwrap(await runtime.call("ui.popup.open", {
+            title: "Save Animation Tree As",
+            size: "medium",
+            tag: "view-files",
+            props: { mode: "saver", filter: "", defaultName: `${this.animationTree.name}.anim.json` },
+        }), "ui.popup.open Animation Tree save as")
+        if (!payload || payload.cancelled) return false
+        assert(typeof payload.path === "string" && payload.path.length > 0, "view-animation-tree save-as requires selected path")
+        return this.saveToPath(payload.path)
+    }
+
+    async saveToPath(path) {
+        assert(typeof path === "string" && path.length > 0, "view-animation-tree save requires path")
+        this.syncActiveGraph()
+        validateAnimationTreeDocument(this.animationTree)
+        try {
+            unwrap(await runtime.invoke("fs/fs::write-text", path, `${JSON.stringify(this.animationTree, null, 2)}\n`), path)
+        } catch (error) {
+            await this.reportPersistenceError(error)
+            return false
+        }
+        this.setAnimationTreePath(path)
+        this.setStatus(`Saved Animation Tree to ${path}`, "success")
+        await runtime.call("ui.toast.success", { message: `Saved Animation Tree to ${path}` })
+        return true
+    }
+
+    async reload() {
+        if (!this.requireValidEditorDraft()) return false
+        assert(this.animationTreePath.length > 0, "view-animation-tree reload requires current source path")
+        return this.loadDataSource(this.animationTreePath, { verb: "Reloaded" })
+    }
+
+    async loadDataSource(path, { verb = "Opened" } = {}) {
+        assert(typeof path === "string" && path.length > 0, "view-animation-tree load requires path")
+        let document
+        try {
+            const source = unwrap(await runtime.invoke("fs/fs::read-text", path), path)
+            document = JSON.parse(source)
+            validateAnimationTreeDocument(document)
+        } catch (error) {
+            await this.reportPersistenceError(error)
+            return false
+        }
+        this.replaceAnimationTree(document)
+        this.setAnimationTreePath(path)
+        this.setStatus(`${verb} Animation Tree ${path}`, "success")
+        await runtime.call("ui.toast.success", { message: `${verb} Animation Tree ${path}` })
         return true
     }
 
@@ -596,11 +756,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
         controls.innerHTML = `
       <widget-breadcrumbs data-element="breadcrumbs"></widget-breadcrumbs>
       <div role="buttongroup" data-element="file-actions">
-        <button type="button" data-action="new" aria-label="New graph" title="New graph" disabled><i aria-hidden="true">docs</i></button>
-        <button type="button" data-action="open" aria-label="Open graph" title="Open graph" disabled><i aria-hidden="true">folder_open</i></button>
-        <button type="button" data-action="save" aria-label="Save graph" title="Save graph" disabled><i aria-hidden="true">save</i></button>
-        <button type="button" data-action="save-as" aria-label="Save graph as" title="Save graph as" disabled><i aria-hidden="true">save_as</i></button>
-        <button type="button" data-action="reload" aria-label="Reload graph" title="Reload graph" disabled><i aria-hidden="true">refresh</i></button>
+        <button type="button" data-action="new" aria-label="New Animation Tree" title="New Animation Tree"><i aria-hidden="true">docs</i></button>
+        <button type="button" data-action="open" aria-label="Open Animation Tree" title="Open Animation Tree"><i aria-hidden="true">folder_open</i></button>
+        <button type="button" data-action="save" class="accent" aria-label="Save Animation Tree" title="Save Animation Tree"><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as" aria-label="Save Animation Tree as" title="Save Animation Tree as"><i aria-hidden="true">save_as</i></button>
+        <button type="button" data-action="reload" aria-label="Reload Animation Tree" title="Reload Animation Tree" disabled><i aria-hidden="true">refresh</i></button>
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="transition-mode" aria-label="New transition type: Immediate" title="New transition type: Immediate"><i aria-hidden="true">play_arrow</i></button>
@@ -627,6 +787,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
     `
 
         const actions = {
+            new: controls.querySelector('[data-action="new"]'),
+            open: controls.querySelector('[data-action="open"]'),
+            save: controls.querySelector('[data-action="save"]'),
+            saveAs: controls.querySelector('[data-action="save-as"]'),
+            reload: controls.querySelector('[data-action="reload"]'),
             transitionMode: controls.querySelector('[data-action="transition-mode"]'),
             editNode: controls.querySelector('[data-action="edit-node"]'),
             addState: controls.querySelector('[data-action="add-state"]'),
@@ -647,6 +812,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
         breadcrumbs.addEventListener("navigate", (event) => this.navigateToAnimationNode(event.detail.id))
 
         for (const [name, button] of Object.entries(actions)) assert(button instanceof HTMLButtonElement, `view-animation-tree missing ${name} control`)
+        actions.new.addEventListener("click", () => void this.new())
+        actions.open.addEventListener("click", () => void this.open())
+        actions.save.addEventListener("click", () => void this.save())
+        actions.saveAs.addEventListener("click", () => void this.saveAs())
+        actions.reload.addEventListener("click", () => void this.reload())
         actions.transitionMode.addEventListener("click", () => this.cycleTransitionMode())
         actions.editNode.addEventListener("click", () => this.edit())
         actions.addState.addEventListener("click", () => this.showNodeMenuForButton(actions.addState))

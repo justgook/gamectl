@@ -216,6 +216,11 @@ export function cloneAnimationNodeWithNewIds(source) {
   return cloneNode(source)
 }
 
+export function createEmptyAnimationTreeDocument() {
+  const root = createAnimationNode(ANIMATION_NODE_KINDS.STATE_MACHINE, { name: "Animation Tree" })
+  return createAnimationTreeDocument({ name: "Animation Tree", parameters: [], root })
+}
+
 export function createAnimationTreeDocument({ id = createId(), name = "Animation Tree", parameters = [], root }) {
   assert(typeof id === "string" && id.length > 0, "animation tree id must be a non-empty string")
   assert(typeof name === "string" && name.length > 0, "animation tree name must be a non-empty string")
