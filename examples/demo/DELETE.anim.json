@@ -1,7 +1,33 @@
 {
   "id": "04879799-9720-4a53-a9b5-88803bb8d244",
   "name": "Animation Tree",
-  "parameters": [],
+  "parameters": [
+    {
+      "id": "8376f67c-9d79-4275-921b-6900ba715601",
+      "name": "is_running",
+      "defaultValue": 0
+    },
+    {
+      "id": "5c01da9b-1b4d-409a-ab67-ade58cc8ef0b",
+      "name": "jump",
+      "defaultValue": 0
+    },
+    {
+      "id": "6c7bddd3-afba-40ff-842b-d2adb16c5ec0",
+      "name": "is_rising",
+      "defaultValue": 0
+    },
+    {
+      "id": "a0bb6150-99c3-48ee-8992-6a9f03ca67d8",
+      "name": "is_falling",
+      "defaultValue": 0
+    },
+    {
+      "id": "158cb006-b493-41aa-8a37-a246d38fdc1f",
+      "name": "is_sliding",
+      "defaultValue": 0
+    }
+  ],
   "root": {
     "id": "1ed1be5a-7ab1-432a-ae0d-46b0d37150ba",
     "kind": "state-machine",
@@ -23,8 +49,8 @@
             "name": "Idle",
             "animation": {
               "url": "tmp/anim/c11.aseprite",
-              "layer": "normal",
-              "tag": "Idle"
+              "layer": "color",
+              "tag": "Jump"
             },
             "ports": [
               {
@@ -36,37 +62,433 @@
             ]
           },
           "position": {
-            "x": 385.0211161387632,
-            "y": 62.360482654600276
+            "x": 251.35605054575336,
+            "y": 160.83348133382637
+          }
+        },
+        {
+          "node": {
+            "id": "51405c10-a599-4efb-810c-f56536b7e334",
+            "kind": "animation",
+            "name": "Run",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Sprint"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 619.7295699035467,
+            "y": 172.01899972448925
+          }
+        },
+        {
+          "node": {
+            "id": "636479c6-f80e-42aa-b6e5-e269e61c0b67",
+            "kind": "animation",
+            "name": "Jump_Start",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Jump_Start"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 153.22683181622517,
+            "y": 370.72063567030733
+          }
+        },
+        {
+          "node": {
+            "id": "76fbd3b0-32ac-4170-98f7-174a260b5e82",
+            "kind": "animation",
+            "name": "LandActive",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Jump_Land"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 555.8056644212072,
+            "y": 412.6919438290842
+          }
+        },
+        {
+          "node": {
+            "id": "b64c7267-5039-418f-bdf3-141113187997",
+            "kind": "animation",
+            "name": "Jump",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Jump"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 372.3271281646029,
+            "y": 408.5511619264028
+          }
+        },
+        {
+          "node": {
+            "id": "b2ef0eca-2983-4af5-8925-d26208cf1da0",
+            "kind": "animation",
+            "name": "Slide",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Slide"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 397.72804599572225,
+            "y": -181.0346891544501
+          }
+        },
+        {
+          "node": {
+            "id": "6b2ec148-027c-40f8-b2c0-64e196f001d0",
+            "kind": "animation",
+            "name": "Slide_Start",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Slide_Start"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 202.28019512391063,
+            "y": -90.26816883177379
+          }
+        },
+        {
+          "node": {
+            "id": "5227c513-5451-45d2-90c0-15ebc1ae620c",
+            "kind": "animation",
+            "name": "SlideOutActive",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Slide_Exit"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 584.3851787686654,
+            "y": -100.98055410380447
+          }
+        },
+        {
+          "node": {
+            "id": "8e0a2501-460a-40d2-87d8-5da0ba0a57ff",
+            "kind": "animation",
+            "name": "LandRecover",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Jump_Land"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 609.4632711482417,
+            "y": 305.5555086102634
+          }
+        },
+        {
+          "node": {
+            "id": "9341a89a-2458-43a9-8149-89617ab9643d",
+            "kind": "animation",
+            "name": "SlideOutRecover",
+            "animation": {
+              "url": "tmp/anim/c11.aseprite",
+              "layer": "color",
+              "tag": "Slide_Exit"
+            },
+            "ports": [
+              {
+                "id": "animation",
+                "direction": "output",
+                "dataType": "animation",
+                "maxConnections": null
+              }
+            ]
+          },
+          "position": {
+            "x": 612.8382362056263,
+            "y": 16.415782278816884
           }
         }
       ],
       "transitions": [
         {
-          "id": 1,
-          "kind": "transition",
-          "from": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
-          "to": "end",
-          "switchMode": "immediate",
-          "conditions": []
-        },
-        {
           "id": 2,
           "kind": "entry",
           "from": "start",
           "to": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c"
+        },
+        {
+          "id": 5,
+          "kind": "transition",
+          "from": "636479c6-f80e-42aa-b6e5-e269e61c0b67",
+          "to": "b64c7267-5039-418f-bdf3-141113187997",
+          "switchMode": "at-end",
+          "conditions": []
+        },
+        {
+          "id": 6,
+          "kind": "transition",
+          "from": "b64c7267-5039-418f-bdf3-141113187997",
+          "to": "76fbd3b0-32ac-4170-98f7-174a260b5e82",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "5c01da9b-1b4d-409a-ab67-ade58cc8ef0b",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "kind": "transition",
+          "from": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "to": "51405c10-a599-4efb-810c-f56536b7e334",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "8376f67c-9d79-4275-921b-6900ba715601",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "kind": "transition",
+          "from": "51405c10-a599-4efb-810c-f56536b7e334",
+          "to": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "8376f67c-9d79-4275-921b-6900ba715601",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "kind": "transition",
+          "from": "6b2ec148-027c-40f8-b2c0-64e196f001d0",
+          "to": "b2ef0eca-2983-4af5-8925-d26208cf1da0",
+          "switchMode": "at-end",
+          "conditions": []
+        },
+        {
+          "id": 10,
+          "kind": "transition",
+          "from": "b2ef0eca-2983-4af5-8925-d26208cf1da0",
+          "to": "5227c513-5451-45d2-90c0-15ebc1ae620c",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "158cb006-b493-41aa-8a37-a246d38fdc1f",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "kind": "transition",
+          "from": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "to": "6b2ec148-027c-40f8-b2c0-64e196f001d0",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "158cb006-b493-41aa-8a37-a246d38fdc1f",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "kind": "transition",
+          "from": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "to": "636479c6-f80e-42aa-b6e5-e269e61c0b67",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "5c01da9b-1b4d-409a-ab67-ade58cc8ef0b",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 18,
+          "kind": "transition",
+          "from": "76fbd3b0-32ac-4170-98f7-174a260b5e82",
+          "to": "8e0a2501-460a-40d2-87d8-5da0ba0a57ff",
+          "switchMode": "at-end",
+          "conditions": []
+        },
+        {
+          "id": 19,
+          "kind": "transition",
+          "from": "8e0a2501-460a-40d2-87d8-5da0ba0a57ff",
+          "to": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "switchMode": "at-end",
+          "conditions": []
+        },
+        {
+          "id": 20,
+          "kind": "transition",
+          "from": "8e0a2501-460a-40d2-87d8-5da0ba0a57ff",
+          "to": "51405c10-a599-4efb-810c-f56536b7e334",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "8376f67c-9d79-4275-921b-6900ba715601",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "kind": "transition",
+          "from": "51405c10-a599-4efb-810c-f56536b7e334",
+          "to": "636479c6-f80e-42aa-b6e5-e269e61c0b67",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "5c01da9b-1b4d-409a-ab67-ade58cc8ef0b",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 22,
+          "kind": "transition",
+          "from": "51405c10-a599-4efb-810c-f56536b7e334",
+          "to": "6b2ec148-027c-40f8-b2c0-64e196f001d0",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "158cb006-b493-41aa-8a37-a246d38fdc1f",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "kind": "transition",
+          "from": "9341a89a-2458-43a9-8149-89617ab9643d",
+          "to": "51405c10-a599-4efb-810c-f56536b7e334",
+          "switchMode": "immediate",
+          "conditions": [
+            {
+              "parameterId": "8376f67c-9d79-4275-921b-6900ba715601",
+              "operator": "gt",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 24,
+          "kind": "transition",
+          "from": "5227c513-5451-45d2-90c0-15ebc1ae620c",
+          "to": "9341a89a-2458-43a9-8149-89617ab9643d",
+          "switchMode": "at-end",
+          "conditions": []
+        },
+        {
+          "id": 25,
+          "kind": "transition",
+          "from": "9341a89a-2458-43a9-8149-89617ab9643d",
+          "to": "96a4597b-9fdf-4cd7-aa5b-fe8aca2e548c",
+          "switchMode": "at-end",
+          "conditions": []
         }
       ],
       "start": {
         "position": {
-          "x": -120,
-          "y": 180
+          "x": 36.80834767898463,
+          "y": 172.7065884800472
         }
       },
       "end": {
         "position": {
-          "x": 840,
-          "y": 180
+          "x": 844.2366883011802,
+          "y": 164.88316448730825
         }
       }
     }

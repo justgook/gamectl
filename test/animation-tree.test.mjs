@@ -5,6 +5,7 @@ import {
   ANIMATION_NODE_KINDS,
   ANIMATION_CONDITION_OPERATORS,
   DEFAULT_ANIMATION_NODE_VIEWS,
+  animationNodeDisplayName,
   animationNodePath,
   animationParameterReferenceCounts,
   createAnimationNode,
@@ -36,6 +37,16 @@ test("animation nodes select an Aseprite source, layer, and tag", () => {
   assert.deepEqual(animation.animation, { url: "", layer: "*", tag: "*" })
   assert.equal(validateAnimationSelector(animation.animation), animation.animation)
   assert.throws(() => validateAnimationSelector({ url: "file.aseprite", layer: "*" }), /only url, layer, and tag/)
+})
+
+test("Animation Nodes use their tag as the display name when the authored name is empty", () => {
+  const animation = createAnimationNode(ANIMATION_NODE_KINDS.ANIMATION, { name: "" })
+  animation.animation.tag = "Run"
+  assert.equal(animation.name, "")
+  assert.equal(animationNodeDisplayName(animation), "Run")
+  const document = createAnimationTreeDocument({ name: "Tree", root: animation })
+  assert.equal(document.root.name, "")
+  assert.throws(() => createAnimationNode(ANIMATION_NODE_KINDS.STATE_MACHINE, { name: "" }), /non-Animation node name/)
 })
 
 test("sprite composition nodes only store parameters that affect 2D playback", () => {

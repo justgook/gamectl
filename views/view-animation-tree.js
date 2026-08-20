@@ -2,6 +2,7 @@ import { runtime, unwrap } from "/core/runtime.js"
 import {
     ANIMATION_CONDITION_OPERATORS,
     ANIMATION_NODE_KINDS,
+    animationNodeDisplayName,
     animationNodePath,
     animationParameterReferenceCounts,
     cloneAnimationNodeWithNewIds,
@@ -13,12 +14,14 @@ import {
     validateAnimationSelector,
     validateAnimationTreeDocument,
 } from "/util/animation-tree.js"
+import { loadAsepriteAnimationClip } from "/util/aseprite-animation-clip.js"
 import { NodeGraph } from "/util/node-graph.js"
 import { NodeGraphRenderer } from "/util/node-graph-renderer.js"
-import { ViewCanvasBase } from "/util/view-canvas-base.js"
 import { StateMachineGraph } from "/util/state-machine-graph.js"
 import { StateMachineGraphRenderer } from "/util/state-machine-graph-renderer.js"
 import { UndoHistory } from "/util/undo.js"
+import { ViewCanvasBase } from "/util/view-canvas-base.js"
+import "/widgets/animation-preview.js"
 import "/widgets/breadcrumbs.js"
 
 function assert(condition, message) {
@@ -149,7 +152,7 @@ function projectStateMachineGraph(node) {
         nodes: node.graph.states.map((state) => ({
             id: state.node.id,
             type: state.node.kind,
-            name: state.node.name,
+            name: animationNodeDisplayName(state.node),
             animationNode: structuredClone(state.node),
             ...state.position,
         })),
@@ -174,7 +177,7 @@ function blendTreeRequiredNodes(node) {
 
 function projectBlendTreeGraph(node) {
     return {
-        nodes: node.graph.nodes.map((placement) => ({ ...structuredClone(placement.node), ...placement.position })),
+        nodes: node.graph.nodes.map((placement) => ({ ...structuredClone(placement.node), displayName: animationNodeDisplayName(placement.node), ...placement.position })),
         edges: structuredClone(node.graph.edges),
     }
 }
@@ -222,6 +225,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.mountedNodeView = null
         this.inspectorInputTemplates = {}
         this.invalidEditorInput = null
+        this.animationPreviewLoadGeneration = 0
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -514,8 +518,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
                 .filter((node) => !requiredIds.has(node.id))
                 .map((node) => {
                     const animationNode = structuredClone(node.animationNode)
-                    animationNode.name = node.name
-                    animationNode.kind = node.type
+                    assert(animationNode.kind === node.type, `state ${node.id} type must match its Animation Node kind`)
                     return { node: animationNode, position: { x: node.x, y: node.y } }
                 })
             this.activeNode.graph.transitions = structuredClone(this.graph.edges)
@@ -534,6 +537,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
                     const animationNode = structuredClone(node)
                     delete animationNode.x
                     delete animationNode.y
+                    delete animationNode.displayName
                     return { node: animationNode, position: { x: node.x, y: node.y } }
                 })
             this.activeNode.graph.edges = structuredClone(this.graph.edges)
@@ -548,7 +552,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         assert(path, `view-animation-tree missing active node path ${this.activeNode.id}`)
         return path.map((node, index) => ({
             id: node.id,
-            label: index === 0 ? this.animationTree.name : node.name,
+            label: index === 0 ? this.animationTree.name : animationNodeDisplayName(node),
             icon: index === 0 ? "account_tree" : this.animationNodeIcon(node.kind),
         }))
     }
@@ -687,27 +691,32 @@ export class ViewAnimationTree extends ViewCanvasBase {
         void this.activateNodeView()
     }
 
-    async editAnimationSelector(node) {
+    async editAnimationSelector(node, graphNode) {
         assert(node.kind === ANIMATION_NODE_KINDS.ANIMATION, "animation selector requires an Animation Node")
+        assert(graphNode.id === node.id, "animation selector graph node must match the Animation Node")
         const payload = unwrap(
             await runtime.call("ui.popup.open", {
-                title: "Choose Animation",
+                title: "Edit Animation Node",
                 size: "medium",
                 tag: "view-animation-selector",
-                props: { value: structuredClone(node.animation) },
+                props: { mode: "edit-node", name: node.name, value: structuredClone(node.animation) },
             }),
             "animation selector popup",
         )
         if (!payload || payload.cancelled) return false
+        assert(typeof payload.name === "string", "animation selector popup name must be a string")
         validateAnimationSelector(payload.value, "animation selector popup value")
         const before = this.captureSnapshot()
+        node.name = payload.name.trim()
         node.animation = structuredClone(payload.value)
+        if (graphNode === node) graphNode.displayName = animationNodeDisplayName(node)
+        else graphNode.name = animationNodeDisplayName(node)
         this.syncActiveGraph()
         validateAnimationTreeDocument(this.animationTree)
         this.renderInspector()
         this.draw()
-        this.recordEdit("edit animation", before)
-        this.setStatus(`Updated ${node.name}`, "success")
+        this.recordEdit("edit Animation Node", before)
+        this.setStatus(`Updated ${animationNodeDisplayName(node)}`, "success")
         return true
     }
 
@@ -728,7 +737,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
             const graphNode = this.selectedNode()
             const animationNode = this.activeNode.kind === ANIMATION_NODE_KINDS.STATE_MACHINE ? graphNode.animationNode : graphNode
             assert(animationNode.id === nodeId && animationNode.kind === ANIMATION_NODE_KINDS.ANIMATION, "selected graph node must contain the Animation Node")
-            return this.editAnimationSelector(animationNode)
+            return this.editAnimationSelector(animationNode, graphNode)
         }
         if (this.nodeViewTag(node.kind) === null) {
             this.setStatus(`${node.name} has no configured editor`, "info")
@@ -1041,7 +1050,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
             return {
                 id: animationNode.id,
                 type: animationNode.kind,
-                name: animationNode.name,
+                name: animationNodeDisplayName(animationNode),
                 animationNode,
                 x: Math.round(node.x + offsetX),
                 y: Math.round(node.y + offsetY),
@@ -1142,11 +1151,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
             : { x: 120 + (this.graph.nodes.length % 4) * 240, y: 100 + Math.floor(this.graph.nodes.length / 4) * 160 }
         const node =
             this.activeNode.kind === ANIMATION_NODE_KINDS.BLEND_TREE
-                ? { ...structuredClone(animationNode), x: Math.round(point.x), y: Math.round(point.y) }
+                ? { ...structuredClone(animationNode), displayName: animationNodeDisplayName(animationNode), x: Math.round(point.x), y: Math.round(point.y) }
                 : {
                       id: animationNode.id,
                       type: animationNode.kind,
-                      name: animationNode.name,
+                      name: animationNodeDisplayName(animationNode),
                       animationNode,
                       x: Math.round(point.x),
                       y: Math.round(point.y),
@@ -1157,7 +1166,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.setData(this.graph, { autoFit: false })
         this.renderInspector()
         this.recordEdit("add state", before)
-        this.setStatus(`Added ${node.name}`, "success")
+        this.setStatus(`Added ${node.displayName ?? node.name}`, "success")
     }
 
     transitionMode(value) {
@@ -1295,6 +1304,30 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.statusOutput.classList.add(tone)
     }
 
+    animationPreviewMarkup(node) {
+        return node.kind === ANIMATION_NODE_KINDS.ANIMATION
+            ? '<fieldset data-element="animation-preview-fieldset"><legend>Preview</legend><widget-animation-preview data-element="animation-preview"></widget-animation-preview></fieldset>'
+            : ""
+    }
+
+    async loadAnimationPreview(node) {
+        assert(node.kind === ANIMATION_NODE_KINDS.ANIMATION, "animation preview requires an Animation Node")
+        const preview = this.inspectorElement.querySelector('widget-animation-preview[data-element="animation-preview"]')
+        assert(preview instanceof HTMLElement && preview.localName === "widget-animation-preview", "view-animation-tree animation preview widget is required")
+        const generation = ++this.animationPreviewLoadGeneration
+        preview.clip = null
+        if (node.animation.url.length === 0) return
+        try {
+            const clip = await loadAsepriteAnimationClip(structuredClone(node.animation))
+            if (generation !== this.animationPreviewLoadGeneration || !this.inspectorElement.contains(preview)) return
+            preview.clip = clip
+            preview.playing = true
+        } catch (error) {
+            if (generation !== this.animationPreviewLoadGeneration || !this.inspectorElement.contains(preview)) return
+            this.setStatus(`Animation preview failed: ${error instanceof Error ? error.message : String(error)}`, "danger")
+        }
+    }
+
     blendNodeInspector(node) {
         const number = (label, target, value, attributes = "") =>
             `<label>${label} ${this.inspectorInputMarkup(target, `<input type="number" data-target="${target}" data-value-type="number" value="${value}" ${attributes} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`)}</label>`
@@ -1427,7 +1460,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         this.setStatus(`Removed ${removed.name} from ${node.name}`, "success")
     }
 
-    bindBlendNodeInspector(node) {
+    bindBlendNodeInspector(node, graphNode = node) {
         for (const input of this.inspectorElement.querySelectorAll("[data-port-name]")) {
             assert(input instanceof HTMLInputElement, "view-animation-tree switch input name must be an input")
             input.addEventListener("change", () => {
@@ -1453,11 +1486,15 @@ export class ViewAnimationTree extends ViewCanvasBase {
             input.addEventListener("change", () => {
                 const before = this.captureSnapshot()
                 this.setBlendNodeValue(node, input.dataset.target, input)
-                assert(node.name.length > 0, "view-animation-tree blend node name must not be empty")
-                this.selectionOutput.textContent = `Selected: ${node.name}`
+                assert(node.kind === ANIMATION_NODE_KINDS.ANIMATION || node.name.length > 0, "view-animation-tree non-Animation blend node name must not be empty")
+                const displayName = animationNodeDisplayName(node)
+                if (graphNode === node) graphNode.displayName = displayName
+                else graphNode.name = displayName
+                this.selectionOutput.textContent = `Selected: ${displayName}`
                 this.draw()
                 this.recordEdit(`edit ${node.kind}`, before)
-                this.setStatus(`Updated ${node.name}`, "success")
+                this.setStatus(`Updated ${displayName}`, "success")
+                if (node.kind === ANIMATION_NODE_KINDS.ANIMATION && input.dataset.target === "animation") void this.loadAnimationPreview(node)
             })
         }
         const addSwitchInput = this.inspectorElement.querySelector('[data-action="add-switch-input"]')
@@ -1515,7 +1552,7 @@ export class ViewAnimationTree extends ViewCanvasBase {
         }
         const node = nodes[0]
         const required = this.graphModel.isRequired(node.id)
-        this.selectionOutput.textContent = `Selected: ${node.name}`
+        this.selectionOutput.textContent = `Selected: ${node.displayName ?? node.name}`
         if (required) {
             this.inspectorElement.innerHTML = `
         <form data-element="blend-output-inspector">
@@ -1531,15 +1568,17 @@ export class ViewAnimationTree extends ViewCanvasBase {
         const inspector = this.blendNodeInspector(node)
         this.inspectorElement.innerHTML = `
       <form data-element="${this.escapeAttribute(node.kind)}-inspector">
+        ${this.animationPreviewMarkup(node)}
         <fieldset>
           <legend>${inspector.legend}</legend>
-          <label>Name <input type="text" data-target="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
+          <label>Name <input type="text" data-target="name" value="${this.escapeAttribute(node.name)}" ${node.kind === ANIMATION_NODE_KINDS.ANIMATION ? `placeholder="${this.escapeAttribute(node.animation.tag)}"` : ""} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
           ${inspector.fields}
         </fieldset>
         ${this.nodeViewTag(node.kind) !== null ? '<footer><button type="button" data-action="edit-node"><i aria-hidden="true">edit</i> Edit</button></footer>' : ""}
       </form>
     `
         this.bindBlendNodeInspector(node)
+        if (node.kind === ANIMATION_NODE_KINDS.ANIMATION) void this.loadAnimationPreview(node)
     }
 
     renderAnimationParametersInspector() {
@@ -1831,10 +1870,11 @@ export class ViewAnimationTree extends ViewCanvasBase {
         const animationInspector = this.blendNodeInspector(node.animationNode)
         this.inspectorElement.innerHTML = `
       <form data-element="state-inspector">
+        ${this.animationPreviewMarkup(node.animationNode)}
         <fieldset>
           <legend>State</legend>
           <label>Type <input type="text" value="${this.escapeAttribute(this.nodeType(node.type).label)}" disabled autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
-          <label>Name <input type="text" data-field="name" value="${this.escapeAttribute(node.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
+          <label>Name <input type="text" data-field="name" value="${this.escapeAttribute(node.animationNode.name)}" ${node.animationNode.kind === ANIMATION_NODE_KINDS.ANIMATION ? `placeholder="${this.escapeAttribute(node.animationNode.animation.tag)}"` : ""} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
         </fieldset>
         <fieldset>
           <legend>${animationInspector.legend}</legend>
@@ -1850,19 +1890,30 @@ export class ViewAnimationTree extends ViewCanvasBase {
         })
         nameInput.addEventListener("input", () => {
             const name = nameInput.value.trim()
-            assert(name.length > 0, "view-animation-tree state name must not be empty")
-            node.name = name
+            if (!name && node.animationNode.kind !== ANIMATION_NODE_KINDS.ANIMATION) return
+            this.clearInvalidEditorInput(nameInput)
             node.animationNode.name = name
+            node.name = animationNodeDisplayName(node.animationNode)
             this.selectionOutput.textContent = `Selected: ${node.name}`
             this.draw()
         })
-        nameInput.addEventListener("change", () => {
+        nameInput.addEventListener("blur", () => {
+            const name = nameInput.value.trim()
+            nameInput.value = name
+            if (!name && node.animationNode.kind !== ANIMATION_NODE_KINDS.ANIMATION) {
+                this.setInvalidEditorInput(nameInput, "State names must not be blank")
+                return
+            }
             assert(nameBefore, "view-animation-tree name edit snapshot is required")
+            this.clearInvalidEditorInput(nameInput)
+            node.animationNode.name = name
+            node.name = animationNodeDisplayName(node.animationNode)
             this.recordEdit("rename state", nameBefore)
             nameBefore = this.captureSnapshot()
             this.setStatus(`Renamed state to ${node.name}`, "success")
         })
-        this.bindBlendNodeInspector(node.animationNode)
+        this.bindBlendNodeInspector(node.animationNode, node)
+        if (node.animationNode.kind === ANIMATION_NODE_KINDS.ANIMATION) void this.loadAnimationPreview(node.animationNode)
     }
 
     escapeAttribute(value) {

@@ -30,6 +30,13 @@ test("node graph nodes grow to contain long port labels", () => {
   assert.equal(renderer.portPoint(graphNode, "output:1").x, graphNode.x + size.width)
 })
 
+test("node graph nodes may render a derived display name without changing the authored name", () => {
+  const renderer = new NodeGraphRenderer(config, { measureText })
+  const graphNode = { ...node([]), name: "", displayName: "Long Animation Tag" }
+  assert.equal(renderer.nodeSize(graphNode).width, 204)
+  assert.equal(graphNode.name, "")
+})
+
 test("node graph nodes reserve one row for opposing labels", () => {
   const renderer = new NodeGraphRenderer(config, { measureText })
   const graphNode = node([

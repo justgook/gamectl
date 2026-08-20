@@ -203,6 +203,7 @@ Core Views should share reusable custom UI elements instead of hard-coding dupli
 
 - `code-editor` - text area for code editing with highlight.
 - `view-pagination` - generic pagination widget for paged views.
+- `widget-animation-preview` - control-free pixel animation preview surface that renders a normalized frame clip and exposes externally controlled playback state.
 - `widget-breadcrumbs` - reusable path navigation for hierarchical editors.
 - `widget-timeline` - reusable timeline widget for layers, frames, cels, and later tags.
 

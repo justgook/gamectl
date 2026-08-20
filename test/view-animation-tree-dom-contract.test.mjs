@@ -27,7 +27,7 @@ test("breadcrumbs are a closed first child of header controls", () => {
 })
 
 test("blend inspector changes capture undo snapshots at the change transaction boundary", () => {
-  const method = source.match(/bindBlendNodeInspector\(node\) \{[\s\S]*?\n    renderNodeGraphInspector/)
+  const method = source.match(/bindBlendNodeInspector\(node, graphNode = node\) \{[\s\S]*?\n    renderNodeGraphInspector/)
   assert.ok(method, "bindBlendNodeInspector method must be present")
   assert.doesNotMatch(method[0], /addEventListener\("focus"/, "blend inspector snapshots must not depend on focus events")
   assert.equal(
@@ -35,6 +35,16 @@ test("blend inspector changes capture undo snapshots at the change transaction b
     2,
     "switch input names and node values must capture snapshots when their change begins",
   )
+})
+
+test("Animation state names remain empty while their tag supplies the canvas label", () => {
+  const inspector = source.match(/const nameInput = this\.inspectorElement\.querySelector\('\[data-field="name"\]'\)[\s\S]*?this\.bindBlendNodeInspector\(node\.animationNode, node\)/)
+  assert.ok(inspector, "state name inspector binding must be present")
+  const inputHandler = inspector[0].match(/nameInput\.addEventListener\("input", \(\) => \{[\s\S]*?\n        \}\)/)
+  assert.ok(inputHandler, "state name input handler must be present")
+  assert.match(inputHandler[0], /node\.animationNode\.name = name\s*node\.name = animationNodeDisplayName\(node\.animationNode\)/)
+  assert.match(inspector[0], /if \(!name && node\.animationNode\.kind !== ANIMATION_NODE_KINDS\.ANIMATION\)/)
+  assert.match(source, /data-field="name" value="\$\{this\.escapeAttribute\(node\.animationNode\.name\)\}"[\s\S]*?placeholder="\$\{this\.escapeAttribute\(node\.animationNode\.animation\.tag\)\}"/)
 })
 
 test("clear selection only navigates to the parent animation node when nothing is selected", () => {

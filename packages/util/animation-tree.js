@@ -126,8 +126,9 @@ function filterPorts(inputId = "input") {
 export function createAnimationNode(kind, { id = createId(), name } = {}) {
   assert(typeof id === "string" && id.length > 0, "animation node id must be a non-empty string")
   assert(typeof kind === "string" && kind.length > 0, "animation node kind must be a non-empty string")
-  const label = name || kind
-  assert(typeof label === "string" && label.length > 0, "animation node name must be a non-empty string")
+  const label = name === undefined ? kind : name
+  assert(typeof label === "string", "animation node name must be a string")
+  assert(kind === ANIMATION_NODE_KINDS.ANIMATION || label.length > 0, "non-Animation node name must be non-empty")
 
   if (kind === ANIMATION_NODE_KINDS.ANIMATION)
     return { id, kind, name: label, animation: { url: "", layer: "*", tag: "*" }, ports: animationPorts() }
@@ -251,6 +252,15 @@ export function animationNodePath(document, targetId) {
   return visit(document.root, [])
 }
 
+export function animationNodeDisplayName(node) {
+  requireObject(node, "animation node")
+  assert(typeof node.name === "string", "animation node name must be a string")
+  if (node.name.length > 0) return node.name
+  assert(node.kind === ANIMATION_NODE_KINDS.ANIMATION, "only Animation nodes may have an empty authored name")
+  validateAnimationSelector(node.animation, "animation node display selector")
+  return node.animation.tag
+}
+
 export function validateAnimationTreeDocument(document) {
   requireObject(document, "animation tree")
   assert(typeof document.id === "string" && document.id.length > 0, "animation tree id must be a non-empty string")
@@ -279,7 +289,8 @@ export function validateAnimationTreeDocument(document) {
     assert(!ids.has(node.id), `animation tree duplicate animation node id ${node.id}`)
     ids.add(node.id)
     assert(typeof node.kind === "string" && node.kind.length > 0, `${label}.kind must be a non-empty string`)
-    assert(typeof node.name === "string" && node.name.length > 0, `${label}.name must be a non-empty string`)
+    assert(typeof node.name === "string", `${label}.name must be a string`)
+    assert(node.kind === ANIMATION_NODE_KINDS.ANIMATION || node.name.length > 0, `${label}.name must be non-empty for non-Animation nodes`)
     if (node.kind === ANIMATION_NODE_KINDS.ANIMATION) validateAnimationSelector(node.animation, `${label}.animation`)
     if (node.kind === ANIMATION_NODE_KINDS.STATE_MACHINE) {
       requireObject(node.graph, `${label}.graph`)

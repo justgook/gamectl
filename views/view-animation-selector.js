@@ -23,11 +23,14 @@ function uniqueNames(records, label) {
 export class ViewAnimationSelector extends HTMLElement {
   constructor() {
     super()
+    this.mode = "select"
     this.valueDraft = { url: "", layer: "*", tag: "*" }
+    this.nameDraft = ""
     this.layers = []
     this.tags = []
     this.loadedUrl = ""
     this.formElement = null
+    this.nameElement = null
     this.urlElement = null
     this.layerElement = null
     this.tagElement = null
@@ -37,8 +40,14 @@ export class ViewAnimationSelector extends HTMLElement {
   connectedCallback() {
     if (this.dataset.ready) return
     assert(this.popupProps && typeof this.popupProps === "object" && !Array.isArray(this.popupProps), "view-animation-selector popupProps is required")
+    assert(this.popupProps.mode === "select" || this.popupProps.mode === "edit-node", `view-animation-selector mode ${this.popupProps.mode} is not supported`)
     validateAnimationSelector(this.popupProps.value, "view-animation-selector value")
+    this.mode = this.popupProps.mode
     this.valueDraft = structuredClone(this.popupProps.value)
+    if (this.mode === "edit-node") {
+      assert(typeof this.popupProps.name === "string", "view-animation-selector edit-node name must be a string")
+      this.nameDraft = this.popupProps.name
+    }
     this.dataset.ready = "1"
     registerViewPlugin(this)
     this.style.display = "contents"
@@ -46,6 +55,7 @@ export class ViewAnimationSelector extends HTMLElement {
       <form data-element="animation-selector">
         <fieldset>
           <legend>Animation</legend>
+          ${this.mode === "edit-node" ? `<label>Name <input type="text" data-field="name" value="${this.escapeAttribute(this.nameDraft)}" placeholder="${this.escapeAttribute(this.valueDraft.tag)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>` : ""}
           <label>Aseprite file
             <widget-input-file data-field="url" filter="*.aseprite,*.ase"></widget-input-file>
           </label>
@@ -55,16 +65,19 @@ export class ViewAnimationSelector extends HTMLElement {
         </fieldset>
         <footer>
           <button type="button" data-action="cancel">Cancel</button>
-          <button type="submit" data-action="select" class="accent" disabled>Select</button>
+          <button type="submit" data-action="select" class="accent" disabled>${this.mode === "edit-node" ? "Save" : "Select"}</button>
         </footer>
       </form>
     `
     this.formElement = this.querySelector("form")
+    this.nameElement = this.querySelector('[data-field="name"]')
     this.urlElement = this.querySelector('[data-field="url"]')
     this.layerElement = this.querySelector('[data-field="layer"]')
     this.tagElement = this.querySelector('[data-field="tag"]')
     this.statusElement = this.querySelector('[data-element="status"]')
     assert(this.formElement instanceof HTMLFormElement, "view-animation-selector form is required")
+    if (this.mode === "edit-node") assert(this.nameElement instanceof HTMLInputElement, "view-animation-selector edit-node name input is required")
+    else assert(this.nameElement === null, "view-animation-selector select mode must not contain a name input")
     assert(this.urlElement instanceof HTMLElement && this.urlElement.localName === "widget-input-file" && "value" in this.urlElement, "view-animation-selector file input widget is required")
     assert(this.layerElement instanceof HTMLSelectElement, "view-animation-selector layer select is required")
     assert(this.tagElement instanceof HTMLSelectElement, "view-animation-selector tag select is required")
@@ -73,7 +86,10 @@ export class ViewAnimationSelector extends HTMLElement {
     this.querySelector('[data-action="cancel"]').addEventListener("click", () => void this.cancel())
     this.urlElement.addEventListener("change", () => void this.loadAseprite(this.urlElement.value.trim()))
     this.layerElement.addEventListener("change", () => { this.valueDraft.layer = this.layerElement.value })
-    this.tagElement.addEventListener("change", () => { this.valueDraft.tag = this.tagElement.value })
+    this.tagElement.addEventListener("change", () => {
+      this.valueDraft.tag = this.tagElement.value
+      if (this.nameElement) this.nameElement.placeholder = this.valueDraft.tag
+    })
     this.formElement.addEventListener("submit", (event) => void this.submit(event))
     if (this.valueDraft.url) void this.loadAseprite(this.valueDraft.url)
     else this.setStatus("Choose an Aseprite file", "info")
@@ -107,6 +123,7 @@ export class ViewAnimationSelector extends HTMLElement {
       this.renderOptions(this.tagElement, "All tags", this.tags, this.valueDraft.tag)
       this.valueDraft.layer = this.layerElement.value
       this.valueDraft.tag = this.tagElement.value
+      if (this.nameElement) this.nameElement.placeholder = this.valueDraft.tag
       this.setLoaded(true)
       this.setStatus(`${this.layers.length} layers · ${this.tags.length} tags`, "success")
     } catch (error) {
@@ -150,7 +167,16 @@ export class ViewAnimationSelector extends HTMLElement {
     assert(this.loadedUrl && this.loadedUrl === this.urlElement.value.trim(), "animation selector file must be loaded")
     const value = { url: this.loadedUrl, layer: this.layerElement.value, tag: this.tagElement.value }
     validateAnimationSelector(value)
+    if (this.mode === "edit-node") {
+      const name = this.nameElement.value.trim()
+      unwrap(await runtime.call("ui.popup.close", { ok: true, cancelled: false, name, value }))
+      return
+    }
     unwrap(await runtime.call("ui.popup.close", { ok: true, cancelled: false, value }))
+  }
+
+  escapeAttribute(value) {
+    return String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   }
 
   async cancel() {

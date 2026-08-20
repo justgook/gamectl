@@ -23,6 +23,13 @@ function createGraph() {
   })
 }
 
+test("node graph accepts an empty authored name when a display name is projected", () => {
+  const graph = createGraph()
+  graph.addNode({ id: "run", kind: "animation", name: "", displayName: "Run", x: 0, y: 200, ports: [animationOutput] })
+  assert.equal(graph.graph.nodes.at(-1).name, "")
+  assert.equal(graph.graph.nodes.at(-1).displayName, "Run")
+})
+
 test("node graph connects explicit compatible port endpoints", () => {
   const graph = createGraph()
   const edge = { id: "one", from: { nodeId: "a", portId: "animation" }, to: { nodeId: "b", portId: "a" } }

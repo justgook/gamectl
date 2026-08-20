@@ -100,7 +100,7 @@ export class WidgetInputAnimation extends HTMLElement {
           title: "Choose Animation",
           size: "medium",
           tag: "view-animation-selector",
-          props: { value },
+          props: { mode: "select", value },
         }),
         "animation selector popup",
       )

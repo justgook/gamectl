@@ -21,6 +21,12 @@ function cssColor(value) {
   return `rgba(${Math.round(value[0] * 255)}, ${Math.round(value[1] * 255)}, ${Math.round(value[2] * 255)}, ${value[3]})`
 }
 
+function nodeDisplayName(node) {
+  const name = Object.hasOwn(node, "displayName") ? node.displayName : node.name
+  assert(typeof name === "string" && name.length > 0, "node graph renderer node display name must be non-empty")
+  return name
+}
+
 export function validateNodeGraphRendererConfig(input) {
   const config = requireObject(input, "node graph renderer config")
   const node = requireObject(config.node, "node graph renderer config.node")
@@ -64,7 +70,7 @@ export class NodeGraphRenderer {
     const inputs = this.ports(node, "input")
     const outputs = this.ports(node, "output")
     const rows = Math.max(1, inputs.length, outputs.length)
-    let contentWidth = this.measureText(String(node.name), this.textFont("600"))
+    let contentWidth = this.measureText(nodeDisplayName(node), this.textFont("600"))
     for (let index = 0; index < rows; index += 1) {
       const inputWidth = inputs[index] ? this.measureText(String(inputs[index].name ?? inputs[index].id), this.textFont()) : 0
       const outputWidth = outputs[index] ? this.measureText(String(outputs[index].name ?? outputs[index].id), this.textFont()) : 0
@@ -258,7 +264,7 @@ export class NodeGraphRenderer {
     ctx.fillStyle = cssColor(theme.text)
     ctx.font = this.textFont("600")
     ctx.textBaseline = "middle"
-    ctx.fillText(String(node.name), rect.x + nodeConfig.padding, rect.y + nodeConfig.headerHeight / 2, rect.width - nodeConfig.padding * 2)
+    ctx.fillText(nodeDisplayName(node), rect.x + nodeConfig.padding, rect.y + nodeConfig.headerHeight / 2, rect.width - nodeConfig.padding * 2)
     ctx.beginPath()
     ctx.roundRect(rect.x, rect.y, rect.width, rect.height, nodeConfig.radius)
     ctx.lineWidth = state.selected ? Math.max(nodeConfig.borderWidth, this.config.edge.selectedWidth) : nodeConfig.borderWidth
