@@ -1,0 +1,18 @@
+# One-room showcase: the exit requires carrying the access key.
+PLAYER
+POWER_SWITCH
+ACCESS_KEY
+EXIT.locked
+
+# These interaction rules and their effects are unchanged from power.director.
+ON: POWER_SWITCH
+DO: PLAYER.powered
+
+ON: ACCESS_KEY
+DO: PLAYER.carrying_key
+    -ACCESS_KEY
+
+# Edited rule: the same unlock effect now checks key possession.
+ON: EXIT.locked
+IF: PLAYER.carrying_key
+DO: EXIT.-locked

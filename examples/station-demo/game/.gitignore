@@ -1,0 +1,5 @@
+/build.nosync/
+/sokol/
+/env.o
+/room.glsl.odin
+/station.rspk

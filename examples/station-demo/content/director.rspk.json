@@ -1,0 +1,310 @@
+{
+  "package": "station_showcase",
+  "odin": {
+    "package": "station_content",
+    "imports": {
+      "director": "../../game/director",
+      "station": "../../game/station"
+    }
+  },
+  "data": [
+    "director.Director_Data",
+    "station.Bindings"
+  ],
+  "types": {
+    "director.Entity_Id": "u32",
+    "director.Word_Id": "u32",
+    "director.Rule_Id": "u32",
+    "director.Range": {
+      "type": "struct",
+      "fields": {
+        "offset": {
+          "type": "u32",
+          "default": 0
+        },
+        "count": {
+          "type": "u32",
+          "default": 0
+        }
+      }
+    },
+    "director.Selector_Kind": {
+      "type": "enum",
+      "value": [
+        "Entity",
+        "Any",
+        "Trigger"
+      ]
+    },
+    "director.Selector": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Selector_Kind",
+        "entity": "director.Entity_Id"
+      }
+    },
+    "director.Compare_Op": {
+      "type": "enum",
+      "value": [
+        "Eq",
+        "Gt",
+        "Lt"
+      ]
+    },
+    "director.Query_Kind": {
+      "type": "enum",
+      "value": [
+        "Has_Tag",
+        "Has_Stat",
+        "Has_Link",
+        "Not"
+      ]
+    },
+    "director.Stat_Value_Kind": {
+      "type": "enum",
+      "value": [
+        "Immediate",
+        "From_Entity_Stat",
+        "From_Trigger_Stat"
+      ]
+    },
+    "director.Stat_Value": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Stat_Value_Kind",
+        "entity": "director.Entity_Id",
+        "key": "director.Word_Id",
+        "value": {
+          "type": "i32",
+          "default": 0
+        }
+      }
+    },
+    "director.Link_Value_Kind": {
+      "type": "enum",
+      "value": [
+        "Specific_Matcher",
+        "From_Entity_Link",
+        "From_Trigger_Link"
+      ]
+    },
+    "director.Link_Value": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Link_Value_Kind",
+        "matcher_index": {
+          "type": "u32",
+          "default": 0
+        },
+        "entity": "director.Entity_Id",
+        "key": "director.Word_Id"
+      }
+    },
+    "director.Query": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Query_Kind",
+        "key": "director.Word_Id",
+        "op": "director.Compare_Op",
+        "stat_value": "director.Stat_Value",
+        "link_value": "director.Link_Value",
+        "nested": {
+          "type": "u32",
+          "default": 0
+        }
+      }
+    },
+    "director.Matcher": {
+      "type": "struct",
+      "fields": {
+        "selector": "director.Selector",
+        "queries": "director.Range"
+      }
+    },
+    "director.Change_Kind": {
+      "type": "enum",
+      "value": [
+        "Add_Tag",
+        "Remove_Tag",
+        "Set_Stat",
+        "Inc_Stat",
+        "Dec_Stat",
+        "Set_Link",
+        "Remove_Link",
+        "Add_Entity",
+        "Remove_Entity",
+        "Remove_Property"
+      ]
+    },
+    "director.Change_Target_Kind": {
+      "type": "enum",
+      "value": [
+        "Entity",
+        "Trigger",
+        "All_Matching"
+      ]
+    },
+    "director.Change_Target": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Change_Target_Kind",
+        "entity": "director.Entity_Id",
+        "matcher_index": {
+          "type": "u32",
+          "default": 0
+        }
+      }
+    },
+    "director.Link_Target_Kind": {
+      "type": "enum",
+      "value": [
+        "Entity",
+        "Trigger",
+        "Lookup_Entity_Link",
+        "Lookup_Trigger_Link"
+      ]
+    },
+    "director.Link_Target": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Link_Target_Kind",
+        "entity": "director.Entity_Id",
+        "key": "director.Word_Id"
+      }
+    },
+    "director.Change": {
+      "type": "struct",
+      "fields": {
+        "target": "director.Change_Target",
+        "kind": "director.Change_Kind",
+        "key": "director.Word_Id",
+        "int_value": {
+          "type": "i32",
+          "default": 0
+        },
+        "link_target": "director.Link_Target"
+      }
+    },
+    "director.Rule_Trigger_Kind": {
+      "type": "enum",
+      "value": [
+        "Signal",
+        "Entity_Matcher"
+      ]
+    },
+    "director.Rule_Trigger": {
+      "type": "struct",
+      "fields": {
+        "kind": "director.Rule_Trigger_Kind",
+        "signal": "director.Word_Id",
+        "matcher_index": {
+          "type": "u32",
+          "default": 0
+        }
+      }
+    },
+    "director.Rule": {
+      "type": "struct",
+      "fields": {
+        "id": "director.Rule_Id",
+        "trigger": "director.Rule_Trigger",
+        "conditions": "director.Range",
+        "changes": "director.Range",
+        "weight": {
+          "type": "i32",
+          "default": 0
+        }
+      }
+    },
+    "director.Stat": {
+      "type": "struct",
+      "fields": {
+        "key": "director.Word_Id",
+        "value": {
+          "type": "i32",
+          "default": 0
+        }
+      }
+    },
+    "director.Link": {
+      "type": "struct",
+      "fields": {
+        "key": "director.Word_Id",
+        "target": "director.Entity_Id"
+      }
+    },
+    "director.Entity_Def": {
+      "type": "struct",
+      "fields": {
+        "id": "director.Entity_Id",
+        "tags": {
+          "type": "vector",
+          "value": "director.Word_Id",
+          "default": []
+        },
+        "stats": {
+          "type": "vector",
+          "value": "director.Stat",
+          "default": []
+        },
+        "links": {
+          "type": "vector",
+          "value": "director.Link",
+          "default": []
+        },
+        "removed": {
+          "type": "bool",
+          "default": false
+        }
+      }
+    },
+    "director.Director_Data": {
+      "type": "struct",
+      "fields": {
+        "entities": {
+          "type": "vector",
+          "value": "director.Entity_Def"
+        },
+        "rules": {
+          "type": "vector",
+          "value": "director.Rule"
+        },
+        "matchers": {
+          "type": "vector",
+          "value": "director.Matcher"
+        },
+        "queries": {
+          "type": "vector",
+          "value": "director.Query"
+        },
+        "changes": {
+          "type": "vector",
+          "value": "director.Change"
+        }
+      }
+    },
+    "station.Binding_Kind": {
+      "type": "enum",
+      "value": [
+        "Entity",
+        "Word",
+        "Rule"
+      ]
+    },
+    "station.Binding": {
+      "type": "struct",
+      "fields": {
+        "kind": "station.Binding_Kind",
+        "name": {
+          "type": "string",
+          "max_len": 64
+        },
+        "value": "u32"
+      }
+    },
+    "station.Bindings": {
+      "type": "vector",
+      "value": "station.Binding"
+    }
+  }
+}

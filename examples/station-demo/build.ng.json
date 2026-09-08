@@ -1,0 +1,313 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": 40,
+    "y": 80,
+    "name": "Director source path",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "value": "\"content/power.director\""
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "kind": 2,
+    "x": 300,
+    "y": 80,
+    "name": "Read Director source",
+    "codePath": "ng/presets/read-text.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "text",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "kind": 2,
+    "x": 560,
+    "y": 80,
+    "name": "Compile Director",
+    "codePath": "ng/presets/director-compile.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "source",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "symbols",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "kind": 2,
+    "x": 820,
+    "y": 230,
+    "name": "Resolve game bindings",
+    "codePath": "ng/presets/station-bindings.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "symbols",
+        "srcNodeId": 3,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "bindings",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "kind": 4,
+    "x": 560,
+    "y": 410,
+    "name": "Pack paths",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "schema path",
+        "value": "\"content/director.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "pack path",
+        "value": "\"build.nosync/station.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "build directory",
+        "value": "\"build.nosync\""
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "kind": 2,
+    "x": 820,
+    "y": 410,
+    "name": "Read pack schema",
+    "codePath": "ng/presets/read-text.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 5,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "text",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "kind": 2,
+    "x": 820,
+    "y": 570,
+    "name": "Ensure build directory",
+    "codePath": "ng/presets/ensure-directory.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "directory",
+        "srcNodeId": 5,
+        "srcOutputId": 3
+      },
+      {
+        "id": 2,
+        "name": "value",
+        "srcNodeId": 5,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "pack path",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "kind": 2,
+    "x": 1080,
+    "y": 150,
+    "name": "Build content-only RSPK",
+    "codePath": "ng/presets/respack-content-save.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 6,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "Director IR",
+        "srcNodeId": 3,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "bindings",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "output path",
+        "srcNodeId": 11,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "byte count",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "kind": 4,
+    "x": 1080,
+    "y": 470,
+    "name": "Standalone web bundle paths",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "output directory",
+        "value": "\"export/web\""
+      },
+      {
+        "id": 2,
+        "name": "index.html",
+        "value": "\"game/build.nosync/web/index.html\""
+      },
+      {
+        "id": 3,
+        "name": "gl-bridge.js",
+        "value": "\"game/build.nosync/web/gl-bridge.js\""
+      },
+      {
+        "id": 4,
+        "name": "station-demo.wasm",
+        "value": "\"game/build.nosync/web/station-demo.wasm\""
+      },
+      {
+        "id": 5,
+        "name": "station.rspk",
+        "value": "\"build.nosync/station.rspk\""
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "kind": 2,
+    "x": 1370,
+    "y": 230,
+    "name": "Export standalone web game",
+    "codePath": "ng/presets/export-station-web.lua",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pack byte count",
+        "srcNodeId": 7,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "output directory",
+        "srcNodeId": 8,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "index source",
+        "srcNodeId": 8,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "GL bridge source",
+        "srcNodeId": 8,
+        "srcOutputId": 3
+      },
+      {
+        "id": 5,
+        "name": "WASM source",
+        "srcNodeId": 8,
+        "srcOutputId": 4
+      },
+      {
+        "id": 6,
+        "name": "content pack source",
+        "srcNodeId": 8,
+        "srcOutputId": 5
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "export",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "kind": 1,
+    "x": 1660,
+    "y": 230,
+    "name": "Standalone export",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "result",
+        "srcNodeId": 9,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  }
+]

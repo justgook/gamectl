@@ -1,0 +1,37 @@
+[
+  {
+    "kind": "Entity",
+    "name": "PLAYER",
+    "value": 0
+  },
+  {
+    "kind": "Entity",
+    "name": "POWER_SWITCH",
+    "value": 1
+  },
+  {
+    "kind": "Entity",
+    "name": "ACCESS_KEY",
+    "value": 2
+  },
+  {
+    "kind": "Entity",
+    "name": "EXIT",
+    "value": 3
+  },
+  {
+    "kind": "Word",
+    "name": "powered",
+    "value": 1
+  },
+  {
+    "kind": "Word",
+    "name": "carrying_key",
+    "value": 2
+  },
+  {
+    "kind": "Word",
+    "name": "locked",
+    "value": 0
+  }
+]

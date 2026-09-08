@@ -1,0 +1,18 @@
+# One-room showcase: the exit requires restored power.
+PLAYER
+POWER_SWITCH
+ACCESS_KEY
+EXIT.locked
+
+# Game interactions project puzzle state entirely through Director.
+ON: POWER_SWITCH
+DO: PLAYER.powered
+
+ON: ACCESS_KEY
+DO: PLAYER.carrying_key
+    -ACCESS_KEY
+
+# Guided edit: change PLAYER.powered to PLAYER.carrying_key.
+ON: EXIT.locked
+IF: PLAYER.powered
+DO: EXIT.-locked

@@ -1,0 +1,225 @@
+{
+  "entities": [
+    {
+      "id": 0,
+      "tags": [],
+      "stats": [],
+      "links": []
+    },
+    {
+      "id": 1,
+      "tags": [],
+      "stats": [],
+      "links": []
+    },
+    {
+      "id": 2,
+      "tags": [],
+      "stats": [],
+      "links": []
+    },
+    {
+      "id": 3,
+      "tags": [
+        0
+      ],
+      "stats": [],
+      "links": []
+    }
+  ],
+  "rules": [
+    {
+      "id": 0,
+      "trigger": {
+        "kind": "Entity_Matcher",
+        "signal": 0,
+        "matcher_index": 0
+      },
+      "conditions": {
+        "offset": 0,
+        "count": 0
+      },
+      "changes": {
+        "offset": 0,
+        "count": 1
+      },
+      "weight": 100
+    },
+    {
+      "id": 1,
+      "trigger": {
+        "kind": "Entity_Matcher",
+        "signal": 0,
+        "matcher_index": 1
+      },
+      "conditions": {
+        "offset": 0,
+        "count": 0
+      },
+      "changes": {
+        "offset": 1,
+        "count": 2
+      },
+      "weight": 100
+    },
+    {
+      "id": 2,
+      "trigger": {
+        "kind": "Entity_Matcher",
+        "signal": 0,
+        "matcher_index": 2
+      },
+      "conditions": {
+        "offset": 3,
+        "count": 1
+      },
+      "changes": {
+        "offset": 3,
+        "count": 1
+      },
+      "weight": 112
+    }
+  ],
+  "matchers": [
+    {
+      "selector": {
+        "kind": "Entity",
+        "entity": 1
+      },
+      "queries": {
+        "offset": 0,
+        "count": 0
+      }
+    },
+    {
+      "selector": {
+        "kind": "Entity",
+        "entity": 2
+      },
+      "queries": {
+        "offset": 0,
+        "count": 0
+      }
+    },
+    {
+      "selector": {
+        "kind": "Entity",
+        "entity": 3
+      },
+      "queries": {
+        "offset": 0,
+        "count": 1
+      }
+    },
+    {
+      "selector": {
+        "kind": "Entity",
+        "entity": 0
+      },
+      "queries": {
+        "offset": 1,
+        "count": 1
+      }
+    }
+  ],
+  "queries": [
+    {
+      "kind": "Has_Tag",
+      "key": 0,
+      "op": "Eq",
+      "stat_value": {
+        "kind": "Immediate",
+        "entity": 0,
+        "key": 0,
+        "value": 0
+      },
+      "link_value": {
+        "kind": "Specific_Matcher",
+        "matcher_index": 0,
+        "entity": 0,
+        "key": 0
+      },
+      "nested": 0
+    },
+    {
+      "kind": "Has_Tag",
+      "key": 1,
+      "op": "Eq",
+      "stat_value": {
+        "kind": "Immediate",
+        "entity": 0,
+        "key": 0,
+        "value": 0
+      },
+      "link_value": {
+        "kind": "Specific_Matcher",
+        "matcher_index": 0,
+        "entity": 0,
+        "key": 0
+      },
+      "nested": 0
+    }
+  ],
+  "changes": [
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 0,
+        "matcher_index": 0
+      },
+      "kind": "Add_Tag",
+      "key": 1,
+      "int_value": 0,
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      }
+    },
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 0,
+        "matcher_index": 0
+      },
+      "kind": "Add_Tag",
+      "key": 2,
+      "int_value": 0,
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      }
+    },
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 2,
+        "matcher_index": 0
+      },
+      "kind": "Remove_Entity",
+      "key": 0,
+      "int_value": 0,
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      }
+    },
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 3,
+        "matcher_index": 0
+      },
+      "kind": "Remove_Property",
+      "key": 0,
+      "int_value": 0,
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      }
+    }
+  ]
+}
